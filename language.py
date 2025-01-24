@@ -38,6 +38,13 @@ class Locale:
             self.remaining_password = "Enter recovery key"
             self.delete_password_success = "Disk unlocking with passwords has been successfully disabled."
             self.delete_password_failed = "An error occurred while deleting passwords"
+            self.remaining_password_true = "Enter password or recovery key"
+            self.enter_password_1 = "Enter new password"
+            self.enter_password_2 = "Enter new password (repeat)"
+            self.passwords_differ = "Passwords are different. Please try again."
+            self.enroll_password_error = "An error occurred while enrolling your password. Please check your password."
+            self.enroll_password_success = "Enrollment of new password was successful."
+            self.copy = "Copy"
         elif language == "ru":
             self.report = "Отчёт"
             self.utils = "Утилиты"
@@ -80,6 +87,12 @@ class Locale:
             self.remaining_password = "Введите ключ восстановления"
             self.delete_password_success = "Разблокировка диска с помощью паролей успешно отключена."
             self.delete_password_failed = "Произошла ошибка в время удаления паролей"
-
+            self.remaining_password_true = "Введите пароль или ключ восстановления"
+            self.enter_password_1 = "Введите новый пароль"
+            self.enter_password_2 = "Введите новый пароль (повтор)"
+            self.passwords_differ = "Пароли отличаются. Пожалуйста, попробуйте снова."
+            self.enroll_password_error = "Произошла ошибка в время регистрации пароля. Проверьте пароль."
+            self.enroll_password_success = "Регистрация нового пароля произошла успешно."
+            self.copy = "Скопировать"
 
 
