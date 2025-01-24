@@ -29,6 +29,58 @@ class Notification(CTkToplevel):
         label.grid(row=0, column=1, padx=15, pady=5, sticky="nsew")
         exit_button.grid(row=1, column=0, columnspan=2, padx=15, pady=5, sticky="nsew")
 
+class EnrollRecovery(CTkToplevel):
+    def __init__(self, lang, drive):
+        super().__init__()
+        self.lang = lang
+        self.drive = drive
+        
+        self.title(self.lang.enroll_recovery)
+
+        luks_label = CTkLabel(self, text=self.lang.luks_password)
+        self.luks_entry = CTkEntry(self, show='*')
+        luks_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
+        self.luks_entry.grid(row=0, column=1, padx=10, pady=5, sticky="nsew")
+
+        enroll_button = CTkButton(self, text=self.lang.enroll, command=self.__enroll)
+        enroll_button.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+    
+    def __enroll(self):
+        password = self.luks_entry.get()
+        try:
+            process = subprocess.run(f"systemd-cryptenroll --recovery-key {self.drive} --unlock-key-file=/dev/stdin", shell=True, check=True, capture_output=True, input=password.encode())
+            key = process.stdout.decode().strip()
+        except subprocess.CalledProcessError:
+            Notification(title=self.lang.failure, icon="warning.png", message=self.lang.enroll_recovery_failure, message_bold=False, exit_btn_msg=self.lang.exit)
+            return
+        Notification(title=self.lang.success, icon="greencheck.png", message=key, message_bold=True, exit_btn_msg=self.lang.exit)
+
+
+class DeletePassword(CTkToplevel):
+    def __init__(self, lang, drive):
+        super().__init__()
+        self.lang = lang
+        self.drive = drive
+        self.title(self.lang.delete_password)
+
+        luks_label = CTkLabel(self, text=self.lang.remaining_password)
+        self.luks_entry = CTkEntry(self, show='*')
+        luks_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
+        self.luks_entry.grid(row=0, column=1, padx=10, pady=5, sticky="nsew")
+
+        delete_password_btn = CTkButton(self, text=self.lang.delete_password, command=self.__delete_password)
+        delete_password_btn.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+
+    def __delete_password(self):
+        recovery_key = self.luks_entry.get()
+        try:
+            process = subprocess.run(f"systemd-cryptenroll --wipe-slot=password {self.drive} --unlock-key-file=/dev/stdin", shell=True, check=True, capture_output=True, input=recovery_key.encode())
+        except subprocess.CalledProcessError:
+            Notification(title=self.lang.failure, icon="warning.png", message=self.lang.delete_password_failed, message_bold=False, exit_btn_msg=self.lang.exit)
+            return
+        Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.delete_password_success, message_bold=True, exit_btn_msg=self.lang.exit)
+
+
 class EnrollTPM(CTkToplevel):
     def __init__(self, lang, drive):
         super().__init__()
@@ -112,6 +164,11 @@ class EnrollTPM(CTkToplevel):
             Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.enroll_tpm_failure, message_bold=False, exit_btn_msg=self.lang.exit)
             self.destroy()
 
+class EnrollPassword(CTkToplevel):
+    def __init__(self):
+        super().__init__()
+        
+
 class App(CTk):
     def __init__(self, fg_color = None, **kwargs):
         super().__init__(fg_color, **kwargs)
@@ -149,27 +206,11 @@ class App(CTk):
 
 
         drive_label = CTkLabel(self.utils_tab, text=f"{self.lang.drive}: {device_info["RootFSPartition"]}")
-        # utils_label = CTkLabel(self.utils_tab, text=self.lang.utils_label)
-        # new_keyfile = CTkButton(self.utils_tab, text=self.lang.new_keyfile)
-        # existing_keyfile = CTkButton(self.utils_tab, text=self.lang.existing_keyfile)
-        # selected_keyfile = CTkLabel(self.utils_tab, text=f"{self.lang.keyfile}: ...")
-        # password_label = CTkLabel(self.utils_tab, text=self.lang.enter_password)
-        # password_entry = CTkEntry(self.utils_tab, show='*')
-        # next_btn = CTkButton(self.utils_tab, text=self.lang.next)
-        # drive_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
-        # utils_label.grid(row=1, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
-        # new_keyfile.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
-        # existing_keyfile.grid(row=2, column=1, padx=10, pady=5, sticky="new")
-        # selected_keyfile.grid(row=3, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
-        # password_label.grid(row=4, column=0, padx=10, pady=5, sticky="nsew")
-        # password_entry.grid(row=4, column=1, padx=10, pady=5, sticky="nsew")
-        # next_btn.grid(row=5, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
-
         enroll_tpm = CTkButton(self.utils_tab, text=self.lang.enroll_tpm, command=lambda: EnrollTPM(self.lang, drive))
         delete_tpm = CTkButton(self.utils_tab, text=self.lang.delete_tpm, command=lambda: self._delete_tpm(drive))
-        enroll_recovery = CTkButton(self.utils_tab, text=self.lang.enroll_recovery)
-        delete_recovery = CTkButton(self.utils_tab, text=self.lang.delete_recovery)
-        delete_password = CTkButton(self.utils_tab, text=self.lang.delete_password)
+        enroll_recovery = CTkButton(self.utils_tab, text=self.lang.enroll_recovery, command=lambda: EnrollRecovery(self.lang, drive))
+        delete_recovery = CTkButton(self.utils_tab, text=self.lang.delete_recovery, command=lambda: self._delete_recovery(drive))
+        delete_password = CTkButton(self.utils_tab, text=self.lang.delete_password, command=lambda: DeletePassword(self.lang, drive))
         enroll_password = CTkButton(self.utils_tab, text=self.lang.enroll_password)
 
         drive_label.pack(padx=10, pady=5)
@@ -186,6 +227,14 @@ class App(CTk):
             Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.delete_tpm_success, message_bold=False, exit_btn_msg=self.lang.exit)
         else:
             Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.delete_tpm_failure, message_bold=False, exit_btn_msg=self.lang.exit)
+
+    def _delete_recovery(self, drive):
+        process = subprocess.run(f"systemd-cryptenroll --wipe-slot=recovery {drive}", shell=True, capture_output=True, text=True, check=True)
+        if process.returncode == 0:
+            Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.delete_recovery_success, message_bold=False, exit_btn_msg=self.lang.exit)
+        else:
+            Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.delete_recovery_failed, message_bold=False, exit_btn_msg=self.lang.exit)
+
 
     def __add_checkbox(self, text: str, parameter: bool):
         checkbox = CTkCheckBox(self.report_tab, text=text)
