@@ -6,9 +6,111 @@ from language import Locale
 from json import loads as json_decode
 import subprocess
 import sys
+import pexpect
+from hmac import compare_digest
+from PIL import Image
 
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
+MIN_PIN_LENGTH = 4
+
+class Notification(CTkToplevel):
+    def __init__(self, title: str, icon: str, message: str, message_bold: bool, exit_btn_msg: str):
+        super().__init__()
+        self.title(title)
+        image = CTkImage(light_image=Image.open(f'{WORKDIR}/images/{icon}'), dark_image=Image.open(f'{WORKDIR}/images/{icon}'), size=(80, 80))
+        image_label = CTkLabel(self, text="", image=image)
+        label = CTkLabel(self, text=message)
+        if message_bold:
+            label.configure(font=(None, 16, "bold"))
+        exit_button = CTkButton(self, text=exit_btn_msg, command=self.destroy)
+
+        image_label.grid(row=0, column=0, padx=15, pady=5, sticky="nsew")
+        label.grid(row=0, column=1, padx=15, pady=5, sticky="nsew")
+        exit_button.grid(row=1, column=0, columnspan=2, padx=15, pady=5, sticky="nsew")
+
+class EnrollTPM(CTkToplevel):
+    def __init__(self, lang, drive):
+        super().__init__()
+        self.lang = lang
+        self.drive = drive
+
+        self.title(self.lang.enroll_tpm)
+
+        tpm_enrollment_label = CTkLabel(self, text=self.lang.tpm_enrolled)
+        luks_password_label = CTkLabel(self, text=self.lang.luks_password)
+        self.luks_password_entry = CTkEntry(self, show='*')
+        self.switch_var = StringVar(value="on")
+        use_pin_switch = CTkSwitch(self, text=self.lang.use_pin, variable=self.switch_var, onvalue="on", offvalue="off", command=self.__pin_switch_handler)
+        pin_entry_label = CTkLabel(self, text=self.lang.pin_1)
+        self.pin_entry = CTkEntry(self, show='*')
+        pin_entry_label_again = CTkLabel(self, text=self.lang.pin_2)
+        self.pin_entry_again = CTkEntry(self, show='*')
+        enroll_button = CTkButton(self, text=self.lang.enroll, command=self.__enroll)
+    
+        tpm_enrollment_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        luks_password_label.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+        self.luks_password_entry.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
+        use_pin_switch.grid(row=2, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        pin_entry_label.grid(row=3, column=0, padx=10, pady=5, sticky="nsew")
+        self.pin_entry.grid(row=3, column=1, padx=10, pady=5, sticky="nsew")
+        pin_entry_label_again.grid(row=4, column=0, padx=10, pady=5, sticky="nsew")
+        self.pin_entry_again.grid(row=4, column=1, padx=10, pady=5, sticky="nsew")
+        enroll_button.grid(row=5, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+
+    def __pin_switch_handler(self):
+        if self.switch_var.get() == "off":
+            self.pin_entry.configure(state="disabled")
+            self.pin_entry_again.configure(state="disabled")
+        else:
+            self.pin_entry.configure(state="normal")
+            self.pin_entry_again.configure(state="normal")
+    
+    def __enroll(self):
+        use_pin = False
+        if self.switch_var.get() == "on":
+            use_pin = True
+        if use_pin:
+            pin_1 = self.pin_entry.get()
+            pin_2 = self.pin_entry_again.get()
+            if not compare_digest(pin_1, pin_2):
+                Notification(title=self.lang.pin_mismatch, icon="warning.png", message=self.lang.pin_msg, message_bold=False, exit_btn_msg=self.lang.exit)
+                return
+            if len(pin_1) < MIN_PIN_LENGTH:
+                Notification(title=self.lang.short_pin, icon="warning.png", message=self.lang.short_pin_msg, message_bold=False, exit_btn_msg=self.lang.exit)
+                return
+        luks_password = self.luks_password_entry.get()
+
+        command = f"systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto "
+        if use_pin: command += "--tpm2-with-pin=yes "
+        command += self.drive
+        child = pexpect.spawn(command, encoding='utf-8', timeout=30)
+
+        child.expect(r"Please enter current passphrase")
+        child.sendline(luks_password)
+
+        if use_pin:
+            index = child.expect([r"Please enter TPM2", r"please try again"])
+            if index == 0:
+                child.sendline(pin_1)
+            else:
+                Notification(title=self.lang.enroll_tpm_error, icon="warning.png", message=self.lang.enroll_tpm_error_msg, message_bold=False, exit_btn_msg=self.lang.exit)
+                return
+        
+            child.expect(r"repeat")
+            child.sendline(pin_1)
+        index = child.expect([r"New TPM2 token enrolled", r"please try again", r"executing no operation"])
+        if index == 1:
+            Notification(title=self.lang.enroll_tpm_error, icon="warning.png", message=self.lang.enroll_tpm_error_msg, message_bold=False, exit_btn_msg=self.lang.exit)
+            return
+
+        child.wait()
+        if child.exitstatus == 0:
+            Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.enroll_tpm_success, message_bold=False, exit_btn_msg=self.lang.exit)
+            self.destroy()
+        else:
+            Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.enroll_tpm_failure, message_bold=False, exit_btn_msg=self.lang.exit)
+            self.destroy()
 
 class App(CTk):
     def __init__(self, fg_color = None, **kwargs):
@@ -32,8 +134,10 @@ class App(CTk):
             os.execvp("/usr/bin/pkexec", ["/usr/bin/pkexec", WORKDIR+"/"+sys.argv[0].split("/")[-1]])
 
         device_info = self._get_stats()
+        drive = device_info["RootFSPartition"]
         
         self.report_tab = self.tabview.tab(self.lang.report)
+        self.utils_tab = self.tabview.tab(self.lang.utils)
         self.__add_checkbox("Secure Boot", device_info["SecureBootState"])
         self.__add_checkbox(self.lang.own_keys_sb, device_info["KeysEnrolled"])
         self.__add_checkbox(self.lang.tpm_exists, device_info["TPMExists"])
@@ -42,6 +146,39 @@ class App(CTk):
         self.__add_checkbox("Secure Boot Setup Mode", device_info["SetupMode"])
         self.__add_checkbox(self.lang.ms_keys, device_info["MicrosoftKeys"])
         self.__add_checkbox(self.lang.vendor_keys, device_info["VendorKeys"])
+
+
+        drive_label = CTkLabel(self.utils_tab, text=f"{self.lang.drive}: {device_info["RootFSPartition"]}")
+        # utils_label = CTkLabel(self.utils_tab, text=self.lang.utils_label)
+        # new_keyfile = CTkButton(self.utils_tab, text=self.lang.new_keyfile)
+        # existing_keyfile = CTkButton(self.utils_tab, text=self.lang.existing_keyfile)
+        # selected_keyfile = CTkLabel(self.utils_tab, text=f"{self.lang.keyfile}: ...")
+        # password_label = CTkLabel(self.utils_tab, text=self.lang.enter_password)
+        # password_entry = CTkEntry(self.utils_tab, show='*')
+        # next_btn = CTkButton(self.utils_tab, text=self.lang.next)
+        # drive_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        # utils_label.grid(row=1, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        # new_keyfile.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
+        # existing_keyfile.grid(row=2, column=1, padx=10, pady=5, sticky="new")
+        # selected_keyfile.grid(row=3, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        # password_label.grid(row=4, column=0, padx=10, pady=5, sticky="nsew")
+        # password_entry.grid(row=4, column=1, padx=10, pady=5, sticky="nsew")
+        # next_btn.grid(row=5, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+
+        enroll_tpm = CTkButton(self.utils_tab, text=self.lang.enroll_tpm, command=lambda: EnrollTPM(self.lang, drive))
+        delete_tpm = CTkButton(self.utils_tab, text=self.lang.delete_tpm)
+        enroll_recovery = CTkButton(self.utils_tab, text=self.lang.enroll_recovery)
+        delete_recovery = CTkButton(self.utils_tab, text=self.lang.delete_recovery)
+        delete_password = CTkButton(self.utils_tab, text=self.lang.delete_password)
+        enroll_password = CTkButton(self.utils_tab, text=self.lang.enroll_password)
+
+        drive_label.pack(padx=10, pady=5)
+        enroll_tpm.pack(padx=10, pady=5)
+        delete_tpm.pack(padx=10, pady=5)
+        enroll_recovery.pack(padx=10, pady=5)
+        delete_recovery.pack(padx=10, pady=5)
+        delete_password.pack(padx=10, pady=5)
+        enroll_password.pack(padx=10, pady=5)
 
 
     def __add_checkbox(self, text: str, parameter: bool):
@@ -117,7 +254,8 @@ class App(CTk):
                 "VendorKeys": vendor_keys,
                 "TPMExists": tpm_exists,
                 "TPMEnrolled": tpm_enrolled,
-                "TPMWithPIN": tpm_with_pin}
+                "TPMWithPIN": tpm_with_pin,
+                "RootFSPartition": rootfs_partition}
 
 
 if __name__ == "__main__":
