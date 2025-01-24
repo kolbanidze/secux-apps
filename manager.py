@@ -133,7 +133,7 @@ class EnrollTPM(CTkToplevel):
                 return
         luks_password = self.luks_password_entry.get()
 
-        command = f"systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto "
+        command = f"systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto --tpm2-pcrs=0+7 --tpm2-public-key /etc/kernel/pcr-initrd.pub.pem "
         if use_pin: command += "--tpm2-with-pin=yes "
         command += self.drive
         child = pexpect.spawn(command, encoding='utf-8', timeout=30)
