@@ -225,7 +225,7 @@ class App(CTk):
         self.__load_language()
         self.lang = Locale(self.language)
 
-        self.tabview = CTkTabview(self)
+        self.tabview = CTkTabview(self, command=self.__tabview_handler)
         self.tabview.add(self.lang.report)
         self.tabview.add(self.lang.utils)
         
@@ -241,15 +241,7 @@ class App(CTk):
         
         self.report_tab = self.tabview.tab(self.lang.report)
         self.utils_tab = self.tabview.tab(self.lang.utils)
-        self.__add_checkbox("Secure Boot", device_info["SecureBootState"])
-        self.__add_checkbox(self.lang.own_keys_sb, device_info["KeysEnrolled"])
-        self.__add_checkbox(self.lang.tpm_exists, device_info["TPMExists"])
-        self.__add_checkbox(self.lang.tpm_enrolled, device_info["TPMEnrolled"])
-        self.__add_checkbox(self.lang.tpm_pin, device_info["TPMWithPIN"])
-        self.__add_checkbox("Secure Boot Setup Mode", device_info["SetupMode"])
-        self.__add_checkbox(self.lang.ms_keys, device_info["MicrosoftKeys"])
-        self.__add_checkbox(self.lang.vendor_keys, device_info["VendorKeys"])
-
+        self.__tabview_handler()
 
         drive_label = CTkLabel(self.utils_tab, text=f"{self.lang.drive}: {device_info["RootFSPartition"]}")
         enroll_tpm = CTkButton(self.utils_tab, text=self.lang.enroll_tpm, command=lambda: EnrollTPM(self.lang, drive))
@@ -266,6 +258,22 @@ class App(CTk):
         delete_recovery.pack(padx=10, pady=5)
         delete_password.pack(padx=10, pady=5)
         enroll_password.pack(padx=10, pady=5)
+
+    def __tabview_handler(self):
+        for widget in self.tabview.tab(self.lang.report).winfo_children():
+            widget.destroy()
+        if self.tabview.get() == self.lang.report:
+            device_info = self._get_stats()
+            self.__add_checkbox("Secure Boot", device_info["SecureBootState"])
+            self.__add_checkbox(self.lang.own_keys_sb, device_info["KeysEnrolled"])
+            self.__add_checkbox(self.lang.tpm_exists, device_info["TPMExists"])
+            self.__add_checkbox(self.lang.tpm_enrolled, device_info["TPMEnrolled"])
+            self.__add_checkbox(self.lang.tpm_pin, device_info["TPMWithPIN"])
+            self.__add_checkbox("Secure Boot Setup Mode", device_info["SetupMode"])
+            self.__add_checkbox(self.lang.ms_keys, device_info["MicrosoftKeys"])
+            self.__add_checkbox(self.lang.vendor_keys, device_info["VendorKeys"])
+
+
 
     def _delete_tpm(self, drive):
         try:
