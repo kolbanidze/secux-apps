@@ -166,7 +166,7 @@ class App(CTk):
         # next_btn.grid(row=5, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
 
         enroll_tpm = CTkButton(self.utils_tab, text=self.lang.enroll_tpm, command=lambda: EnrollTPM(self.lang, drive))
-        delete_tpm = CTkButton(self.utils_tab, text=self.lang.delete_tpm)
+        delete_tpm = CTkButton(self.utils_tab, text=self.lang.delete_tpm, command=lambda: self._delete_tpm(drive))
         enroll_recovery = CTkButton(self.utils_tab, text=self.lang.enroll_recovery)
         delete_recovery = CTkButton(self.utils_tab, text=self.lang.delete_recovery)
         delete_password = CTkButton(self.utils_tab, text=self.lang.delete_password)
@@ -180,6 +180,12 @@ class App(CTk):
         delete_password.pack(padx=10, pady=5)
         enroll_password.pack(padx=10, pady=5)
 
+    def _delete_tpm(self, drive):
+        process = subprocess.run(f"systemd-cryptenroll --wipe-slot=tpm2 {drive}", shell=True, capture_output=True, text=True, check=True)
+        if process.returncode == 0:
+            Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.delete_tpm_success, message_bold=False, exit_btn_msg=self.lang.exit)
+        else:
+            Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.delete_tpm_failure, message_bold=False, exit_btn_msg=self.lang.exit)
 
     def __add_checkbox(self, text: str, parameter: bool):
         checkbox = CTkCheckBox(self.report_tab, text=text)

@@ -37,6 +37,8 @@ class Locale:
             self.short_pin_msg = "PIN must be at least 4 characters"
             self.enroll_tpm_error = "TPM enrollment error"
             self.enroll_tpm_error_msg = "An error occurred while enrolling the TPM. Please check that your password is correct."
+            self.delete_tpm_success = "TPM drive unlocking successfully disabled."
+            self.delete_tpm_failure = "An error occurred while deleting the TPM enrollment."
         elif language == "ru":
             self.report = "Отчёт"
             self.utils = "Утилиты"
@@ -78,3 +80,5 @@ class Locale:
             self.enroll_tpm_success = "Регистрация разблокировки диска с помощью TPM произошла успешно."
             self.failure = "Ошибка"
             self.enroll_tpm_failure = "Произошла ошибка в время регистрации."
+            self.delete_tpm_success = "Разблокировка диска с помощью TPM успешно отключена."
+            self.delete_tpm_failure = "Произошла ошибка в время удаления регистрации TPM."
