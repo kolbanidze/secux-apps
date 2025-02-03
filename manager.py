@@ -271,7 +271,6 @@ class App(CTk):
             self.__add_checkbox(self.lang.tpm_pin, device_info["TPMWithPIN"])
             self.__add_checkbox("Secure Boot Setup Mode", device_info["SetupMode"])
             self.__add_checkbox(self.lang.ms_keys, device_info["MicrosoftKeys"])
-            self.__add_checkbox(self.lang.vendor_keys, device_info["VendorKeys"])
 
 
 
@@ -325,56 +324,77 @@ class App(CTk):
         return os.geteuid() == 0
 
     def _get_stats(self) -> dict:
-        sbctl_output = json_decode(subprocess.run(['sbctl', 'status', '--json'], text=True, capture_output=True, check=True).stdout)
-        
+        sbctl_exists_output = subprocess.run(['which', 'sbctl'], text=True, capture_output=True).stdout.strip()
         keys_enrolled = False
-        if sbctl_output['installed'] and sbctl_output['guid']:
-            keys_enrolled = True
-
-        if sbctl_output['setup_mode']:
-            setup_mode = True
-        else:
-            setup_mode = False
-        
-        if sbctl_output['secure_boot']:
-            secure_boot = True
-        else:
-            secure_boot = False
-        
+        secure_boot = False
+        setup_mode = False
         ms_keys = False
-        vendor_keys = False
-        if 'microsoft' in sbctl_output['vendors']:
-            ms_keys = True
-            sbctl_output['vendors'].remove('microsoft')
-        if len(sbctl_output['vendors']) > 0:
-            vendor_keys = True
-
+        
+        if sbctl_exists_output == '/usr/sbin/sbctl':
+            try:
+                sbctl_output = json_decode(subprocess.run(['sbctl', 'status', '--json'], text=True, capture_output=True, check=True).stdout)
+                
+                if sbctl_output.get('installed') and sbctl_output.get('guid'):
+                    keys_enrolled = True
+                
+                setup_mode = bool(sbctl_output.get('setup_mode', False))
+                secure_boot = bool(sbctl_output.get('secure_boot', False))
+                
+                vendors = sbctl_output.get('vendors', [])
+                if 'microsoft' in vendors:
+                    ms_keys = True
+            except subprocess.CalledProcessError:
+                pass
+        else:
+            try:
+                secure_boot_state = open('/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c', 'rb').read()
+                secure_boot = secure_boot_state[-1] == 1
+                
+                setup_mode_state = open('/sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c', 'rb').read()
+                setup_mode = setup_mode_state[-1] == 1
+            except FileNotFoundError:
+                pass
+            
+            # Проверяем наличие ключей в DB
+            try:
+                with open('/sys/firmware/efi/efivars/db-d719b2cb-3d3a-4596-a3bc-dad00e67656f', 'rb') as db:
+                    db_data = db.read()
+                    if b'Microsoft Corporation' in db_data:
+                        ms_keys = True
+            except FileNotFoundError:
+                pass
+        
+        # Определение корневого раздела
         mapper = subprocess.run("df / | tail -n1 | awk '{print $1;}'", shell=True, text=True, capture_output=True, check=True).stdout.strip()
         rootfs_partition = "/dev/" + subprocess.run(f'ls /sys/block/$( basename $( realpath "{mapper}" ) )/slaves', shell=True, text=True, capture_output=True, check=True).stdout.strip()
-        cryptsetup_output = json_decode(subprocess.run(f"cryptsetup luksDump {rootfs_partition} --dump-json-metadata", shell=True, text=True, capture_output=True, check=True).stdout)
         
-        tpm_exists = False
+        # Проверка наличия и использования TPM
+        tpm_exists = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
         tpm_enrolled = False
         tpm_with_pin = False
-        if os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0"):
-            tpm_exists = True
-        if cryptsetup_output['tokens']:
-            for i in cryptsetup_output['tokens']:
-                if cryptsetup_output['tokens'][i]['type'] == "systemd-tpm2":
-                    tpm_enrolled = True
-                    if 'tpm2-pin' in cryptsetup_output['tokens'][i]:
-                        if cryptsetup_output['tokens'][i]['tpm2-pin']:
-                            tpm_with_pin = True
         
-        return {"SecureBootState": secure_boot,
-                "KeysEnrolled": keys_enrolled,
-                "SetupMode": setup_mode,
-                "MicrosoftKeys": ms_keys,
-                "VendorKeys": vendor_keys,
-                "TPMExists": tpm_exists,
-                "TPMEnrolled": tpm_enrolled,
-                "TPMWithPIN": tpm_with_pin,
-                "RootFSPartition": rootfs_partition}
+        try:
+            cryptsetup_output = json_decode(subprocess.run(f"cryptsetup luksDump {rootfs_partition} --dump-json-metadata", shell=True, text=True, capture_output=True, check=True).stdout)
+            if cryptsetup_output.get('tokens'):
+                for token in cryptsetup_output['tokens'].values():
+                    if token.get('type') == "systemd-tpm2":
+                        tpm_enrolled = True
+                        if token.get('tpm2-pin'):
+                            tpm_with_pin = True
+        except subprocess.CalledProcessError:
+            pass
+        
+        return {
+            "SecureBootState": secure_boot,
+            "KeysEnrolled": keys_enrolled,
+            "SetupMode": setup_mode,
+            "MicrosoftKeys": ms_keys,
+            "TPMExists": tpm_exists,
+            "TPMEnrolled": tpm_enrolled,
+            "TPMWithPIN": tpm_with_pin,
+            "RootFSPartition": rootfs_partition
+        }
+
 
 
 if __name__ == "__main__":
