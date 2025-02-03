@@ -266,7 +266,7 @@ class App(CTk):
         update_image = CTkImage(light_image=Image.open(f'{WORKDIR}/images/update.png'), dark_image=Image.open(f'{WORKDIR}/images/update.png'), size=(80, 80))
         update_image_label = CTkLabel(self.update_tab, text="", image=update_image)
         updater_welcome = CTkLabel(self.update_tab, text=self.lang.update_msg)
-        run_update = CTkButton(self.update_tab, text=self.lang.update)
+        run_update = CTkButton(self.update_tab, text=self.lang.update, command=self.__update_repo)
         self.updater_textbox = CTkTextbox(self.update_tab, state="disabled")
         after_update = CTkLabel(self.update_tab, text=self.lang.after_update)
         exit_button = CTkButton(self.update_tab, text=self.lang.exit, command=self.destroy)
@@ -288,26 +288,26 @@ class App(CTk):
         enroll_password.pack(padx=10, pady=5)
         if DEBUG: CTkLabel(self, text="WARNING: DEBUG MODE", font=(None, 10), text_color=("red")).pack(padx=10, pady=5)
 
-        def __update_repo(self):
-            self.updater_textbox.configure(state="normal")
-            try:
-                # Ensure the script is running from a Git repository
-                repo_path = os.path.dirname(os.path.abspath(__file__))
-                os.chdir(repo_path)
-                
-                process = subprocess.Popen(
-                    ["git", "pull", "origin", "main"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True)
-                stdout, stderr = process.communicate()
-                if stdout:
-                    self.updater_textbox.insert("end", stdout)
-                if stderr:
-                    self.updater_textbox.insert("end", stderr)
-            except Exception as e:
-                self.updater_textbox.insert("end", f"ERROR: {e}\n")
-            self.updater_textbox.configure(state="disabled")
+    def __update_repo(self):
+        self.updater_textbox.configure(state="normal")
+        try:
+            # Ensure the script is running from a Git repository
+            repo_path = os.path.dirname(os.path.abspath(__file__))
+            os.chdir(repo_path)
+            
+            process = subprocess.Popen(
+                ["git", "pull", "origin", "main"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True)
+            stdout, stderr = process.communicate()
+            if stdout:
+                self.updater_textbox.insert("end", stdout)
+            if stderr:
+                self.updater_textbox.insert("end", stderr)
+        except Exception as e:
+            self.updater_textbox.insert("end", f"ERROR: {e}\n")
+        self.updater_textbox.configure(state="disabled")
 
     def __tabview_handler(self):
         for widget in self.tabview.tab(self.lang.report).winfo_children():
