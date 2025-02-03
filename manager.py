@@ -365,9 +365,17 @@ class App(CTk):
                 pass
         
         # Определение корневого раздела
-        mapper = subprocess.run("df / | tail -n1 | awk '{print $1;}'", shell=True, text=True, capture_output=True, check=True).stdout.strip()
-        rootfs_partition = "/dev/" + subprocess.run(f'ls /sys/block/$( basename $( realpath "{mapper}" ) )/slaves', shell=True, text=True, capture_output=True, check=True).stdout.strip()
-        
+        rootfs_partition_output = json_decode(subprocess.run(f'lsblk -J -o NAME,TYPE,MOUNTPOINT,FSTYPE', shell=True, text=True, capture_output=True, check=True).stdout).get('blockdevices')
+        for drive in rootfs_partition_output:
+            if 'children' in drive:
+                for part in drive['children']:
+                    if part['fstype'] == 'crypto_LUKS':
+                        if 'children' in part:
+                            for children_part in part:
+                                print(children_part)
+                                if children_part['type'] == 'crypt' and children_part['name'] == 'cryptlvm':
+                                    rootfs_partition = "/dev/" + part['name']
+        print(rootfs_partition)
         # Проверка наличия и использования TPM
         tpm_exists = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
         tpm_enrolled = False
