@@ -15,7 +15,7 @@ WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
 
 class Notification(CTkToplevel):
-    def __init__(self, title: str, icon: str, message: str, message_bold: bool, exit_btn_msg: str):
+    def __init__(self, title: str, icon: str, message: str, message_bold: bool, exit_btn_msg: str, terminate_app: bool = False):
         super().__init__()
         self.title(title)
         image = CTkImage(light_image=Image.open(f'{WORKDIR}/images/{icon}'), dark_image=Image.open(f'{WORKDIR}/images/{icon}'), size=(80, 80))
@@ -24,6 +24,8 @@ class Notification(CTkToplevel):
         if message_bold:
             label.configure(font=(None, 16, "bold"))
         exit_button = CTkButton(self, text=exit_btn_msg, command=self.destroy)
+        if terminate_app:
+            exit_button.configure(command=lambda: sys.exit(1))
 
         image_label.grid(row=0, column=0, padx=15, pady=5, sticky="nsew")
         label.grid(row=0, column=1, padx=15, pady=5, sticky="nsew")
@@ -221,6 +223,8 @@ class App(CTk):
         super().__init__(fg_color, **kwargs)
         self.title(f"{DISTRO_NAME} security manager")
 
+        self.an_error_occured = False
+
         self.language = "ru"
         self.__load_language()
         self.lang = Locale(self.language)
@@ -364,6 +368,7 @@ class App(CTk):
             except FileNotFoundError:
                 pass
         
+        rootfs_partition = None
         # Определение корневого раздела
         rootfs_partition_output = json_decode(subprocess.run(f'lsblk -J -o NAME,TYPE,MOUNTPOINT,FSTYPE', shell=True, text=True, capture_output=True, check=True).stdout).get('blockdevices')
         for drive in rootfs_partition_output:
@@ -375,9 +380,14 @@ class App(CTk):
                                 # print(children_part)
                                 if children_part['type'] == 'crypt' and children_part['name'] == 'cryptlvm':
                                     rootfs_partition = "/dev/" + part['name']
-        # print(rootfs_partition)
+        if not rootfs_partition and not self.an_error_occured:
+            print("Failed to detect LUKS partition. Are you running manager from SECUX Linux?")
+            Notification(title=self.lang.error, icon="redcross.png", message=self.lang.luks_failed, message_bold=True, exit_btn_msg=self.lang.exit, terminate_app=True)
+            self.an_error_occured = True
+            for widget in self.winfo_children():
+                widget.configure(state="disabled")
+        
         # Проверка наличия и использования TPM
-        # rootfs_partition = "/dev/vda2"
         tpm_exists = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
         tpm_enrolled = False
         tpm_with_pin = False

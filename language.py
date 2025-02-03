@@ -45,6 +45,9 @@ class Locale:
             self.enroll_password_error = "An error occurred while enrolling your password. Please check your password."
             self.enroll_password_success = "Enrollment of new password was successful."
             self.copy = "Copy"
+            self.error = "Error"
+            self.luks_failed = "Failed to detect LUKS partition. Are you running manager from SECUX Linux?"
+            
         elif language == "ru":
             self.report = "Отчёт"
             self.utils = "Утилиты"
@@ -94,5 +97,7 @@ class Locale:
             self.enroll_password_error = "Произошла ошибка в время регистрации пароля. Проверьте пароль."
             self.enroll_password_success = "Регистрация нового пароля произошла успешно."
             self.copy = "Скопировать"
+            self.error = "Ошибка"
+            self.luks_failed = "Не удалось определить зашифрованный раздел. Вы точно запускаете программу из под SECUX Linux?"
 
 
