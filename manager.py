@@ -373,9 +373,9 @@ class App(CTk):
                         if 'children' in part:
                             for children_part in part:
                                 print(children_part)
-                                if children_part['type'] == 'crypt' and children_part['name'] == 'cryptlvm':
-                                    rootfs_partition = "/dev/" + part['name']
-        print(rootfs_partition)
+                                # if children_part['type'] == 'crypt' and children_part['name'] == 'cryptlvm':
+                                #     rootfs_partition = "/dev/" + part['name']
+        # print(rootfs_partition)
         # Проверка наличия и использования TPM
         tpm_exists = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
         tpm_enrolled = False
