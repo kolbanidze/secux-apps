@@ -371,10 +371,10 @@ class App(CTk):
                 for part in drive['children']:
                     if part['fstype'] == 'crypto_LUKS':
                         if 'children' in part:
-                            for children_part in part:
-                                print(children_part)
-                                # if children_part['type'] == 'crypt' and children_part['name'] == 'cryptlvm':
-                                #     rootfs_partition = "/dev/" + part['name']
+                            for children_part in part['children']:
+                                # print(children_part)
+                                if children_part['type'] == 'crypt' and children_part['name'] == 'cryptlvm':
+                                    rootfs_partition = "/dev/" + part['name']
         # print(rootfs_partition)
         # Проверка наличия и использования TPM
         rootfs_partition = "/dev/vda2"
