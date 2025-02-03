@@ -377,7 +377,7 @@ class App(CTk):
                                     rootfs_partition = "/dev/" + part['name']
         # print(rootfs_partition)
         # Проверка наличия и использования TPM
-        rootfs_partition = "/dev/vda2"
+        # rootfs_partition = "/dev/vda2"
         tpm_exists = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
         tpm_enrolled = False
         tpm_with_pin = False
