@@ -15,6 +15,7 @@ WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
 DEBUG = True
 DEBUG_PARTITION = "/dev/sda5"
+#
 
 if os.path.isfile(WORKDIR + "/production.conf"):
     DEBUG = False
