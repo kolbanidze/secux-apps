@@ -47,7 +47,10 @@ class Locale:
             self.copy = "Copy"
             self.error = "Error"
             self.luks_failed = "Failed to detect LUKS partition. Are you running manager from SECUX Linux?"
-            
+            self.update = "Update"
+            self.update_msg = "Securitymanager updater"
+            self.after_update = "To apply updates, you must restart the program"
+
         elif language == "ru":
             self.report = "Отчёт"
             self.utils = "Утилиты"
@@ -99,5 +102,6 @@ class Locale:
             self.copy = "Скопировать"
             self.error = "Ошибка"
             self.luks_failed = "Не удалось определить зашифрованный раздел. Вы точно запускаете программу из под SECUX Linux?"
-
-
+            self.update = "Обновить"
+            self.update_msg = "Обновление securitymanager"
+            self.after_update = "Для применения обновлений необходимо перезапустить программу"

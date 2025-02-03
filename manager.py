@@ -13,6 +13,11 @@ from PIL import Image
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
+DEBUG = True
+DEBUG_PARTITION = "/dev/sda5"
+
+if os.path.isfile(WORKDIR + "/production.conf"):
+    DEBUG = False
 
 class Notification(CTkToplevel):
     def __init__(self, title: str, icon: str, message: str, message_bold: bool, exit_btn_msg: str, terminate_app: bool = False):
@@ -232,6 +237,7 @@ class App(CTk):
         self.tabview = CTkTabview(self, command=self.__tabview_handler)
         self.tabview.add(self.lang.report)
         self.tabview.add(self.lang.utils)
+        self.tabview.add(self.lang.update)
         
         self.tabview.set(self.lang.report)
         
@@ -245,6 +251,7 @@ class App(CTk):
         
         self.report_tab = self.tabview.tab(self.lang.report)
         self.utils_tab = self.tabview.tab(self.lang.utils)
+        self.update_tab = self.tabview.tab(self.lang.update)
         self.__tabview_handler()
 
         drive_label = CTkLabel(self.utils_tab, text=f"{self.lang.drive}: {device_info["RootFSPartition"]}")
@@ -255,6 +262,23 @@ class App(CTk):
         delete_password = CTkButton(self.utils_tab, text=self.lang.delete_password, command=lambda: DeletePassword(self.lang, drive))
         enroll_password = CTkButton(self.utils_tab, text=self.lang.enroll_password, command=lambda: EnrollPassword(self.lang, drive))
 
+        ##### UPDATER #####
+        update_image = CTkImage(light_image=Image.open(f'{WORKDIR}/images/update.png'), dark_image=Image.open(f'{WORKDIR}/images/update.png'), size=(80, 80))
+        update_image_label = CTkLabel(self.update_tab, text="", image=update_image)
+        updater_welcome = CTkLabel(self.update_tab, text=self.lang.update_msg)
+        run_update = CTkButton(self.update_tab, text=self.lang.update)
+        self.updater_textbox = CTkTextbox(self.update_tab, state="disabled")
+        after_update = CTkLabel(self.update_tab, text=self.lang.after_update)
+        exit_button = CTkButton(self.update_tab, text=self.lang.exit, command=self.destroy)
+
+        update_image_label.pack(padx=15, pady=5)
+        updater_welcome.pack(padx=15, pady=5)
+        run_update.pack(padx=15, pady=(0, 5))
+        self.updater_textbox.pack(padx=15, pady=5, expand=True, fill="both")
+        after_update.pack(padx=15, pady=5)
+        exit_button.pack(padx=15, pady=(0, 5))
+        ##### END UPDATER #####
+
         drive_label.pack(padx=10, pady=5)
         enroll_tpm.pack(padx=10, pady=5)
         delete_tpm.pack(padx=10, pady=5)
@@ -262,6 +286,28 @@ class App(CTk):
         delete_recovery.pack(padx=10, pady=5)
         delete_password.pack(padx=10, pady=5)
         enroll_password.pack(padx=10, pady=5)
+        if DEBUG: CTkLabel(self, text="WARNING: DEBUG MODE", font=(None, 10), text_color=("red")).pack(padx=10, pady=5)
+
+        def __update_repo(self):
+            self.updater_textbox.configure(state="normal")
+            try:
+                # Ensure the script is running from a Git repository
+                repo_path = os.path.dirname(os.path.abspath(__file__))
+                os.chdir(repo_path)
+                
+                process = subprocess.Popen(
+                    ["git", "pull", "origin", "main"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True)
+                stdout, stderr = process.communicate()
+                if stdout:
+                    self.updater_textbox.insert("end", stdout)
+                if stderr:
+                    self.updater_textbox.insert("end", stderr)
+            except Exception as e:
+                self.updater_textbox.insert("end", f"ERROR: {e}\n")
+            self.updater_textbox.configure(state="disabled")
 
     def __tabview_handler(self):
         for widget in self.tabview.tab(self.lang.report).winfo_children():
@@ -380,12 +426,15 @@ class App(CTk):
                                 # print(children_part)
                                 if children_part['type'] == 'crypt' and children_part['name'] == 'cryptlvm':
                                     rootfs_partition = "/dev/" + part['name']
-        if not rootfs_partition and not self.an_error_occured:
-            print("Failed to detect LUKS partition. Are you running manager from SECUX Linux?")
-            Notification(title=self.lang.error, icon="redcross.png", message=self.lang.luks_failed, message_bold=True, exit_btn_msg=self.lang.exit, terminate_app=True)
-            self.an_error_occured = True
-            for widget in self.winfo_children():
-                widget.configure(state="disabled")
+        if not DEBUG:
+            if not rootfs_partition and not self.an_error_occured:
+                print("Failed to detect LUKS partition. Are you running manager from SECUX Linux?")
+                Notification(title=self.lang.error, icon="redcross.png", message=self.lang.luks_failed, message_bold=True, exit_btn_msg=self.lang.exit, terminate_app=True)
+                self.an_error_occured = True
+                for widget in self.winfo_children():
+                    widget.configure(state="disabled")
+        else:
+            rootfs_partition = DEBUG_PARTITION
         
         # Проверка наличия и использования TPM
         tpm_exists = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
