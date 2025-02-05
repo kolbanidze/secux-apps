@@ -4,11 +4,14 @@ import os
 from locale import getlocale
 from language import Locale
 from json import loads as json_decode
+from json import dumpds as json_encode
 import subprocess
 import sys
 import pexpect
 from hmac import compare_digest
 from PIL import Image
+from locale import getlocale
+import dbus
 
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
@@ -279,7 +282,6 @@ class App(CTk):
 
         self.an_error_occured = False
 
-        self.language = "ru"
         self.__load_language()
         self.lang = Locale(self.language)
 
@@ -405,12 +407,14 @@ class App(CTk):
         checkbox.pack(padx=10, pady=5)
 
     def __load_language(self):
-        if not os.path.isfile(f"{WORKDIR}/language.conf"):
+        if not os.path.isfile(f"{WORKDIR}/configuration.json"):
             locale = getlocale()[0]
-            if "ru" not in locale and "RU" not in locale:
-                self.language = "en"
-            else:
+            if "ru" in locale or "RU" in locale:
                 self.language = "ru"
+            else:
+                self.language = "en"
+            # with open(f"{WORKDIR}/configuration.json", "w") as file:
+            #     file.write(json_encode({"language": self.language, ""}))
         else:
             with open(f"{WORKDIR}/language.conf", "r") as file:
                 contents = file.read()
@@ -515,4 +519,13 @@ class App(CTk):
 
 
 if __name__ == "__main__":
+    if not os.path.isfile(f"{WORKDIR}/configuration.conf"):
+        locale = getlocale()[0]
+        dark_theme = 0
+        scaling = "100%"
+        bus = dbus.SessionBus()
+        settings = bus.get_object("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
+        settings_iface = dbus.Interface(settings, "org.freedesktop.portal.Settings")
+        dark_theme = settings_iface.Read("org.freedesktop.appearance", "color-scheme")
+        # TODO: при первом запуске записать эти данные в конфиг
     App().mainloop()
