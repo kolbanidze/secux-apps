@@ -15,7 +15,7 @@ WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
 DEBUG = True
 DEBUG_PARTITION = "/dev/sda5"
-#
+DEFAULT_PCRS = [0, 7, 14]
 
 if os.path.isfile(WORKDIR + "/production.conf"):
     DEBUG = False
@@ -94,6 +94,7 @@ class EnrollTPM(CTkToplevel):
         super().__init__()
         self.lang = lang
         self.drive = drive
+        self.pcrs_drawed = False
 
         self.title(self.lang.enroll_tpm)
 
@@ -106,8 +107,16 @@ class EnrollTPM(CTkToplevel):
         self.pin_entry = CTkEntry(self, show='*')
         pin_entry_label_again = CTkLabel(self, text=self.lang.pin_2)
         self.pin_entry_again = CTkEntry(self, show='*')
+        tpm_preset_label = CTkLabel(self, text=self.lang.tpm_preset)
+        self.tpm_preset = CTkOptionMenu(self, values=[self.lang.preset_secure, self.lang.preset_lesssecure, self.lang.preset_custom], command=self.__profiles_handler)
+        self.sign_policy = CTkSwitch(self, text=self.lang.sign_policy)
+        self.sign_policy.select()
+        self.pcr_custom = CTkScrollableFrame(self)
         enroll_button = CTkButton(self, text=self.lang.enroll, command=self.__enroll)
-    
+
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(7, weight=1)
         tpm_enrollment_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
         luks_password_label.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
         self.luks_password_entry.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
@@ -116,7 +125,10 @@ class EnrollTPM(CTkToplevel):
         self.pin_entry.grid(row=3, column=1, padx=10, pady=5, sticky="nsew")
         pin_entry_label_again.grid(row=4, column=0, padx=10, pady=5, sticky="nsew")
         self.pin_entry_again.grid(row=4, column=1, padx=10, pady=5, sticky="nsew")
-        enroll_button.grid(row=5, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        tpm_preset_label.grid(row=5, column=0, padx=10, pady=5, sticky="nsew")
+        self.tpm_preset.grid(row=5, column=1, padx=10, pady=5, sticky="nsew")
+        
+        enroll_button.grid(row=8, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
 
     def __pin_switch_handler(self):
         if self.switch_var.get() == "off":
@@ -126,6 +138,37 @@ class EnrollTPM(CTkToplevel):
             self.pin_entry.configure(state="normal")
             self.pin_entry_again.configure(state="normal")
     
+    def __profiles_handler(self, value):
+        if value == self.lang.preset_custom:
+            self.__custom_pcrs()
+        elif value == self.lang.preset_lesssecure:
+            self.pcr_custom.grid_forget()
+            self.sign_policy.grid_forget()
+        elif value == self.lang.preset_secure:
+            self.pcr_custom.grid_forget()
+            self.sign_policy.grid_forget()
+
+    def __custom_pcrs(self):
+        if not self.pcr_custom.grid_info():
+            self.pcr_custom.grid(row=7, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        if not self.sign_policy.grid_info():
+            self.sign_policy.grid(row=6, column=0, padx=10, pady=5, sticky="w", columnspan=2)
+        if not self.pcrs_drawed:
+            for i in range(16):
+                j = CTkCheckBox(self.pcr_custom, text=f"PCR {i}: {self.lang.PCRs_info[i]}")
+                if i in DEFAULT_PCRS:
+                    j.select()
+                j.grid(row=i, column=0, padx=10, pady=5, sticky="nsew")
+            self.pcrs_drawed = True
+    
+    def __get_checked_pcrs(self) -> dict:
+        pcrs = {}
+        for i in self.pcr_custom.winfo_children():
+            pcr = i.cget("text").split(":")[0].split(' ')[-1]
+            usage = bool(i.get())
+            pcrs[pcr] = usage
+        return pcrs
+
     def __enroll(self):
         use_pin = False
         if self.switch_var.get() == "on":

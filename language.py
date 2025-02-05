@@ -50,6 +50,18 @@ class Locale:
             self.update = "Update"
             self.update_msg = "Securitymanager updater"
             self.after_update = "To apply updates, you must restart the program"
+            self.preset_secure = "Secure (own Secure Boot keys)"
+            self.preset_lessecure = "Backwards compatible (having Microsoft keys)"
+            self.preset_custom = "Custom"
+            self.tpm_preset = "Disk Unlock Profile"
+            self.sign_policy = "PCR Signing Policy"
+            self.PCRs_info = ["UEFI executable code", "Host platform configuration", 
+                              "UEFI OpROM", "OpROM hardware info",
+                              "Boot loader binary and extensions", "GPT/Partition table", "OEM specific data",
+                              "SecureBoot state (including keys)", "Kernel cmdline (GRUB)", "All files read (GRUB)", "IMA measurement log", 
+                              "UKI components; boot process stages", "UKI cmdline",
+                              "UKI initrd extensions", "MOK certificates and hashes", "Encryption key, UUIDs, mountpoints"]
+
 
         elif language == "ru":
             self.report = "Отчёт"
@@ -105,3 +117,14 @@ class Locale:
             self.update = "Обновить"
             self.update_msg = "Обновление securitymanager"
             self.after_update = "Для применения обновлений необходимо перезапустить программу"
+            self.preset_secure = "Безопасный (собственные ключи Secure Boot)"
+            self.preset_lesssecure = "Обратная совместимость (наличие ключей Microsoft)"
+            self.preset_custom = "Собственный"
+            self.tpm_preset = "Профиль разблокировки диска"
+            self.sign_policy = "Политика подписи PCR"
+            self.PCRs_info = ["Исполняемый код UEFI", "Конфигурация платформы хоста",
+                            "UEFI OpROM", "Информация об оборудовании OpROM",
+                            "Файл и расширения загрузчика", "Таблица GPT/разделов", "Данные OEM",
+                            "Состояние SecureBoot (включая ключи)", "Командная строка ядра (GRUB)", "Все прочитанные файлы (GRUB)", "Журнал измерений IMA",
+                            "Компоненты UKI; этапы процесса загрузки", "Командная строка UKI",
+                            "Расширения UKI initrd", "Сертификаты и хэши MOK", "Ключ шифрования, UUID, точки монтирования"]
