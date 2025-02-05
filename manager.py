@@ -160,14 +160,6 @@ class EnrollTPM(CTkToplevel):
                     j.select()
                 j.grid(row=i, column=0, padx=10, pady=5, sticky="nsew")
             self.pcrs_drawed = True
-    
-    def __get_checked_pcrs(self) -> dict:
-        pcrs = {}
-        for i in self.pcr_custom.winfo_children():
-            pcr = i.cget("text").split(":")[0].split(' ')[-1]
-            usage = bool(i.get())
-            pcrs[pcr] = usage
-        return pcrs
 
     def __enroll(self):
         use_pin = False
@@ -184,7 +176,20 @@ class EnrollTPM(CTkToplevel):
                 return
         luks_password = self.luks_password_entry.get()
 
-        command = f"systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto --tpm2-pcrs=0+7 --tpm2-public-key /etc/kernel/pcr-initrd.pub.pem "
+        if self.tpm_preset.get() == self.lang.preset_secure:
+            pcrs = "0+7"
+        elif self.tpm_preset.get() == self.lang.preset_lesssecure:
+            pcrs = "0+7+14"
+        else:
+            pcrs = ""
+            for i in self.pcr_custom.winfo_children():
+                pcr = i.cget("text").split(":")[0].split(' ')[-1]
+                if i.get():
+                    pcrs += pcr + "+"
+            pcrs = pcrs[:-1]
+
+        command = f"systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto --tpm2-pcrs={pcrs} "
+        if self.sign_policy.get(): command += "--tpm2-public-key /etc/kernel/pcr-initrd.pub.pem "
         if use_pin: command += "--tpm2-with-pin=yes "
         command += self.drive
         child = pexpect.spawn(command, encoding='utf-8', timeout=30)
