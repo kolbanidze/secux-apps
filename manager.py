@@ -14,7 +14,7 @@ from PIL import Image
 from locale import getlocale
 import dbus
 
-VERSION = "0.1"
+VERSION = "0.1.1"
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -430,16 +430,16 @@ class App(CTk):
         checkbox.pack(padx=10, pady=5)
 
     def __load_configuration(self):
-        with open(f"{WORKDIR}/configuration.conf", "r") as file:
+        with open(f"{WORKDIR}/configuration.conf", "r+") as file:
             try:
                 config = json_decode(file.read())
             except JSONDecodeError:
                 print("Config corrupt. Returning to default values")
-                config = get_default_config()
+                config = get_default_config(locale="ru", dark_theme=True)
                 file.write(json_encode(config))
             if 'language' not in config or 'dark_theme' not in config or 'scaling' not in config:
                 print("Config corrupt. Returning to default values")
-                config = get_default_config()
+                config = get_default_config(locale='ru', dark_theme=True)
                 file.write(json_encode(config))
             
             if config["language"] == "ru":
@@ -568,14 +568,16 @@ class App(CTk):
             "RootFSPartition": rootfs_partition
         }
 
-def get_default_config() -> dict:
-    locale = getlocale()[0]
-    dark_theme = 0
-    scaling = "100%"
-    bus = dbus.SessionBus()
-    settings = bus.get_object("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
-    settings_iface = dbus.Interface(settings, "org.freedesktop.portal.Settings")
-    dark_theme = settings_iface.Read("org.freedesktop.appearance", "color-scheme")
+def get_default_config(locale = None, dark_theme = None, scaling: str = "100%") -> dict:
+    if not locale:
+        locale = getlocale()[0]
+    if not dark_theme:
+        dark_theme = 0
+        bus = dbus.SessionBus()
+        settings = bus.get_object("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
+        settings_iface = dbus.Interface(settings, "org.freedesktop.portal.Settings")
+        dark_theme = settings_iface.Read("org.freedesktop.appearance", "color-scheme")
+    
     if 'ru' in locale or 'RU' in locale:
         language = 'ru'
     else:
