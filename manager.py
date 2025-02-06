@@ -14,7 +14,7 @@ from PIL import Image
 from locale import getlocale
 import dbus
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -295,7 +295,7 @@ class App(CTk):
 
         self.tabview.set(self.lang.report)
         
-        self.tabview.pack()
+        self.tabview.pack(padx=10, pady=10, fill='both', expand=True)
 
         device_info = self._get_stats()
         drive = device_info["RootFSPartition"]
@@ -361,8 +361,6 @@ class App(CTk):
         delete_recovery.pack(padx=10, pady=5)
         delete_password.pack(padx=10, pady=5)
         enroll_password.pack(padx=10, pady=5)
-        CTkLabel(self, text=f"{self.lang.version}: {VERSION}", font=(None, 10)).pack(padx=10, pady=5)
-        if DEBUG: CTkLabel(self, text="WARNING: DEBUG MODE", font=(None, 10), text_color=("red")).pack(padx=10)
 
     def __update_repo(self):
         self.updater_textbox.configure(state="normal")
@@ -397,6 +395,8 @@ class App(CTk):
             self.__add_checkbox(self.lang.tpm_pin, device_info["TPMWithPIN"])
             self.__add_checkbox("Secure Boot Setup Mode", device_info["SetupMode"])
             self.__add_checkbox(self.lang.ms_keys, device_info["MicrosoftKeys"])
+            CTkLabel(self.report_tab, text=f"{self.lang.version}: {VERSION}", font=(None, 10)).pack(padx=10, pady=5)
+            if DEBUG: CTkLabel(self.report_tab, text="WARNING: DEBUG MODE", font=(None, 10), text_color=("red")).pack(padx=10)
 
     def _delete_tpm(self, drive):
         try:
