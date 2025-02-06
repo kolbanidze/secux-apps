@@ -449,10 +449,10 @@ class App(CTk):
             
             if config["dark_theme"]:
                 self.dark_theme = True
-                ###set_appearance_mode("dark")
+                set_appearance_mode("dark")
             else:
                 self.dark_theme = False
-                ###set_appearance_mode("light")
+                set_appearance_mode("light")
             
             self.ui_scale = int(config["scaling"].replace("%", "")) / 100
             set_widget_scaling(self.ui_scale)
