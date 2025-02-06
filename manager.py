@@ -578,7 +578,7 @@ def get_default_config() -> dict:
     return data
 
 if __name__ == "__main__":
-    if not os.geteuid() == 0():
+    if not os.geteuid() == 0:
         os.execvp("/usr/bin/pkexec", ["/usr/bin/pkexec", WORKDIR+"/"+sys.argv[0].split("/")[-1]])
     if not os.path.isfile(f"{WORKDIR}/configuration.conf"):
         with open(f"{WORKDIR}/configuration.conf", "w") as file:
