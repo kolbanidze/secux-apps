@@ -61,6 +61,8 @@ class Locale:
                               "SecureBoot state (including keys)", "Kernel cmdline (GRUB)", "All files read (GRUB)", "IMA measurement log", 
                               "UKI components; boot process stages", "UKI cmdline",
                               "UKI initrd extensions", "MOK certificates and hashes", "Encryption key, UUIDs, mountpoints"]
+            self.settings = "Settings"
+            self.lang = 'Version'
 
 
         elif language == "ru":
@@ -128,3 +130,5 @@ class Locale:
                             "Состояние SecureBoot (включая ключи)", "Командная строка ядра (GRUB)", "Все прочитанные файлы (GRUB)", "Журнал измерений IMA",
                             "Компоненты UKI; этапы процесса загрузки", "Командная строка UKI",
                             "Расширения UKI initrd", "Сертификаты и хэши MOK", "Ключ шифрования, UUID, точки монтирования"]
+            self.settings = "Настройки"
+            self.version = "Версия"

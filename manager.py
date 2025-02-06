@@ -4,7 +4,7 @@ import os
 from locale import getlocale
 from language import Locale
 from json import loads as json_decode
-from json import dumpds as json_encode
+from json import dumps as json_encode
 import subprocess
 import sys
 import pexpect
@@ -13,6 +13,7 @@ from PIL import Image
 from locale import getlocale
 import dbus
 
+VERSION = "0.1"
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -282,17 +283,18 @@ class App(CTk):
 
         self.an_error_occured = False
 
-        self.__load_language()
+        self.__load_configuration()
         self.lang = Locale(self.language)
 
         self.tabview = CTkTabview(self, command=self.__tabview_handler)
         self.tabview.add(self.lang.report)
         self.tabview.add(self.lang.utils)
         self.tabview.add(self.lang.update)
-        
+        self.tabview.add(self.lang.settings)
+
         self.tabview.set(self.lang.report)
         
-        self.tabview.pack(padx=10, pady=10)
+        self.tabview.pack()
 
         if not self._is_running_as_root():
             os.execvp("/usr/bin/pkexec", ["/usr/bin/pkexec", WORKDIR+"/"+sys.argv[0].split("/")[-1]])
@@ -303,6 +305,7 @@ class App(CTk):
         self.report_tab = self.tabview.tab(self.lang.report)
         self.utils_tab = self.tabview.tab(self.lang.utils)
         self.update_tab = self.tabview.tab(self.lang.update)
+        self.settings_tab = self.tabview.tab(self.lang.settings)
         self.__tabview_handler()
 
         drive_label = CTkLabel(self.utils_tab, text=f"{self.lang.drive}: {device_info["RootFSPartition"]}")
@@ -313,7 +316,7 @@ class App(CTk):
         delete_password = CTkButton(self.utils_tab, text=self.lang.delete_password, command=lambda: DeletePassword(self.lang, drive))
         enroll_password = CTkButton(self.utils_tab, text=self.lang.enroll_password, command=lambda: EnrollPassword(self.lang, drive))
 
-        ##### UPDATER #####
+        ##### BEGIN UPDATER #####
         update_image = CTkImage(light_image=Image.open(f'{WORKDIR}/images/update.png'), dark_image=Image.open(f'{WORKDIR}/images/update.png'), size=(80, 80))
         update_image_label = CTkLabel(self.update_tab, text="", image=update_image)
         updater_welcome = CTkLabel(self.update_tab, text=self.lang.update_msg)
@@ -330,6 +333,29 @@ class App(CTk):
         exit_button.pack(padx=15, pady=(0, 5))
         ##### END UPDATER #####
 
+        ##### BEGIN SETTINGS #####
+        language_label = CTkLabel(self.settings_tab, text="Язык | Language")
+        self.language_menu = CTkOptionMenu(self.settings_tab, values=["Русский", "English"])
+        if self.language == 'ru':
+            self.language_menu.set("Русский")
+        else:
+            self.language_menu.set("English")
+        scaling_label = CTkLabel(self.settings_tab, text="Мастшабирование | Scaling")
+        self.scaling_menu = CTkOptionMenu(self.settings_tab, values=["80%", "100%", "125%", "150%", "200%"])
+        self.scaling_menu.set(str(int(self.ui_scale*100))+"%")
+        self.dark_theme = CTkSwitch(self.settings_tab, text="Тёмная тема | Dark theme")
+        if self.dark_theme:
+            self.dark_theme.select()
+        save_btn = CTkButton(self.settings_tab, text="Сохранить и выйти | Save and exit", command=self.__save_configuration)
+
+        language_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
+        self.language_menu.grid(row=0, column=1, padx=10, pady=5, sticky="nsew")
+        scaling_label.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+        self.scaling_menu.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
+        self.dark_theme.grid(row=2, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        save_btn.grid(row=3, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+
+        ##### END SETTINGS #####
         drive_label.pack(padx=10, pady=5)
         enroll_tpm.pack(padx=10, pady=5)
         delete_tpm.pack(padx=10, pady=5)
@@ -337,7 +363,8 @@ class App(CTk):
         delete_recovery.pack(padx=10, pady=5)
         delete_password.pack(padx=10, pady=5)
         enroll_password.pack(padx=10, pady=5)
-        if DEBUG: CTkLabel(self, text="WARNING: DEBUG MODE", font=(None, 10), text_color=("red")).pack(padx=10, pady=5)
+        CTkLabel(self, text=f"{self.lang.version}: {VERSION}", font=(None, 10)).pack(padx=10, pady=5)
+        if DEBUG: CTkLabel(self, text="WARNING: DEBUG MODE", font=(None, 10), text_color=("red")).pack(padx=10)
 
     def __update_repo(self):
         self.updater_textbox.configure(state="normal")
@@ -373,8 +400,6 @@ class App(CTk):
             self.__add_checkbox("Secure Boot Setup Mode", device_info["SetupMode"])
             self.__add_checkbox(self.lang.ms_keys, device_info["MicrosoftKeys"])
 
-
-
     def _delete_tpm(self, drive):
         try:
             process = subprocess.run(f"systemd-cryptenroll --wipe-slot=tpm2 {drive}", shell=True, capture_output=True, text=True, check=True)
@@ -406,23 +431,50 @@ class App(CTk):
         checkbox.configure(state="disabled")
         checkbox.pack(padx=10, pady=5)
 
-    def __load_language(self):
-        if not os.path.isfile(f"{WORKDIR}/configuration.json"):
-            locale = getlocale()[0]
-            if "ru" in locale or "RU" in locale:
+    def __load_configuration(self):
+        with open(f"{WORKDIR}/configuration.conf", "r") as file:
+            config = json_decode(file.read())
+            if 'language' not in config or 'dark_theme' not in config or 'scaling' not in config:
+                print("Config corrupt. Returning to default values")
+                config = get_default_config()
+                file.write(json_encode(config))
+            
+            if config["language"] == "ru":
                 self.language = "ru"
             else:
                 self.language = "en"
-            # with open(f"{WORKDIR}/configuration.json", "w") as file:
-            #     file.write(json_encode({"language": self.language, ""}))
-        else:
-            with open(f"{WORKDIR}/language.conf", "r") as file:
-                contents = file.read()
-            if contents == "ru":
-                self.language = "ru"
+            
+            if config["dark_theme"]:
+                self.dark_theme = True
+                set_appearance_mode("dark")
             else:
-                self.language = "en"
+                self.dark_theme = False
+                set_appearance_mode("light")
+            
+            self.ui_scale = int(config["scaling"].replace("%", "")) / 100
+            set_widget_scaling(self.ui_scale)
+            set_window_scaling(self.ui_scale)
     
+    def __save_configuration(self):
+        if self.language_menu.get() == "Русский":
+            language = "ru"
+        else:
+            language = "en"
+        dark_theme = bool(self.dark_theme.get())
+        ui_scale = self.scaling_menu.get()
+        data = {"language": language, "dark_theme": dark_theme, "scaling": ui_scale}
+        with open(f"{WORKDIR}/configuration.conf", "w") as file:
+            file.write(json_encode(data))
+        ui_scale = int(ui_scale.replace("%", ""))/100
+        # set_widget_scaling(ui_scale)
+        # set_window_scaling(ui_scale)
+        # if dark_theme:
+        #     set_appearance_mode("dark")
+        # else:
+        #     set_appearance_mode("light")
+        
+        self.destroy()
+
     def _is_running_as_root(self):
         return os.geteuid() == 0
 
@@ -516,16 +568,23 @@ class App(CTk):
             "RootFSPartition": rootfs_partition
         }
 
-
+def get_default_config() -> dict:
+    locale = getlocale()[0]
+    dark_theme = 0
+    scaling = "100%"
+    bus = dbus.SessionBus()
+    settings = bus.get_object("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
+    settings_iface = dbus.Interface(settings, "org.freedesktop.portal.Settings")
+    dark_theme = settings_iface.Read("org.freedesktop.appearance", "color-scheme")
+    if 'ru' in locale or 'RU' in locale:
+        language = 'ru'
+    else:
+        language = 'en'
+    data = {"language": language, "dark_theme": bool(dark_theme), "scaling": scaling}
+    return data
 
 if __name__ == "__main__":
     if not os.path.isfile(f"{WORKDIR}/configuration.conf"):
-        locale = getlocale()[0]
-        dark_theme = 0
-        scaling = "100%"
-        bus = dbus.SessionBus()
-        settings = bus.get_object("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
-        settings_iface = dbus.Interface(settings, "org.freedesktop.portal.Settings")
-        dark_theme = settings_iface.Read("org.freedesktop.appearance", "color-scheme")
-        # TODO: при первом запуске записать эти данные в конфиг
+        with open(f"{WORKDIR}/configuration.conf", "w") as file:
+            file.write(json_encode(get_default_config()))
     App().mainloop()
