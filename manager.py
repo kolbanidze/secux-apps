@@ -12,7 +12,6 @@ import pexpect
 from hmac import compare_digest
 from PIL import Image
 from locale import getlocale
-import dbus
 
 VERSION = "0.1.2"
 DISTRO_NAME="SECUX"
