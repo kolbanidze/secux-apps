@@ -51,7 +51,7 @@ class Locale:
             self.update_msg = "Securitymanager updater"
             self.after_update = "To apply updates, you must restart the program"
             self.preset_secure = "Secure (own Secure Boot keys)"
-            self.preset_lessecure = "Backwards compatible (having Microsoft keys)"
+            self.preset_lesssecure = "Backwards compatible (having Microsoft keys)"
             self.preset_custom = "Custom"
             self.tpm_preset = "Disk Unlock Profile"
             self.sign_policy = "PCR Signing Policy"
