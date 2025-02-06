@@ -296,9 +296,6 @@ class App(CTk):
         
         self.tabview.pack()
 
-        if not self._is_running_as_root():
-            os.execvp("/usr/bin/pkexec", ["/usr/bin/pkexec", WORKDIR+"/"+sys.argv[0].split("/")[-1]])
-
         device_info = self._get_stats()
         drive = device_info["RootFSPartition"]
         
@@ -475,9 +472,6 @@ class App(CTk):
         
         self.destroy()
 
-    def _is_running_as_root(self):
-        return os.geteuid() == 0
-
     def _get_stats(self) -> dict:
         sbctl_exists_output = subprocess.run(['which', 'sbctl'], text=True, capture_output=True).stdout.strip()
         keys_enrolled = False
@@ -584,6 +578,8 @@ def get_default_config() -> dict:
     return data
 
 if __name__ == "__main__":
+    if not os.geteuid() == 0():
+        os.execvp("/usr/bin/pkexec", ["/usr/bin/pkexec", WORKDIR+"/"+sys.argv[0].split("/")[-1]])
     if not os.path.isfile(f"{WORKDIR}/configuration.conf"):
         with open(f"{WORKDIR}/configuration.conf", "w") as file:
             file.write(json_encode(get_default_config()))
