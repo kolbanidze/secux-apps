@@ -346,6 +346,8 @@ class App(CTk):
             self.dark_theme_switch.select()
         save_btn = CTkButton(self.settings_tab, text="Сохранить и выйти | Save and exit", command=self.__save_configuration)
 
+        self.settings_tab.grid_columnconfigure(0, weight=1)
+        self.settings_tab.grid_columnconfigure(1, weight=1)
         language_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
         self.language_menu.grid(row=0, column=1, padx=10, pady=5, sticky="nsew")
         scaling_label.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
