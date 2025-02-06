@@ -341,16 +341,16 @@ class App(CTk):
         scaling_label = CTkLabel(self.settings_tab, text="Мастшабирование | Scaling")
         self.scaling_menu = CTkOptionMenu(self.settings_tab, values=["80%", "100%", "125%", "150%", "200%"])
         self.scaling_menu.set(str(int(self.ui_scale*100))+"%")
-        self.dark_theme = CTkSwitch(self.settings_tab, text="Тёмная тема | Dark theme")
+        self.dark_theme_switch = CTkSwitch(self.settings_tab, text="Тёмная тема | Dark theme")
         if self.dark_theme:
-            self.dark_theme.select()
+            self.dark_theme_switch.select()
         save_btn = CTkButton(self.settings_tab, text="Сохранить и выйти | Save and exit", command=self.__save_configuration)
 
         language_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
         self.language_menu.grid(row=0, column=1, padx=10, pady=5, sticky="nsew")
         scaling_label.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
         self.scaling_menu.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
-        self.dark_theme.grid(row=2, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        self.dark_theme_switch.grid(row=2, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
         save_btn.grid(row=3, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
 
         ##### END SETTINGS #####
@@ -435,11 +435,11 @@ class App(CTk):
                 config = json_decode(file.read())
             except JSONDecodeError:
                 print("Config corrupt. Returning to default values")
-                config = get_default_config(locale="ru", dark_theme=True)
+                config = get_default_config()
                 file.write(json_encode(config))
             if 'language' not in config or 'dark_theme' not in config or 'scaling' not in config:
                 print("Config corrupt. Returning to default values")
-                config = get_default_config(locale='ru', dark_theme=True)
+                config = get_default_config()
                 file.write(json_encode(config))
             
             if config["language"] == "ru":
@@ -463,7 +463,7 @@ class App(CTk):
             language = "ru"
         else:
             language = "en"
-        dark_theme = bool(self.dark_theme.get())
+        dark_theme = bool(self.dark_theme_switch.get())
         ui_scale = self.scaling_menu.get()
         data = {"language": language, "dark_theme": dark_theme, "scaling": ui_scale}
         with open(f"{WORKDIR}/configuration.conf", "w") as file:
@@ -568,21 +568,15 @@ class App(CTk):
             "RootFSPartition": rootfs_partition
         }
 
-def get_default_config(locale = None, dark_theme = None, scaling: str = "100%") -> dict:
+def get_default_config(locale = None, dark_theme = False, scaling: str = "100%") -> dict:
     if not locale:
         locale = getlocale()[0]
-    if not dark_theme:
-        dark_theme = 0
-        bus = dbus.SessionBus()
-        settings = bus.get_object("org.freedesktop.portal.Desktop", "/org/freedesktop/portal/desktop")
-        settings_iface = dbus.Interface(settings, "org.freedesktop.portal.Settings")
-        dark_theme = settings_iface.Read("org.freedesktop.appearance", "color-scheme")
     
     if 'ru' in locale or 'RU' in locale:
         language = 'ru'
     else:
         language = 'en'
-    data = {"language": language, "dark_theme": bool(dark_theme), "scaling": scaling}
+    data = {"language": language, "dark_theme": dark_theme, "scaling": scaling}
     return data
 
 if __name__ == "__main__":

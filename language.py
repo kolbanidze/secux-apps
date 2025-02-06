@@ -62,7 +62,7 @@ class Locale:
                               "UKI components; boot process stages", "UKI cmdline",
                               "UKI initrd extensions", "MOK certificates and hashes", "Encryption key, UUIDs, mountpoints"]
             self.settings = "Settings"
-            self.lang = 'Version'
+            self.version = 'Version'
 
 
         elif language == "ru":
