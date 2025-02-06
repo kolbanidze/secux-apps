@@ -5,6 +5,7 @@ from locale import getlocale
 from language import Locale
 from json import loads as json_decode
 from json import dumps as json_encode
+from json.decoder import JSONDecodeError
 import subprocess
 import sys
 import pexpect
@@ -430,7 +431,12 @@ class App(CTk):
 
     def __load_configuration(self):
         with open(f"{WORKDIR}/configuration.conf", "r") as file:
-            config = json_decode(file.read())
+            try:
+                config = json_decode(file.read())
+            except JSONDecodeError:
+                print("Config corrupt. Returning to default values")
+                config = get_default_config()
+                file.write(json_encode(config))
             if 'language' not in config or 'dark_theme' not in config or 'scaling' not in config:
                 print("Config corrupt. Returning to default values")
                 config = get_default_config()
@@ -583,4 +589,5 @@ if __name__ == "__main__":
     if not os.path.isfile(f"{WORKDIR}/configuration.conf"):
         with open(f"{WORKDIR}/configuration.conf", "w") as file:
             file.write(json_encode(get_default_config()))
+
     App().mainloop()
