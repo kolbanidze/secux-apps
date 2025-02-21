@@ -347,10 +347,16 @@ class App(CTk):
         if self.dark_theme:
             self.dark_theme_switch.select()
         flatpak = CTkLabel(self.settings_tab, text="Flatpak", font=(None, 16, 'bold'))
-        self.use_offline_repo = CTkCheckBox(self.settings_tab, text=self.lang.offline_repo)
+        self.use_offline_repo = CTkCheckBox(self.settings_tab, text=self.lang.offline_repo, command=self.__toggle_use_offline_repo)
+        if self.use_repo:
+            self.use_offline_repo.select()
         select_offline_repo_btn = CTkButton(self.settings_tab, text=self.lang.select_offline_repo, command=self.__select_offline_repo_dir)
         repo = CTkLabel(self.settings_tab, text=self.lang.repo)
         self.repo_entry= CTkEntry(self.settings_tab, state="disabled")
+        if self.offline_repo:
+            self.repo_entry.configure(state="normal")
+            self.repo_entry.insert(0, self.offline_repo)
+            self.repo_entry.configure(state="disabled")
         save_btn = CTkButton(self.settings_tab, text="Сохранить и выйти | Save and exit", command=self.__save_configuration)
 
         self.settings_tab.grid_columnconfigure(0, weight=1)
@@ -424,12 +430,19 @@ class App(CTk):
         download_to_offline_repo.grid(row=9, column=0, padx=10, pady=5, sticky="nsew")
         install.grid(row=9, column=1, padx=10, pady=5, sticky="nsew")
 
+    def __toggle_use_offline_repo(self):
+        if self.use_offline_repo.get():
+            self.use_repo = True
+        else:
+            self.use_repo = False
+
     def __select_offline_repo_dir(self):
         dir = filedialog.askdirectory()
         self.repo_entry.configure(state="normal")
         self.repo_entry.delete(0, 'end')
         self.repo_entry.insert(0, dir)
         self.repo_entry.configure(state="disabled")
+        self.offline_repo = dir
 
     def __update_repo(self):
         self.updater_textbox.configure(state="normal")
@@ -466,6 +479,12 @@ class App(CTk):
             self.__add_checkbox(self.lang.ms_keys, device_info["MicrosoftKeys"])
             CTkLabel(self.report_tab, text=f"{self.lang.version}: {VERSION}", font=(None, 10)).pack(padx=10, pady=5)
             if DEBUG: CTkLabel(self.report_tab, text="WARNING: DEBUG MODE", font=(None, 10), text_color=("red")).pack(padx=10)
+        if self.tabview.get() == "Flatpak":
+            print("offline repo:", self.offline_repo)
+            if len(self.offline_repo) > 0 and self.use_repo:
+                self.flatpak_source.configure(text=f"{self.lang.source}: {self.lang.offline}")
+            else:
+                self.flatpak_source.configure(text=f"{self.lang.source}: {self.lang.online}")
 
     def _delete_tpm(self, drive):
         try:
@@ -503,7 +522,7 @@ class App(CTk):
             try:
                 config = json_decode(file.read())
             except JSONDecodeError:
-                print("Config corrupt. Returning to default values")
+                print("Config corrupt. Returning to default values(1)")
                 config = get_default_config()
                 file.seek(0)
                 file.truncate(0) # WHY?
@@ -515,7 +534,7 @@ class App(CTk):
                 file.seek(0)
                 file.truncate(0)
                 file.write(json_encode(config))
-                self.flush()
+                file.flush()
             
             if config["language"] == "ru":
                 self.language = "ru"
@@ -543,12 +562,16 @@ class App(CTk):
             language = "en"
         dark_theme = bool(self.dark_theme_switch.get())
         ui_scale = self.scaling_menu.get()
+
+        use_repo = bool(self.use_offline_repo.get())
+
         if len(self.repo_entry.get()) == 0:
             offline_repo = False
+            use_repo = False
         else:
             offline_repo = self.repo_entry.get()
-        use_repo = bool(self.use_offline_repo.get())
-        data = {"language": language, "dark_theme": dark_theme, "scaling": ui_scale, 'offline_repo': offline_repo, 'usr_repo': use_repo}
+        
+        data = {"language": language, "dark_theme": dark_theme, "scaling": ui_scale, 'offline_repo': offline_repo, 'use_repo': use_repo}
         with open(f"{WORKDIR}/configuration.conf", "w") as file:
             file.write(json_encode(data))
         ui_scale = int(ui_scale.replace("%", ""))/100
