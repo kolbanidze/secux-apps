@@ -63,7 +63,14 @@ class Locale:
                               "UKI initrd extensions", "MOK certificates and hashes", "Encryption key, UUIDs, mountpoints"]
             self.settings = "Settings"
             self.version = 'Version'
-
+            self.source = "Packages source"
+            self.online = "online"
+            self.offline = "offline"
+            self.select_offline_repo = "Select offline repo"
+            self.offline_repo = "Offline repo"
+            self.repo = "Repository"
+            self.download = "Download"
+            self.install = "Install"
 
         elif language == "ru":
             self.report = "Отчёт"
@@ -132,3 +139,11 @@ class Locale:
                             "Расширения UKI initrd", "Сертификаты и хэши MOK", "Ключ шифрования, UUID, точки монтирования"]
             self.settings = "Настройки"
             self.version = "Версия"
+            self.source = "Источник пакетов"
+            self.online = "онлайн"
+            self.offline = "офлайн"
+            self.select_offline_repo = "Выбрать офлайн репозиторий"
+            self.offline_repo = "Офлайн репозиторий"
+            self.repo = "Репозиторий"
+            self.download = "Скачать"
+            self.install = 'Установить'

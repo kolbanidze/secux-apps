@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 from customtkinter import *
+from tkinter import filedialog
 import os
 from locale import getlocale
 from language import Locale
@@ -275,7 +276,6 @@ class EnrollPassword(CTkToplevel):
             Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.enroll_password_error, message_bold=False, exit_btn_msg=self.lang.exit)
 
         
-
 class App(CTk):
     def __init__(self, fg_color = None, **kwargs):
         super().__init__(fg_color, **kwargs)
@@ -291,6 +291,7 @@ class App(CTk):
         self.tabview.add(self.lang.utils)
         self.tabview.add(self.lang.update)
         self.tabview.add(self.lang.settings)
+        self.tabview.add("Flatpak")
 
         self.tabview.set(self.lang.report)
         
@@ -303,6 +304,7 @@ class App(CTk):
         self.utils_tab = self.tabview.tab(self.lang.utils)
         self.update_tab = self.tabview.tab(self.lang.update)
         self.settings_tab = self.tabview.tab(self.lang.settings)
+        self.flatpak_tab = self.tabview.tab("Flatpak")
         self.__tabview_handler()
 
         drive_label = CTkLabel(self.utils_tab, text=f"{self.lang.drive}: {device_info["RootFSPartition"]}")
@@ -331,6 +333,7 @@ class App(CTk):
         ##### END UPDATER #####
 
         ##### BEGIN SETTINGS #####
+        manager = CTkLabel(self.settings_tab, text="Manager", font=(None, 16, 'bold'))
         language_label = CTkLabel(self.settings_tab, text="Язык | Language")
         self.language_menu = CTkOptionMenu(self.settings_tab, values=["Русский", "English"])
         if self.language == 'ru':
@@ -343,16 +346,27 @@ class App(CTk):
         self.dark_theme_switch = CTkSwitch(self.settings_tab, text="Тёмная тема | Dark theme")
         if self.dark_theme:
             self.dark_theme_switch.select()
+        flatpak = CTkLabel(self.settings_tab, text="Flatpak", font=(None, 16, 'bold'))
+        self.use_offline_repo = CTkCheckBox(self.settings_tab, text=self.lang.offline_repo)
+        select_offline_repo_btn = CTkButton(self.settings_tab, text=self.lang.select_offline_repo, command=self.__select_offline_repo_dir)
+        repo = CTkLabel(self.settings_tab, text=self.lang.repo)
+        self.repo_entry= CTkEntry(self.settings_tab, state="disabled")
         save_btn = CTkButton(self.settings_tab, text="Сохранить и выйти | Save and exit", command=self.__save_configuration)
 
         self.settings_tab.grid_columnconfigure(0, weight=1)
         self.settings_tab.grid_columnconfigure(1, weight=1)
-        language_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
-        self.language_menu.grid(row=0, column=1, padx=10, pady=5, sticky="nsew")
-        scaling_label.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
-        self.scaling_menu.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
-        self.dark_theme_switch.grid(row=2, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
-        save_btn.grid(row=3, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        manager.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        language_label.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+        self.language_menu.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
+        scaling_label.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
+        self.scaling_menu.grid(row=2, column=1, padx=10, pady=5, sticky="nsew")
+        self.dark_theme_switch.grid(row=3, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        flatpak.grid(row=4, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        self.use_offline_repo.grid(row=5, column=0, padx=10, pady=5, sticky="nsew")
+        select_offline_repo_btn.grid(row=5, column=1, padx=10, pady=5, sticky="nsew")
+        repo.grid(row=6, column=0, padx=10, pady=5, sticky='nsew')
+        self.repo_entry.grid(row=6, column=1, padx=10, pady=5, sticky="nsew")
+        save_btn.grid(row=100, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
 
         ##### END SETTINGS #####
         drive_label.pack(padx=10, pady=5)
@@ -362,6 +376,60 @@ class App(CTk):
         delete_recovery.pack(padx=10, pady=5)
         delete_password.pack(padx=10, pady=5)
         enroll_password.pack(padx=10, pady=5)
+
+        ##### FLATPAK #####
+        self.flatpak_source = CTkLabel(self.flatpak_tab, font=(None, 16, 'bold'), text=f"{self.lang.source}: {self.lang.online}")
+        # offline_repo = CTkLabel(self.flatpak_tab, text=f"{self.lang.offline_repo}:")
+
+        self.chromium = CTkCheckBox(self.flatpak_tab, text="Chromium") # org.chromium.Chromium
+        self.firefox = CTkCheckBox(self.flatpak_tab, text="Firefox") # no config required (org.mozilla.firefox)
+        self.yandex = CTkCheckBox(self.flatpak_tab, text="Yandex") # better not to use (X11 only)
+        self.telegram = CTkCheckBox(self.flatpak_tab, text="Telegram") # org.telegram.desktop
+        self.vlc = CTkCheckBox(self.flatpak_tab, text="VLC")
+        self.obs = CTkCheckBox(self.flatpak_tab, text="OBS")
+        self.flatseal = CTkCheckBox(self.flatpak_tab, text="Flatseal")
+        self.discord = CTkCheckBox(self.flatpak_tab, text="Discord")
+        self.keepassxc = CTkCheckBox(self.flatpak_tab, text="KeePassXC")
+        self.qbittorrent = CTkCheckBox(self.flatpak_tab, text="qBitTorrent")
+        self.bitwarden = CTkCheckBox(self.flatpak_tab, text="BitWarden")
+        self.viber = CTkCheckBox(self.flatpak_tab, text="Viber")
+        self.libreoffice = CTkCheckBox(self.flatpak_tab, text="Libreoffice")
+        self.onlyoffice = CTkCheckBox(self.flatpak_tab, text="Onlyoffice")
+        download_to_offline_repo = CTkButton(self.flatpak_tab, text=self.lang.download)
+        install = CTkButton(self.flatpak_tab, text=self.lang.install)
+
+        self.flatpak_tab.grid_columnconfigure((0,1), weight=1)
+
+        self.flatpak_source.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        # select_offline_repo_btn.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+        # offline_repo.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
+
+        # self.apps.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        # self.apps.grid_columnconfigure((0,1), weight=1)
+        self.chromium.grid(row=2, column=0, padx=10, pady=5)
+        self.firefox.grid(row=2, column=1, padx=10, pady=5)
+        self.yandex.grid(row=3, column=0, padx=10, pady=5)
+        self.telegram.grid(row=3, column=1, padx=10, pady=5)
+        self.vlc.grid(row=4, column=0, padx=10, pady=5)
+        self.obs.grid(row=4, column=1, padx=10, pady=5)
+        self.flatseal.grid(row=5, column=0, padx=10, pady=5)
+        self.discord.grid(row=5, column=1, padx=10, pady=5)
+        self.keepassxc.grid(row=6, column=0, padx=10, pady=5)
+        self.qbittorrent.grid(row=6, column=1, padx=10, pady=5)
+        self.bitwarden.grid(row=7, column=0, padx=10, pady=5)
+        self.viber.grid(row=7, column=1, padx=10, pady=5)
+        self.libreoffice.grid(row=8, column=0, padx=10, pady=5)
+        self.onlyoffice.grid(row=8, column=1, padx=10, pady=5)
+
+        download_to_offline_repo.grid(row=9, column=0, padx=10, pady=5, sticky="nsew")
+        install.grid(row=9, column=1, padx=10, pady=5, sticky="nsew")
+
+    def __select_offline_repo_dir(self):
+        dir = filedialog.askdirectory()
+        self.repo_entry.configure(state="normal")
+        self.repo_entry.delete(0, 'end')
+        self.repo_entry.insert(0, dir)
+        self.repo_entry.configure(state="disabled")
 
     def __update_repo(self):
         self.updater_textbox.configure(state="normal")
@@ -437,11 +505,17 @@ class App(CTk):
             except JSONDecodeError:
                 print("Config corrupt. Returning to default values")
                 config = get_default_config()
+                file.seek(0)
+                file.truncate(0) # WHY?
                 file.write(json_encode(config))
-            if 'language' not in config or 'dark_theme' not in config or 'scaling' not in config:
+                file.flush()
+            if 'language' not in config or 'dark_theme' not in config or 'scaling' not in config or 'offline_repo' not in config or 'use_repo' not in config:
                 print("Config corrupt. Returning to default values")
                 config = get_default_config()
+                file.seek(0)
+                file.truncate(0)
                 file.write(json_encode(config))
+                self.flush()
             
             if config["language"] == "ru":
                 self.language = "ru"
@@ -455,6 +529,9 @@ class App(CTk):
                 self.dark_theme = False
                 set_appearance_mode("light")
             
+            self.offline_repo = config["offline_repo"]
+            self.use_repo = bool(config["use_repo"])
+
             self.ui_scale = int(config["scaling"].replace("%", "")) / 100
             set_widget_scaling(self.ui_scale)
             set_window_scaling(self.ui_scale)
@@ -466,7 +543,12 @@ class App(CTk):
             language = "en"
         dark_theme = bool(self.dark_theme_switch.get())
         ui_scale = self.scaling_menu.get()
-        data = {"language": language, "dark_theme": dark_theme, "scaling": ui_scale}
+        if len(self.repo_entry.get()) == 0:
+            offline_repo = False
+        else:
+            offline_repo = self.repo_entry.get()
+        use_repo = bool(self.use_offline_repo.get())
+        data = {"language": language, "dark_theme": dark_theme, "scaling": ui_scale, 'offline_repo': offline_repo, 'usr_repo': use_repo}
         with open(f"{WORKDIR}/configuration.conf", "w") as file:
             file.write(json_encode(data))
         ui_scale = int(ui_scale.replace("%", ""))/100
@@ -577,7 +659,7 @@ def get_default_config(locale = None, dark_theme = False, scaling: str = "100%")
         language = 'ru'
     else:
         language = 'en'
-    data = {"language": language, "dark_theme": dark_theme, "scaling": scaling}
+    data = {"language": language, "dark_theme": dark_theme, "scaling": scaling, 'offline_repo': None, 'use_repo': False}
     return data
 
 if __name__ == "__main__":
