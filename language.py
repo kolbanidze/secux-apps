@@ -71,6 +71,9 @@ class Locale:
             self.repo = "Repository"
             self.download = "Download"
             self.install = "Install"
+            self.successfully_downloaded = "The process was completed"
+            self.successfully_installed = "The process was completed"
+            self.downloading_of_packages = "Installing packages started"
 
         elif language == "ru":
             self.report = "Отчёт"
@@ -147,3 +150,6 @@ class Locale:
             self.repo = "Репозиторий"
             self.download = "Скачать"
             self.install = 'Установить'
+            self.successfully_downloaded = "Процесс был завершен"
+            self.successfully_installed = "Процесс был завершен"
+            self.downloading_of_packages = "Начата установка пакетов"

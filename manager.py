@@ -13,8 +13,9 @@ import pexpect
 from hmac import compare_digest
 from PIL import Image
 from locale import getlocale
+import threading
 
-VERSION = "0.1.2"
+VERSION = "0.2"
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -401,8 +402,9 @@ class App(CTk):
         self.viber = CTkCheckBox(self.flatpak_tab, text="Viber")
         self.libreoffice = CTkCheckBox(self.flatpak_tab, text="Libreoffice")
         self.onlyoffice = CTkCheckBox(self.flatpak_tab, text="Onlyoffice")
-        download_to_offline_repo = CTkButton(self.flatpak_tab, text=self.lang.download)
-        install = CTkButton(self.flatpak_tab, text=self.lang.install)
+        download_to_offline_repo = CTkButton(self.flatpak_tab, text=self.lang.download, command=self.__download_button_handler)
+        install = CTkButton(self.flatpak_tab, text=self.lang.install, command=self.__install_packages)
+        self.flatpak_console = CTkTextbox(self.flatpak_tab, state="disabled")
 
         self.flatpak_tab.grid_columnconfigure((0,1), weight=1)
 
@@ -429,6 +431,119 @@ class App(CTk):
 
         download_to_offline_repo.grid(row=9, column=0, padx=10, pady=5, sticky="nsew")
         install.grid(row=9, column=1, padx=10, pady=5, sticky="nsew")
+        self.flatpak_tab.grid_rowconfigure(10, weight=1)
+        self.flatpak_console.grid(row=10, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+
+    def __get_packages(self):
+        packages = []
+        if self.chromium.get():
+            packages.append("org.chromium.Chromium")
+        if self.firefox.get():
+            packages.append("org.mozilla.firefox")
+        if self.yandex.get():
+            packages.append("ru.yandex.Browser")
+        if self.vlc.get():
+            packages.append("org.videolan.VLC")
+        if self.obs.get():
+            packages.append("com.obsproject.Studio")
+        if self.flatseal.get():
+            packages.append("com.github.tchx84.Flatseal")
+        if self.discord.get():
+            packages.append("com.discordapp.Discord")
+        if self.keepassxc.get():
+            packages.append("org.keepassxc.KeePassXC")
+        if self.qbittorrent.get():
+            packages.append("org.qbittorrent.qBittorrent")
+        if self.bitwarden.get():
+            packages.append("com.bitwarden.desktop")
+        if self.viber.get():
+            packages.append("com.viber.Viber")
+        if self.libreoffice.get():
+            packages.append("org.libreoffice.LibreOffice")
+        if self.onlyoffice.get():
+            packages.append("org.onlyoffice.desktopeditors")
+        return packages
+
+    def __download_button_handler(self):
+        if not self.offline_repo:
+            print("error. repo is not selected.")
+            return
+        packages = self.__get_packages()
+        if len(packages) == 0:
+            print("error. no packages selected.")
+            return
+        packages = " ".join(packages)
+        self.commands = []
+        self._execute(f"echo {self.lang.downloading_of_packages}: {packages}")
+        self._execute(f'flatpak create-usb "{self.offline_repo}" {packages} --allow-partial')
+        self._execute(f"echo [{self.lang.successfully_downloaded}]")
+        self._execute_commands(self.commands)
+
+    def __install_packages(self):
+        self.commands = []
+        packages = self.__get_packages()
+        if len(packages) == 0:
+            print("error. no packages selected.")
+            return
+        
+        packages = " ".join(packages)
+
+        if self.offline_repo:
+            self._execute(f'flatpak install --sideload-repo="{self.offline_repo}" {packages} -y')
+            self._execute(f"echo [{self.lang.successfully_installed}]")
+        else:
+            self._execute(f"flatpak install {packages} -y")
+            self._execute(f"echo [{self.lang.successfully_installed}]")
+        self._execute("mkdir -p /var/lib/flatpak/overrides")
+        self._execute(f"cp {WORKDIR}/overrides/* /var/lib/flatpak/overrides/")
+        self._execute_commands(self.commands)
+
+    def _execute(self, command: str, input: str = None):
+        if input:
+            self.commands.append({"command": command, "input": input})
+        else:
+            self.commands.append({"command": command})
+
+    def _execute_commands(self, commands: list):
+        def run_commands():
+            for cmd in commands:
+                try:
+                    print(f"Executing: {cmd['command']}")
+                    process = subprocess.Popen(
+                        cmd["command"],
+                        stdin=subprocess.PIPE if "input" in cmd else None,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        shell=True,
+                        text=True,
+                        executable="/bin/bash",
+                        bufsize=1  # Line-buffered output
+                    )
+                    if "input" in cmd:
+                        process.stdin.write(cmd["input"])
+                        process.stdin.close()
+
+                    def update_console(text):
+                        self.flatpak_console.configure(state="normal")
+                        self.flatpak_console.insert(END, text)
+                        self.flatpak_console.see(END)
+                        self.flatpak_console.configure(state="disabled")
+
+                    for line in process.stdout:
+                        print(line, end="")
+                        self.flatpak_console.after(0, update_console, line)
+
+                    for line in process.stderr:
+                        print(line, end="")
+                        self.flatpak_console.after(0, update_console, line)
+
+                    process.wait()
+                    print("\n")
+
+                except Exception as e:
+                    self.flatpak_console.after(0, update_console, f"Error: {str(e)}\n")
+
+        threading.Thread(target=run_commands, daemon=True).start()
 
     def __toggle_use_offline_repo(self):
         if self.use_offline_repo.get():
@@ -480,8 +595,7 @@ class App(CTk):
             CTkLabel(self.report_tab, text=f"{self.lang.version}: {VERSION}", font=(None, 10)).pack(padx=10, pady=5)
             if DEBUG: CTkLabel(self.report_tab, text="WARNING: DEBUG MODE", font=(None, 10), text_color=("red")).pack(padx=10)
         if self.tabview.get() == "Flatpak":
-            print("offline repo:", self.offline_repo)
-            if len(self.offline_repo) > 0 and self.use_repo:
+            if self.offline_repo and self.use_repo:
                 self.flatpak_source.configure(text=f"{self.lang.source}: {self.lang.offline}")
             else:
                 self.flatpak_source.configure(text=f"{self.lang.source}: {self.lang.online}")
@@ -509,7 +623,6 @@ class App(CTk):
             Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.delete_recovery_success, message_bold=False, exit_btn_msg=self.lang.exit)
         else:
             Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.delete_recovery_failed, message_bold=False, exit_btn_msg=self.lang.exit)
-
 
     def __add_checkbox(self, text: str, parameter: bool):
         checkbox = CTkCheckBox(self.report_tab, text=text)
