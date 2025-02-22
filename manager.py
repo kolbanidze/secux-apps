@@ -15,7 +15,7 @@ from PIL import Image
 from locale import getlocale
 import threading
 
-VERSION = "0.2"
+VERSION = "0.2.1"
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -444,6 +444,8 @@ class App(CTk):
             packages.append("ru.yandex.Browser")
         if self.vlc.get():
             packages.append("org.videolan.VLC")
+        if self.telegram.get():
+            packages.append("org.telegram.desktop")
         if self.obs.get():
             packages.append("com.obsproject.Studio")
         if self.flatseal.get():
