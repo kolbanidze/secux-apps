@@ -15,7 +15,7 @@ from PIL import Image
 from locale import getlocale
 import threading
 
-VERSION = "0.2.1"
+VERSION = "0.2.2"
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -280,7 +280,7 @@ class EnrollPassword(CTkToplevel):
 class App(CTk):
     def __init__(self, fg_color = None, **kwargs):
         super().__init__(fg_color, **kwargs)
-        self.title(f"{DISTRO_NAME} security manager")
+        self.title(f"Security Manager")
 
         self.an_error_occured = False
 
@@ -319,18 +319,21 @@ class App(CTk):
         ##### BEGIN UPDATER #####
         update_image = CTkImage(light_image=Image.open(f'{WORKDIR}/images/update.png'), dark_image=Image.open(f'{WORKDIR}/images/update.png'), size=(80, 80))
         update_image_label = CTkLabel(self.update_tab, text="", image=update_image)
-        updater_welcome = CTkLabel(self.update_tab, text=self.lang.update_msg)
-        run_update = CTkButton(self.update_tab, text=self.lang.update, command=self.__update_repo)
+        run_update_sm = CTkButton(self.update_tab, text=f"{self.lang.update} Security Manager", command=self.__update_repo)
+        run_update_ka = CTkButton(self.update_tab, text=f"{self.lang.update} KIRTapp", command=self.__update_KIRTapp)
         self.updater_textbox = CTkTextbox(self.update_tab, state="disabled")
         after_update = CTkLabel(self.update_tab, text=self.lang.after_update)
         exit_button = CTkButton(self.update_tab, text=self.lang.exit, command=self.destroy)
 
-        update_image_label.pack(padx=15, pady=5)
-        updater_welcome.pack(padx=15, pady=5)
-        run_update.pack(padx=15, pady=(0, 5))
-        self.updater_textbox.pack(padx=15, pady=5, expand=True, fill="both")
-        after_update.pack(padx=15, pady=5)
-        exit_button.pack(padx=15, pady=(0, 5))
+        self.update_tab.grid_rowconfigure(2, weight=1)
+        self.update_tab.grid_columnconfigure(0, weight=1)
+        self.update_tab.grid_columnconfigure(1, weight=1)
+        update_image_label.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        run_update_sm.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+        run_update_ka.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
+        self.updater_textbox.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        after_update.grid(row=3, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+        exit_button.grid(row=4, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
         ##### END UPDATER #####
 
         ##### BEGIN SETTINGS #####
@@ -569,7 +572,28 @@ class App(CTk):
             os.chdir(repo_path)
             
             process = subprocess.Popen(
-                ["git", "pull", "origin", "main"],
+                ["/usr/bin/git", "pull", "origin", "main"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True)
+            stdout, stderr = process.communicate()
+            if stdout:
+                self.updater_textbox.insert("end", stdout)
+            if stderr:
+                self.updater_textbox.insert("end", stderr)
+        except Exception as e:
+            self.updater_textbox.insert("end", f"ERROR: {e}\n")
+        self.updater_textbox.configure(state="disabled")
+
+    def __update_KIRTapp(self):
+        self.updater_textbox.configure(state="normal")
+        try:
+            # Ensure the script is running from a Git repository
+            repo_path = "/usr/local/bin/KIRTapp"
+            os.chdir(repo_path)
+            
+            process = subprocess.Popen(
+                ["/usr/bin/git", "pull", "origin", "main"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True)
