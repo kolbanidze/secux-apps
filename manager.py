@@ -15,7 +15,7 @@ from PIL import Image
 from locale import getlocale
 import threading
 
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -564,17 +564,20 @@ class App(CTk):
         self.repo_entry.configure(state="disabled")
         self.offline_repo = dir
 
-    def __update_repo(self):
+    def __update_repo(self, KIRTapp: bool = False):
         self.updater_textbox.configure(state="normal")
         try:
             # Ensure the script is running from a Git repository
             repo_path = os.path.dirname(os.path.abspath(__file__))
+            if KIRTapp:
+                repo_path = "/usr/local/bin/KIRTapp"
             os.chdir(repo_path)
             
             process = subprocess.Popen(
-                ["/usr/bin/git", "pull", "origin", "main"],
+                "git fetch; git reset --hard; git pull origin main",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                shell=True,
                 text=True)
             stdout, stderr = process.communicate()
             if stdout:
@@ -586,25 +589,7 @@ class App(CTk):
         self.updater_textbox.configure(state="disabled")
 
     def __update_KIRTapp(self):
-        self.updater_textbox.configure(state="normal")
-        try:
-            # Ensure the script is running from a Git repository
-            repo_path = "/usr/local/bin/KIRTapp"
-            os.chdir(repo_path)
-            
-            process = subprocess.Popen(
-                ["/usr/bin/git", "pull", "origin", "main"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True)
-            stdout, stderr = process.communicate()
-            if stdout:
-                self.updater_textbox.insert("end", stdout)
-            if stderr:
-                self.updater_textbox.insert("end", stderr)
-        except Exception as e:
-            self.updater_textbox.insert("end", f"ERROR: {e}\n")
-        self.updater_textbox.configure(state="disabled")
+        self.__update_repo(KIRTapp=True)
 
     def __tabview_handler(self):
         for widget in self.tabview.tab(self.lang.report).winfo_children():
