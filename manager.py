@@ -15,7 +15,7 @@ from PIL import Image
 from locale import getlocale
 import threading
 
-VERSION = "0.2.3"
+VERSION = "0.2.4"
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
