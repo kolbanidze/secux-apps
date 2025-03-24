@@ -14,8 +14,14 @@ from hmac import compare_digest
 from PIL import Image
 from locale import getlocale
 import threading
+import pwd
+import qrcode
+from socket import getfqdn as get_hostname
+from secrets import token_bytes, choice
+from base64 import b32encode
+import fileinput
 
-VERSION = "0.2.4"
+VERSION = "0.2.5"
 DISTRO_NAME="SECUX"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -276,6 +282,193 @@ class EnrollPassword(CTkToplevel):
         else:
             Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.enroll_password_error, message_bold=False, exit_btn_msg=self.lang.exit)
 
+
+class Manage2FAUsers(CTkToplevel):
+    def __init__(self, lang):
+        # /etc/securitymanager-2fa/${USER} | chmod 0600 | chown root:root
+        super().__init__()
+        self.lang = lang
+        self.title(self.lang.manage_2fa_users)
+        label = CTkLabel(self, text=self.lang.managing_2fa_for_users)
+        self.users = CTkOptionMenu(self, values=self._get_users())
+        register = CTkButton(self, text=self.lang.register, command=self._register_user)
+        show_info = CTkButton(self, text=self.lang.show_registration_info, command=self._show_registration_info)
+        delete = CTkButton(self, text=self.lang.delete_registation, command=self._delete_registration)
+        self.apply_2fa_in_ssh = CTkSwitch(self, text=self.lang.apply_2fa_ssh)
+        self.apply_2fa_in_system = CTkSwitch(self, text=self.lang.apply_2fa_login)
+        save_apply = CTkButton(self, text=self.lang.save_apply, command=lambda: self._register_google_authenticator_so(ssh=True, login=True))
+        self.apply_2fa_in_ssh.select()
+        self.apply_2fa_in_system.select()
+
+        label.pack(padx=30, pady=5)
+        self.users.pack(padx=30, pady=5)
+        register.pack(padx=30, pady=5)
+        show_info.pack(padx=30, pady=5)
+        delete.pack(padx=30, pady=5)
+        self.apply_2fa_in_ssh.pack(padx=30, pady=5)
+        self.apply_2fa_in_system.pack(padx=30, pady=5)
+        save_apply.pack(padx=30, pady=5)
+
+    def _get_users(self, minpid: int = 1000, show_root: bool = True, show_nobody: bool = False) -> list:
+        users = []
+        for user in pwd.getpwall():
+            if user.pw_uid >= minpid:
+                if not show_nobody:
+                    if user.pw_name == "nobody":
+                        continue
+                users.append(user.pw_name)
+            
+            if show_root:
+                if user.pw_uid == 0:
+                    users.append(user.pw_name)
+        return users
+
+    def _check_for_dependencies(self) -> bool:
+        """True - libpam-google-authenticator installed, False - missing"""
+        if not os.path.isfile("/usr/lib/security/pam_google_authenticator.so"):
+            return False
+        if not os.path.isfile("/usr/bin/google-authenticator"):
+            return False
+        return True
+
+    def _register_google_authenticator_so(self, ssh: bool, login: bool) -> dict:
+        """returns ["ssh": bool (success->True), "login": bool (success->True)]"""
+        returns = {"ssh": True, "login": True}
+        if os.path.isfile("/etc/pam.d/sshd"):
+            with open("/etc/pam.d/sshd", "r") as file:
+                if "pam_google_authenticator.so" in file.read():
+                    returns["ssh"] = False
+                else:
+                    with fileinput.input("/etc/pam.d/sshd", inplace=True, backup=".bak") as file:
+                        inserted = False
+                        for line in file:
+                            if not inserted and "auth      include   system-remote-login" in line:
+                                print("auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/${USER}")
+                                inserted = True
+                            print(line, end="")
+                    # os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/${USER}" >> /etc/pam.d/sshd')
+        else:
+            returns["ssh"] = False
+        
+        if os.path.isfile("/etc/pam.d/login"):
+            with open("/etc/pam.d/login", 'r') as file:
+                if 'pam_google_authenticator.so' not in file.read():
+                    os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/2fa-secrets/\\${USER}/.google_authenticator" >> /etc/pam.d/login')
+        
+        if os.path.isfile("/etc/pam.d/gdm-password"):
+            with open("/etc/pam.d/gdm-password") as file:
+                if 'pam_google_authenticator.so' not in file.read():
+                    os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/2fa-secrets/\\${USER}/.google_authenticator" >> /etc/pam.d/gdm-password')
+
+    def _is_registered(self, user: str) -> bool:
+        return os.path.isfile(f"/etc/securitymanager-2fa/{user}")
+
+    def _delete_registration(self):
+        user = self.users.get()
+        if not self._is_registered(user):
+            Notification(title=self.lang.error, icon="warning.png", message=self.lang.registration_doesnt_exists, message_bold=True, exit_btn_msg=self.lang.exit)
+            return
+        os.system(f"/usr/bin/rm /etc/securitymanager-2fa/{user}")
+        Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.del_register_2fa_success, message_bold=False, exit_btn_msg=self.lang.exit)
+
+    def _show_registration_info(self):
+        user = self.users.get()
+        if not self._is_registered(user):
+            Notification(title=self.lang.error, icon="warning.png", message=self.lang.registration_doesnt_exists, message_bold=True, exit_btn_msg=self.lang.exit)
+            return
+        with open(f"/etc/securitymanager-2fa/{user}", "r") as file:
+            config = file.read().split("\n")
+        key = config[0]
+        del config[0]
+        recovery_keys = [i for i in config if i[0] != '"']
+
+        otpauth = f"otpauth://totp/{user}@{get_hostname()}?secret={key}&issuer=Secux"
+        qr = qrcode.QRCode()
+        qr.add_data(otpauth)
+        qr.make(fit=True)
+        qr_code = CTkImage(qr.make_image(fill_color="black", back_color="white").convert("RGB"), size=(300, 300))
+
+        success = CTkToplevel(self)
+        success.title(self.lang.show_registration_info)
+        qr = CTkLabel(success, text="", image=qr_code)
+        qr.pack(padx=10, pady=5)
+        label = CTkLabel(success, text=f"{self.lang.register_info}: {user}", font=(None, 16))
+        key = CTkLabel(success, text=f"{self.lang.key}: {key}", font=(None, 14, "bold")) 
+        recovery_keys_text = CTkLabel(success, text=self.lang.otp_recovery, font=(None, 14))
+        recovery_keys = CTkLabel(success, text="\n".join(recovery_keys), font=(None, 16, "bold"))
+        exit = CTkButton(success, text=self.lang.exit, command=success.destroy)
+        label.pack(padx=10, pady=5)
+        key.pack(padx=10, pady=5)
+        recovery_keys_text.pack(padx=10, pady=(5, 0))
+        recovery_keys.pack(padx=10, pady=(0, 5))
+        exit.pack(padx=10, pady=5)
+
+
+    def _register_user(self):
+        user = self.users.get()
+        if self._is_registered(user):
+            Notification(title=self.lang.error, icon="warning.png", message=self.lang.already_registered, message_bold=True, exit_btn_msg=self.lang.exit)
+            return
+        user_config = self._generate_totp_config(user=user, host=get_hostname())
+        os.system(f"/usr/bin/mkdir -p /etc/securitymanager-2fa")
+        os.system("/usr/bin/chown root:root /etc/securitymanager-2fa")
+        os.system("/usr/bin/chmod 0600 /etc/securitymanager-2fa")
+        with open(f"/etc/securitymanager-2fa/{user}", "w") as file:
+            file.write(user_config['config'])
+        os.system(f"/usr/bin/chmod 0600 /etc/securitymanager-2fa/{user}")
+        os.system(f"/usr/bin/chown root:root /etc/securitymanager-2fa/{user}")
+        
+        if self.apply_2fa_in_system:
+            self._register_google_authenticator_so(ssh=True, login=True)
+
+        success = CTkToplevel(self)
+        success.title(self.lang.success)
+        qr = CTkLabel(success, text="", image=user_config["qr_code_image"])
+        qr.pack(padx=10, pady=5)
+        label = CTkLabel(success, text=f"{self.lang.success_2fa_1} {user} {self.lang.success_2fa_2}", font=(None, 16))
+        key = CTkLabel(success, text=f"{self.lang.key}: {user_config['key']}", font=(None, 14, "bold")) 
+        recovery_keys_text = CTkLabel(success, text=self.lang.otp_recovery, font=(None, 14))
+        recovery_keys = CTkLabel(success, text="\n".join(user_config['recovery_keys']), font=(None, 16, "bold"))
+        exit = CTkButton(success, text=self.lang.exit, command=success.destroy)
+        label.pack(padx=10, pady=5)
+        key.pack(padx=10, pady=5)
+        recovery_keys_text.pack(padx=10, pady=(5, 0))
+        recovery_keys.pack(padx=10, pady=(0, 5))
+        exit.pack(padx=10, pady=5)
+
+
+    def _generate_totp_config(self, user: str = "user", host: str = "secux", key_len: int = 16, amount_of_recovery_keys: int = 3) -> dict:
+        key = b32encode(token_bytes(key_len)).decode('utf-8').split("=")[0]
+
+        # rt_n, rt_m : 3 attempts in 30 seconds
+        rate_limit, rt_n, rt_m = True, 3, 30
+
+        # window size (time problems)
+        window_size_flag, window_size = True, 3
+
+        disallow_reuse = True
+
+        config = []
+        config.append(key)
+        if rate_limit:
+            config.append(f'" RATE_LIMIT {rt_n} {rt_m}')
+        if window_size_flag:
+            config.append(f'" WINDOW_SIZE {window_size}')
+        if disallow_reuse:
+            config.append('" DISALLOW_REUSE')
+        config.append('" TOTP_AUTH')
+        recovery_keys = []
+        for _ in range(amount_of_recovery_keys):
+            recovery_keys.append("".join([choice("0123456789") for _ in range(8)]))
+        config.extend(recovery_keys)
+
+        otpauth = f"otpauth://totp/{user}@{host}?secret={key}&issuer=Secux"
+        qr = qrcode.QRCode()
+        qr.add_data(otpauth)
+        qr.make(fit=True)
+        qr_code = CTkImage(qr.make_image(fill_color="black", back_color="white").convert("RGB"), size=(300, 300))
+
+        return {"config": "\n".join(config), "key": key, "recovery_keys": recovery_keys, "qr_code_image": qr_code}
         
 class App(CTk):
     def __init__(self, fg_color = None, **kwargs):
@@ -311,6 +504,7 @@ class App(CTk):
         drive_label = CTkLabel(self.utils_tab, text=f"{self.lang.drive}: {device_info["RootFSPartition"]}")
         enroll_tpm = CTkButton(self.utils_tab, text=self.lang.enroll_tpm, command=lambda: EnrollTPM(self.lang, drive))
         delete_tpm = CTkButton(self.utils_tab, text=self.lang.delete_tpm, command=lambda: self._delete_tpm(drive))
+        manage_2fa = CTkButton(self.utils_tab, text=self.lang.manage_2fa_users, command=lambda: Manage2FAUsers(self.lang))
         enroll_recovery = CTkButton(self.utils_tab, text=self.lang.enroll_recovery, command=lambda: EnrollRecovery(self.lang, drive))
         delete_recovery = CTkButton(self.utils_tab, text=self.lang.delete_recovery, command=lambda: self._delete_recovery(drive))
         delete_password = CTkButton(self.utils_tab, text=self.lang.delete_password, command=lambda: DeletePassword(self.lang, drive))
@@ -382,6 +576,7 @@ class App(CTk):
         drive_label.pack(padx=10, pady=5)
         enroll_tpm.pack(padx=10, pady=5)
         delete_tpm.pack(padx=10, pady=5)
+        manage_2fa.pack(padx=10, pady=5)
         enroll_recovery.pack(padx=10, pady=5)
         delete_recovery.pack(padx=10, pady=5)
         delete_password.pack(padx=10, pady=5)
