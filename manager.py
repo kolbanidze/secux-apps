@@ -331,18 +331,18 @@ class Manage2FAUsers(CTkToplevel):
         return True
 
     def _register_google_authenticator_so(self, delete: bool, show_success: bool = True) -> None:
-        if delete:
-            os.system(f"/usr/bin/sed -i '/^auth required pam_google_authenticator.so/d' /etc/pam.d/login")
-        else:
-            if os.path.isfile("/etc/pam.d/login"):
+        if os.path.isfile("/etc/pam.d/login"):
+            if delete:
+                os.system(f"/usr/bin/sed -i '/^auth required pam_google_authenticator.so/d' /etc/pam.d/login")
+            else:
                 with open("/etc/pam.d/login", 'r') as file:
                     if 'pam_google_authenticator.so' not in file.read():
                         os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/\\${USER}" >> /etc/pam.d/login')
         
-        if delete:
-            os.system(f"/usr/bin/sed -i '/^auth required pam_google_authenticator.so/d' /etc/pam.d/gdm-password")
-        else:
-            if os.path.isfile("/etc/pam.d/gdm-password"):
+        if os.path.isfile("/etc/pam.d/gdm-password"):
+            if delete:
+                os.system(f"/usr/bin/sed -i '/^auth required pam_google_authenticator.so/d' /etc/pam.d/gdm-password")
+            else:
                 with open("/etc/pam.d/gdm-password") as file:
                     if 'pam_google_authenticator.so' not in file.read():
                         os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/\\${USER}" >> /etc/pam.d/gdm-password')
