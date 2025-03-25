@@ -20,7 +20,7 @@ from socket import getfqdn as get_hostname
 from secrets import token_bytes, choice
 from base64 import b32encode
 
-VERSION = "0.2.6"
+VERSION = "0.2.7"
 DISTRO_NAME="Secux Linux"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -294,7 +294,7 @@ class Manage2FAUsers(CTkToplevel):
         show_info = CTkButton(self, text=self.lang.show_registration_info, command=self._show_registration_info)
         delete = CTkButton(self, text=self.lang.delete_registation, command=self._delete_registration)
         self.apply_2fa_in_system = CTkSwitch(self, text=self.lang.apply_2fa_login)
-        save_apply = CTkButton(self, text=self.lang.save_apply, command=self._register_google_authenticator_so)
+        save_apply = CTkButton(self, text=self.lang.save_apply, command=lambda: self._register_google_authenticator_so(delete=not bool(self.apply_2fa_in_system.get()), show_success=True))
         self.apply_2fa_in_system.select()
 
         if not self._check_for_dependencies():
@@ -330,23 +330,33 @@ class Manage2FAUsers(CTkToplevel):
             return False
         return True
 
-    def _register_google_authenticator_so(self) -> None:
-        if os.path.isfile("/etc/pam.d/login"):
-            with open("/etc/pam.d/login", 'r') as file:
-                if 'pam_google_authenticator.so' not in file.read():
-                    os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/\\${USER}" >> /etc/pam.d/login')
+    def _register_google_authenticator_so(self, delete: bool, show_success: bool = True) -> None:
+        if delete:
+            os.system(f"/usr/bin/sed -i '/^auth required pam_google_authenticator.so/d' /etc/pam.d/login")
+        else:
+            if os.path.isfile("/etc/pam.d/login"):
+                with open("/etc/pam.d/login", 'r') as file:
+                    if 'pam_google_authenticator.so' not in file.read():
+                        os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/\\${USER}" >> /etc/pam.d/login')
         
-        if os.path.isfile("/etc/pam.d/gdm-password"):
-            with open("/etc/pam.d/gdm-password") as file:
-                if 'pam_google_authenticator.so' not in file.read():
-                    os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/\\${USER}" >> /etc/pam.d/gdm-password')
-        Notification(title=self.lang.success, icon='information.png', message=self.lang.apply_success, message_bold=True, exit_btn_msg=self.lang.exit)
+        if delete:
+            os.system(f"/usr/bin/sed -i '/^auth required pam_google_authenticator.so/d' /etc/pam.d/gdm-password")
+        else:
+            if os.path.isfile("/etc/pam.d/gdm-password"):
+                with open("/etc/pam.d/gdm-password") as file:
+                    if 'pam_google_authenticator.so' not in file.read():
+                        os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/\\${USER}" >> /etc/pam.d/gdm-password')
+        
+        if show_success:
+            Notification(title=self.lang.success, icon='information.png', message=self.lang.apply_success, message_bold=True, exit_btn_msg=self.lang.exit)
 
     def _is_registered(self, user: str) -> bool:
         return os.path.isfile(f"/etc/securitymanager-2fa/{user}")
 
     def _delete_registration(self):
         user = self.users.get()
+        self._register_google_authenticator_so(delete=not bool(self.apply_2fa_in_system.get()), show_success=False)
+
         if not self._is_registered(user):
             Notification(title=self.lang.error, icon="warning.png", message=self.lang.registration_doesnt_exists, message_bold=True, exit_btn_msg=self.lang.exit)
             return
@@ -400,6 +410,8 @@ class Manage2FAUsers(CTkToplevel):
             file.write(user_config['config'])
         os.system(f"/usr/bin/chmod 0600 /etc/securitymanager-2fa/{user}")
         os.system(f"/usr/bin/chown root:root /etc/securitymanager-2fa/{user}")
+
+        self._register_google_authenticator_so(delete=not bool(self.apply_2fa_in_system.get()), show_success=False)
         
         success = CTkToplevel(self)
         success.title(self.lang.success)
