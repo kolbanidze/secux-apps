@@ -19,10 +19,9 @@ import qrcode
 from socket import getfqdn as get_hostname
 from secrets import token_bytes, choice
 from base64 import b32encode
-import fileinput
 
 VERSION = "0.2.5"
-DISTRO_NAME="SECUX"
+DISTRO_NAME="Secux Linux"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
 DEBUG = True
@@ -398,9 +397,6 @@ class Manage2FAUsers(CTkToplevel):
         os.system(f"/usr/bin/chmod 0600 /etc/securitymanager-2fa/{user}")
         os.system(f"/usr/bin/chown root:root /etc/securitymanager-2fa/{user}")
         
-        if self.apply_2fa_in_system:
-            self._register_google_authenticator_so(ssh=True, login=True)
-
         success = CTkToplevel(self)
         success.title(self.lang.success)
         qr = CTkLabel(success, text="", image=user_config["qr_code_image"])
