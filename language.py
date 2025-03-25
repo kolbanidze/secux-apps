@@ -95,6 +95,7 @@ class Locale:
             self.register_info = "Registration information"
             self.save_apply = "Save applications"
             self.apply_success = "Apply success."
+            self.missing_deps_2fa = "Missing dependencies for 2FA.\nUse: pacman -S libpam-google-authenticator"
 
         elif language == "ru":
             self.report = "Отчёт"
@@ -190,3 +191,4 @@ class Locale:
             self.register_info = "Информация о регистрации"
             self.save_apply = "Сохранить применения"
             self.apply_success = "Применение успешно."
+            self.missing_deps_2fa = "Отсутствуют зависимости для 2FA.\nИспользуйте: pacman -S libpam-google-authenticator"

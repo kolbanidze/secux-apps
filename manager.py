@@ -20,7 +20,7 @@ from socket import getfqdn as get_hostname
 from secrets import token_bytes, choice
 from base64 import b32encode
 
-VERSION = "0.2.5"
+VERSION = "0.2.6"
 DISTRO_NAME="Secux Linux"
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -297,6 +297,9 @@ class Manage2FAUsers(CTkToplevel):
         save_apply = CTkButton(self, text=self.lang.save_apply, command=self._register_google_authenticator_so)
         self.apply_2fa_in_system.select()
 
+        if not self._check_for_dependencies():
+            Notification(title=self.lang.error, icon='redcross.png', message=self.lang.missing_deps_2fa, message_bold=False, exit_btn_msg=self.lang.exit)
+
         label.pack(padx=30, pady=5)
         self.users.pack(padx=30, pady=5)
         register.pack(padx=30, pady=5)
@@ -357,6 +360,7 @@ class Manage2FAUsers(CTkToplevel):
             return
         with open(f"/etc/securitymanager-2fa/{user}", "r") as file:
             config = file.read().split("\n")
+        config = [i for i in config if len(i) > 0]
         key = config[0]
         del config[0]
         recovery_keys = [i for i in config if i[0] != '"']
