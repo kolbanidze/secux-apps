@@ -83,7 +83,7 @@ class Locale:
             self.register = "Register"
             self.show_registration_info = "Registration information"
             self.delete_registration = "Delete registration"
-            self.apply_2fa_login = "Apply 2FA to the system when logging in to your account"
+            self.apply_2fa_login = "Apply 2FA to the system when logging in to your account (GNOME, TTY)"
             self.apply_2fa_ssh = "Apply 2FA when logging in via SSH"
             self.success_2fa_1 = "Two-factor authentication for the user"
             self.success_2fa_2 = "successfully connected."
@@ -94,6 +94,7 @@ class Locale:
             self.del_register_2fa_success = "User registration deletion completed successfully"
             self.register_info = "Registration information"
             self.save_apply = "Save applications"
+            self.apply_success = "Apply success."
 
         elif language == "ru":
             self.report = "Отчёт"
@@ -178,8 +179,7 @@ class Locale:
             self.register = "Зарегистрировать"
             self.show_registration_info = "Информация о регистрации"
             self.delete_registation = "Удалить регистрацию"
-            self.apply_2fa_login = "Применить 2FA в системе при входе в аккаунт"
-            self.apply_2fa_ssh = "Применить 2FA при входе по SSH"
+            self.apply_2fa_login = "Применить 2FA в системе при входе в аккаунт (GNOME, TTY)"
             self.success_2fa_1 = "Двухфакторная аутентификация для пользователя"
             self.success_2fa_2 = "успешно подключена."
             self.key = "Ключ"
@@ -189,3 +189,4 @@ class Locale:
             self.del_register_2fa_success = "Удаление регистрации пользователя выполнено успешно"
             self.register_info = "Информация о регистрации"
             self.save_apply = "Сохранить применения"
+            self.apply_success = "Применение успешно."

@@ -294,10 +294,8 @@ class Manage2FAUsers(CTkToplevel):
         register = CTkButton(self, text=self.lang.register, command=self._register_user)
         show_info = CTkButton(self, text=self.lang.show_registration_info, command=self._show_registration_info)
         delete = CTkButton(self, text=self.lang.delete_registation, command=self._delete_registration)
-        self.apply_2fa_in_ssh = CTkSwitch(self, text=self.lang.apply_2fa_ssh)
         self.apply_2fa_in_system = CTkSwitch(self, text=self.lang.apply_2fa_login)
-        save_apply = CTkButton(self, text=self.lang.save_apply, command=lambda: self._register_google_authenticator_so(ssh=True, login=True))
-        self.apply_2fa_in_ssh.select()
+        save_apply = CTkButton(self, text=self.lang.save_apply, command=self._register_google_authenticator_so)
         self.apply_2fa_in_system.select()
 
         label.pack(padx=30, pady=5)
@@ -305,7 +303,6 @@ class Manage2FAUsers(CTkToplevel):
         register.pack(padx=30, pady=5)
         show_info.pack(padx=30, pady=5)
         delete.pack(padx=30, pady=5)
-        self.apply_2fa_in_ssh.pack(padx=30, pady=5)
         self.apply_2fa_in_system.pack(padx=30, pady=5)
         save_apply.pack(padx=30, pady=5)
 
@@ -331,34 +328,17 @@ class Manage2FAUsers(CTkToplevel):
             return False
         return True
 
-    def _register_google_authenticator_so(self, ssh: bool, login: bool) -> dict:
-        """returns ["ssh": bool (success->True), "login": bool (success->True)]"""
-        returns = {"ssh": True, "login": True}
-        if os.path.isfile("/etc/pam.d/sshd"):
-            with open("/etc/pam.d/sshd", "r") as file:
-                if "pam_google_authenticator.so" in file.read():
-                    returns["ssh"] = False
-                else:
-                    with fileinput.input("/etc/pam.d/sshd", inplace=True, backup=".bak") as file:
-                        inserted = False
-                        for line in file:
-                            if not inserted and "auth      include   system-remote-login" in line:
-                                print("auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/${USER}")
-                                inserted = True
-                            print(line, end="")
-                    # os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/${USER}" >> /etc/pam.d/sshd')
-        else:
-            returns["ssh"] = False
-        
+    def _register_google_authenticator_so(self) -> None:
         if os.path.isfile("/etc/pam.d/login"):
             with open("/etc/pam.d/login", 'r') as file:
                 if 'pam_google_authenticator.so' not in file.read():
-                    os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/2fa-secrets/\\${USER}/.google_authenticator" >> /etc/pam.d/login')
+                    os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/\\${USER}" >> /etc/pam.d/login')
         
         if os.path.isfile("/etc/pam.d/gdm-password"):
             with open("/etc/pam.d/gdm-password") as file:
                 if 'pam_google_authenticator.so' not in file.read():
-                    os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/2fa-secrets/\\${USER}/.google_authenticator" >> /etc/pam.d/gdm-password')
+                    os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/\\${USER}" >> /etc/pam.d/gdm-password')
+        Notification(title=self.lang.success, icon='information.png', message=self.lang.apply_success, message_bold=True, exit_btn_msg=self.lang.exit)
 
     def _is_registered(self, user: str) -> bool:
         return os.path.isfile(f"/etc/securitymanager-2fa/{user}")
