@@ -9,6 +9,7 @@ from json import dumps as json_encode
 from json.decoder import JSONDecodeError
 import subprocess
 import sys
+import fileinput
 import pexpect
 from hmac import compare_digest
 from PIL import Image
@@ -20,22 +21,26 @@ from socket import getfqdn as get_hostname
 from secrets import token_bytes, choice
 from base64 import b32encode
 
-VERSION = "0.2.7"
-DISTRO_NAME="Secux Linux"
+VERSION = "0.3"
+
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
-DEBUG = True
-DEBUG_PARTITION = "/dev/sda5"
-DEFAULT_PCRS = [0, 7, 14]
 
-if os.path.isfile(WORKDIR + "/production.conf"):
-    DEBUG = False
+DEBUG = False
+DEBUG_PARTITION = "/dev/sda5"
+
+DEFAULT_CUSTOM_PCRS = [0, 7, 14]
+STORAGE_2FA_PATH = "/etc/securitymanager-2fa"
+
+if os.path.isfile(os.path.join(WORKDIR, "debug.conf")):
+    DEBUG = True
 
 class Notification(CTkToplevel):
     def __init__(self, title: str, icon: str, message: str, message_bold: bool, exit_btn_msg: str, terminate_app: bool = False):
         super().__init__()
         self.title(title)
-        image = CTkImage(light_image=Image.open(f'{WORKDIR}/images/{icon}'), dark_image=Image.open(f'{WORKDIR}/images/{icon}'), size=(80, 80))
+        img = Image.open(os.path.join(WORKDIR, "images", icon))
+        image = CTkImage(light_image=img, dark_image=img, size=(80, 80))
         image_label = CTkLabel(self, text="", image=image)
         label = CTkLabel(self, text=message)
         if message_bold:
@@ -67,7 +72,7 @@ class EnrollRecovery(CTkToplevel):
     def __enroll(self):
         password = self.luks_entry.get()
         try:
-            process = subprocess.run(f"systemd-cryptenroll --recovery-key {self.drive} --unlock-key-file=/dev/stdin", shell=True, check=True, capture_output=True, input=password.encode())
+            process = subprocess.run(["/usr/bin/systemd-cryptenroll", "--recovery-key", self.drive, "--unlock-key-file=/dev/stdin"], check=True, capture_output=True, input=password.encode())
             key = process.stdout.decode().strip()
         except subprocess.CalledProcessError:
             Notification(title=self.lang.failure, icon="warning.png", message=self.lang.enroll_recovery_failure, message_bold=False, exit_btn_msg=self.lang.exit)
@@ -93,7 +98,7 @@ class DeletePassword(CTkToplevel):
     def __delete_password(self):
         recovery_key = self.luks_entry.get()
         try:
-            process = subprocess.run(f"systemd-cryptenroll --wipe-slot=password {self.drive} --unlock-key-file=/dev/stdin", shell=True, check=True, capture_output=True, input=recovery_key.encode())
+            process = subprocess.run(["/usr/bin/systemd-cryptenroll", "--wipe-slot=password", self.drive, "--unlock-key-file=/dev/stdin"], check=True, capture_output=True, input=recovery_key.encode())
         except subprocess.CalledProcessError:
             Notification(title=self.lang.failure, icon="warning.png", message=self.lang.delete_password_failed, message_bold=False, exit_btn_msg=self.lang.exit)
             return
@@ -167,7 +172,7 @@ class EnrollTPM(CTkToplevel):
         if not self.pcrs_drawed:
             for i in range(16):
                 j = CTkCheckBox(self.pcr_custom, text=f"PCR {i}: {self.lang.PCRs_info[i]}")
-                if i in DEFAULT_PCRS:
+                if i in DEFAULT_CUSTOM_PCRS:
                     j.select()
                 j.grid(row=i, column=0, padx=10, pady=5, sticky="nsew")
             self.pcrs_drawed = True
@@ -199,11 +204,11 @@ class EnrollTPM(CTkToplevel):
                     pcrs += pcr + "+"
             pcrs = pcrs[:-1]
 
-        command = f"systemd-cryptenroll --wipe-slot=tpm2 --tpm2-device=auto --tpm2-pcrs={pcrs} "
-        if self.sign_policy.get(): command += "--tpm2-public-key /etc/kernel/pcr-initrd.pub.pem "
-        if use_pin: command += "--tpm2-with-pin=yes "
-        command += self.drive
-        child = pexpect.spawn(command, encoding='utf-8', timeout=30)
+        cmd_list = ["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", "--tpm2-device=auto", f"--tpm2-pcrs={pcrs}"]
+        if self.sign_policy.get(): cmd_list.append("--tpm2-public-key=/etc/kernel/pcr-initrd.pub.pem")
+        if use_pin: cmd_list.append("--tpm2-with-pin=yes")
+        cmd_list.append(self.drive)
+        child = pexpect.spawn(cmd_list[0], args=cmd_list[1:], encoding='utf-8', timeout=30)
 
         child.expect(r"Please enter current passphrase")
         child.sendline(luks_password)
@@ -284,7 +289,7 @@ class EnrollPassword(CTkToplevel):
 
 class Manage2FAUsers(CTkToplevel):
     def __init__(self, lang):
-        # /etc/securitymanager-2fa/${USER} | chmod 0600 | chown root:root
+        # STORAGE_2FA_PATH/${USER} | chmod 0600 | chown root:root
         super().__init__()
         self.lang = lang
         self.title(self.lang.manage_2fa_users)
@@ -330,28 +335,36 @@ class Manage2FAUsers(CTkToplevel):
             return False
         return True
 
+    def _delete_2fa_pam_from_file(self, file: str) -> None:
+        with fileinput.input(file, inplace=True) as f:
+            for line in f:
+                if not line.startswith("auth required pam_google_authenticator.so"):
+                    print(line, end='')
+
     def _register_google_authenticator_so(self, delete: bool, show_success: bool = True) -> None:
         if os.path.isfile("/etc/pam.d/login"):
             if delete:
-                os.system(f"/usr/bin/sed -i '/^auth required pam_google_authenticator.so/d' /etc/pam.d/login")
+                self._delete_2fa_pam_from_file("/etc/pam.d/login")
             else:
-                with open("/etc/pam.d/login", 'r') as file:
+                with open("/etc/pam.d/login", 'r+') as file:
                     if 'pam_google_authenticator.so' not in file.read():
-                        os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/\\${USER}" >> /etc/pam.d/login')
+                        file.seek(0, 2)
+                        file.write(f"auth required pam_google_authenticator.so nullok debug user=root secret={STORAGE_2FA_PATH}/${{USER}}\n")
         
         if os.path.isfile("/etc/pam.d/gdm-password"):
             if delete:
-                os.system(f"/usr/bin/sed -i '/^auth required pam_google_authenticator.so/d' /etc/pam.d/gdm-password")
+                self._delete_2fa_pam_from_file("/etc/pam.d/gdm-password")
             else:
-                with open("/etc/pam.d/gdm-password") as file:
+                with open("/etc/pam.d/gdm-password", 'r+') as file:
                     if 'pam_google_authenticator.so' not in file.read():
-                        os.system('/usr/bin/echo "auth required pam_google_authenticator.so nullok debug user=root secret=/etc/securitymanager-2fa/\\${USER}" >> /etc/pam.d/gdm-password')
+                        file.seek(0, 2)
+                        file.write(f"auth required pam_google_authenticator.so nullok debug user=root secret={STORAGE_2FA_PATH}/${{USER}}\n")
         
         if show_success:
             Notification(title=self.lang.success, icon='information.png', message=self.lang.apply_success, message_bold=True, exit_btn_msg=self.lang.exit)
 
     def _is_registered(self, user: str) -> bool:
-        return os.path.isfile(f"/etc/securitymanager-2fa/{user}")
+        return os.path.isfile(os.path.join(STORAGE_2FA_PATH, user))
 
     def _delete_registration(self):
         user = self.users.get()
@@ -360,7 +373,7 @@ class Manage2FAUsers(CTkToplevel):
         if not self._is_registered(user):
             Notification(title=self.lang.error, icon="warning.png", message=self.lang.registration_doesnt_exists, message_bold=True, exit_btn_msg=self.lang.exit)
             return
-        os.system(f"/usr/bin/rm /etc/securitymanager-2fa/{user}")
+        os.remove(os.path.join(STORAGE_2FA_PATH, user))
         Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.del_register_2fa_success, message_bold=False, exit_btn_msg=self.lang.exit)
 
     def _show_registration_info(self):
@@ -368,7 +381,7 @@ class Manage2FAUsers(CTkToplevel):
         if not self._is_registered(user):
             Notification(title=self.lang.error, icon="warning.png", message=self.lang.registration_doesnt_exists, message_bold=True, exit_btn_msg=self.lang.exit)
             return
-        with open(f"/etc/securitymanager-2fa/{user}", "r") as file:
+        with open(os.path.join(STORAGE_2FA_PATH, user), "r") as file:
             config = file.read().split("\n")
         config = [i for i in config if len(i) > 0]
         key = config[0]
@@ -403,13 +416,14 @@ class Manage2FAUsers(CTkToplevel):
             Notification(title=self.lang.error, icon="warning.png", message=self.lang.already_registered, message_bold=True, exit_btn_msg=self.lang.exit)
             return
         user_config = self._generate_totp_config(user=user, host=get_hostname())
-        os.system(f"/usr/bin/mkdir -p /etc/securitymanager-2fa")
-        os.system("/usr/bin/chown root:root /etc/securitymanager-2fa")
-        os.system("/usr/bin/chmod 0600 /etc/securitymanager-2fa")
-        with open(f"/etc/securitymanager-2fa/{user}", "w") as file:
+        if not os.path.isdir(STORAGE_2FA_PATH):
+            os.mkdir(STORAGE_2FA_PATH)
+            os.chown(STORAGE_2FA_PATH, 0, 0)
+            os.chmod(STORAGE_2FA_PATH, 0o600)
+        with open(os.path.join(STORAGE_2FA_PATH, user), "w") as file:
             file.write(user_config['config'])
-        os.system(f"/usr/bin/chmod 0600 /etc/securitymanager-2fa/{user}")
-        os.system(f"/usr/bin/chown root:root /etc/securitymanager-2fa/{user}")
+        os.chmod(os.path.join(STORAGE_2FA_PATH, user), 0o600)
+        os.chown(os.path.join(STORAGE_2FA_PATH, user), 0, 0)
 
         self._register_google_authenticator_so(delete=not bool(self.apply_2fa_in_system.get()), show_success=False)
         
@@ -503,7 +517,8 @@ class App(CTk):
         enroll_password = CTkButton(self.utils_tab, text=self.lang.enroll_password, command=lambda: EnrollPassword(self.lang, drive))
 
         ##### BEGIN UPDATER #####
-        update_image = CTkImage(light_image=Image.open(f'{WORKDIR}/images/update.png'), dark_image=Image.open(f'{WORKDIR}/images/update.png'), size=(80, 80))
+        img = Image.open(os.path.join(WORKDIR, 'images', 'update.png'))
+        update_image = CTkImage(light_image=img, dark_image=img, size=(80, 80))
         update_image_label = CTkLabel(self.update_tab, text="", image=update_image)
         run_update_sm = CTkButton(self.update_tab, text=f"{self.lang.update} Security Manager", command=self.__update_repo)
         run_update_ka = CTkButton(self.update_tab, text=f"{self.lang.update} KIRTapp", command=self.__update_KIRTapp)
@@ -666,9 +681,9 @@ class App(CTk):
             return
         packages = " ".join(packages)
         self.commands = []
-        self._execute(f"echo {self.lang.downloading_of_packages}: {packages}")
-        self._execute(f'flatpak create-usb "{self.offline_repo}" {packages} --allow-partial')
-        self._execute(f"echo [{self.lang.successfully_downloaded}]")
+        self._execute(["/usr/bin/echo", self.lang.downloading_of_packages, packages])
+        self._execute(["/usr/bin/flatpak", "create-usb", self.offline_repo, packages, "--allow-partial"])
+        self._execute(["/usr/bin/echo", self.lang.successfully_downloaded])
         self._execute_commands(self.commands)
 
     def __install_packages(self):
@@ -681,16 +696,16 @@ class App(CTk):
         packages = " ".join(packages)
 
         if self.offline_repo:
-            self._execute(f'flatpak install --sideload-repo="{self.offline_repo}" {packages} -y')
-            self._execute(f"echo [{self.lang.successfully_installed}]")
+            self._execute(["/usr/bin/flatpak", "install", '--sideload-repo', self.offline_repo, packages, '-y'])
+            self._execute(["/usr/bin/echo", self.lang.successfully_installed])
         else:
-            self._execute(f"flatpak install {packages} -y")
-            self._execute(f"echo [{self.lang.successfully_installed}]")
-        self._execute("mkdir -p /var/lib/flatpak/overrides")
-        self._execute(f"cp {WORKDIR}/overrides/* /var/lib/flatpak/overrides/")
+            self._execute(["/usr/bin/flatpak", "install", packages, "-y"])
+            self._execute(["/usr/bin/echo", self.lang.successfully_installed])
+        self._execute(["/usr/bin/mkdir", "-p", "/var/lib/flatpak/overrides"])
+        self._execute(["/usr/bin/cp", os.path.join(WORKDIR, "overrides"), "/var/lib/flatpak/overrides/", '-r'])
         self._execute_commands(self.commands)
 
-    def _execute(self, command: str, input: str = None):
+    def _execute(self, command: list, input: str = None):
         if input:
             self.commands.append({"command": command, "input": input})
         else:
@@ -700,15 +715,13 @@ class App(CTk):
         def run_commands():
             for cmd in commands:
                 try:
-                    print(f"Executing: {cmd['command']}")
+                    print(f"Executing: {' '.join(cmd['command'])}")
                     process = subprocess.Popen(
                         cmd["command"],
                         stdin=subprocess.PIPE if "input" in cmd else None,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
-                        shell=True,
                         text=True,
-                        executable="/bin/bash",
                         bufsize=1  # Line-buffered output
                     )
                     if "input" in cmd:
@@ -744,7 +757,8 @@ class App(CTk):
             self.use_repo = False
 
     def __select_offline_repo_dir(self):
-        dir = filedialog.askdirectory()
+        dir = filedialog.askdirectory(mustexist=True)
+        dir = os.path.realpath(dir)
         self.repo_entry.configure(state="normal")
         self.repo_entry.delete(0, 'end')
         self.repo_entry.insert(0, dir)
@@ -760,19 +774,31 @@ class App(CTk):
                 repo_path = "/usr/local/bin/KIRTapp"
             os.chdir(repo_path)
             
-            process = subprocess.Popen(
-                "git fetch; git reset --hard; git pull origin main",
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                shell=True,
-                text=True)
-            stdout, stderr = process.communicate()
-            if stdout:
-                self.updater_textbox.insert("end", stdout)
-            if stderr:
-                self.updater_textbox.insert("end", stderr)
+            commands = [
+                ['/usr/bin/git', 'fetch'],
+                ['/usr/bin/git', 'reset', '--hard'],
+                ['/usr/bin/git', 'pull', 'origin', 'main']
+                ]
+
+            output = ""
+            errors = ""
+            for cmd in commands:
+                process = subprocess.run(cmd, cwd=repo_path, capture_output=True, text=True, check=False) # check=False чтобы обработать ошибки
+                output += process.stdout
+                errors += process.stderr
+                if process.returncode != 0:
+                    errors += f"Command '{' '.join(cmd)}' failed with code {process.returncode}\n"
+                    break
+
+            if output:
+                self.updater_textbox.insert("end", output)
+            if errors:
+                self.updater_textbox.insert("end", errors)
+
         except Exception as e:
             self.updater_textbox.insert("end", f"ERROR: {e}\n")
+        finally:
+            self.updater_textbox.configure(state="disabled")
         self.updater_textbox.configure(state="disabled")
 
     def __update_KIRTapp(self):
@@ -800,7 +826,7 @@ class App(CTk):
 
     def _delete_tpm(self, drive):
         try:
-            process = subprocess.run(f"systemd-cryptenroll --wipe-slot=tpm2 {drive}", shell=True, capture_output=True, text=True, check=True)
+            process = subprocess.run(["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", drive], capture_output=True, text=True, check=True)
         except subprocess.CalledProcessError:
             Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.delete_tpm_failure, message_bold=False, exit_btn_msg=self.lang.exit)
             return
@@ -812,7 +838,7 @@ class App(CTk):
 
     def _delete_recovery(self, drive):
         try:
-            process = subprocess.run(f"systemd-cryptenroll --wipe-slot=recovery {drive}", shell=True, capture_output=True, text=True, check=True)
+            process = subprocess.run(["/usr/bin/systemd-cryptenroll", "--wipe-slot=recovery", drive], capture_output=True, text=True, check=True)
         except subprocess.CalledProcessError:
             Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.delete_recovery_failed, message_bold=False, exit_btn_msg=self.lang.exit)
             return
@@ -829,18 +855,24 @@ class App(CTk):
         checkbox.pack(padx=10, pady=5)
 
     def __load_configuration(self):
-        with open(f"{WORKDIR}/configuration.conf", "r+") as file:
+        with open(os.path.join(WORKDIR, "configuration.conf"), "r+") as file:
             try:
                 config = json_decode(file.read())
             except JSONDecodeError:
-                print("Config corrupt. Returning to default values(1)")
+                err_msg = "Конфигурационный файл поврежден (ошибка декодирования  JSON). Восстановление значений по умолчанию.\nConfiguration file is corrupted (JSON decoding error). Restoring default parameters."
+                print(err_msg)
+                Notification(title="Ошибка | Error", icon='warning.png', message=err_msg, message_bold=False, exit_btn_msg="Закрыть | Close")
+
                 config = get_default_config()
                 file.seek(0)
-                file.truncate(0) # WHY?
+                file.truncate(0)
                 file.write(json_encode(config))
                 file.flush()
             if 'language' not in config or 'dark_theme' not in config or 'scaling' not in config or 'offline_repo' not in config or 'use_repo' not in config:
-                print("Config corrupt. Returning to default values")
+                err_msg = "Конфигурационный файл повреждён (отсутствуют необходимые параметры). Восстановление значений по умолчанию.\nConfiguration file is damaged (required parameters are missing). Restoring default parameters."
+                print(err_msg)
+                Notification(title="Ошибка | Error", icon='warning.png', message=err_msg, message_bold=False, exit_btn_msg="Закрыть | Close")
+
                 config = get_default_config()
                 file.seek(0)
                 file.truncate(0)
@@ -859,10 +891,21 @@ class App(CTk):
                 self.dark_theme = False
                 set_appearance_mode("light")
             
-            self.offline_repo = config["offline_repo"]
             self.use_repo = bool(config["use_repo"])
+            if config['offline_repo']:
+                if os.path.isdir(config['offline_repo']):
+                    self.offline_repo = config["offline_repo"]
+                else:
+                    self.offline_repo = False
+                    self.use_repo = False
+            else:
+                self.offline_repo = False
+                self.use_repo = False
 
-            self.ui_scale = int(config["scaling"].replace("%", "")) / 100
+            try:
+                self.ui_scale = int(config["scaling"].replace("%", "")) / 100
+            except ValueError:
+                self.ui_scale = 1
             set_widget_scaling(self.ui_scale)
             set_window_scaling(self.ui_scale)
     
@@ -883,7 +926,7 @@ class App(CTk):
             offline_repo = self.repo_entry.get()
         
         data = {"language": language, "dark_theme": dark_theme, "scaling": ui_scale, 'offline_repo': offline_repo, 'use_repo': use_repo}
-        with open(f"{WORKDIR}/configuration.conf", "w") as file:
+        with open(os.path.join(WORKDIR, "configuration.conf"), "w") as file:
             file.write(json_encode(data))
         ui_scale = int(ui_scale.replace("%", ""))/100
         # set_widget_scaling(ui_scale)
@@ -896,7 +939,7 @@ class App(CTk):
         self.destroy()
 
     def _get_stats(self) -> dict:
-        sbctl_exists_output = subprocess.run(['which', 'sbctl'], text=True, capture_output=True).stdout.strip()
+        sbctl_exists_output = subprocess.run(['/usr/bin/which', 'sbctl'], text=True, capture_output=True).stdout.strip()
         keys_enrolled = False
         secure_boot = False
         setup_mode = False
@@ -918,16 +961,13 @@ class App(CTk):
             except subprocess.CalledProcessError:
                 pass
         else:
-            try:
-                secure_boot_state = open('/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c', 'rb').read()
-                secure_boot = secure_boot_state[-1] == 1
-                
-                setup_mode_state = open('/sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c', 'rb').read()
-                setup_mode = setup_mode_state[-1] == 1
-            except FileNotFoundError:
-                pass
-            
-            # Проверяем наличие ключей в DB
+            process = subprocess.run(["/usr/bin/mokutil", "--sb-state"], capture_output=True)
+            mokutil_output = process.stdout
+            if b"enabled" in mokutil_output:
+                secure_boot = True
+            if b"Setup Mode" in mokutil_output:
+                setup_mode = True
+
             try:
                 with open('/sys/firmware/efi/efivars/db-d719b2cb-3d3a-4596-a3bc-dad00e67656f', 'rb') as db:
                     db_data = db.read()
@@ -938,7 +978,7 @@ class App(CTk):
         
         rootfs_partition = None
         # Определение корневого раздела
-        rootfs_partition_output = json_decode(subprocess.run(f'lsblk -J -o NAME,TYPE,MOUNTPOINT,FSTYPE', shell=True, text=True, capture_output=True, check=True).stdout).get('blockdevices')
+        rootfs_partition_output = json_decode(subprocess.run(["/usr/bin/lsblk", "-J", "-o", 'NAME,TYPE,MOUNTPOINT,FSTYPE'], text=True, capture_output=True, check=True).stdout).get('blockdevices')
         for drive in rootfs_partition_output:
             if 'children' in drive:
                 for part in drive['children']:
@@ -950,7 +990,7 @@ class App(CTk):
                                     rootfs_partition = "/dev/" + part['name']
         if not DEBUG:
             if not rootfs_partition and not self.an_error_occured:
-                print("Failed to detect LUKS partition. Are you running manager from SECUX Linux?")
+                print("Не удалось обнаружить раздел LUKS. Вы используете менеджер в Secux Linux?\nFailed to detect LUKS partition. Are you running manager from Secux Linux?")
                 Notification(title=self.lang.error, icon="redcross.png", message=self.lang.luks_failed, message_bold=True, exit_btn_msg=self.lang.exit, terminate_app=True)
                 self.an_error_occured = True
                 for widget in self.winfo_children():
@@ -964,7 +1004,7 @@ class App(CTk):
         tpm_with_pin = False
         
         try:
-            cryptsetup_output = json_decode(subprocess.run(f"cryptsetup luksDump {rootfs_partition} --dump-json-metadata", shell=True, text=True, capture_output=True, check=True).stdout)
+            cryptsetup_output = json_decode(subprocess.run(["/usr/bin/cryptsetup", "luksDump", rootfs_partition, "--dump-json-metadata"], text=True, capture_output=True, check=True).stdout)
             if cryptsetup_output.get('tokens'):
                 for token in cryptsetup_output['tokens'].values():
                     if token.get('type') == "systemd-tpm2":
@@ -999,8 +1039,8 @@ def get_default_config(locale = None, dark_theme = False, scaling: str = "100%")
 if __name__ == "__main__":
     if not os.geteuid() == 0:
         os.execvp("/usr/bin/pkexec", ["/usr/bin/pkexec", WORKDIR+"/"+sys.argv[0].split("/")[-1]])
-    if not os.path.isfile(f"{WORKDIR}/configuration.conf"):
-        with open(f"{WORKDIR}/configuration.conf", "w") as file:
+    if not os.path.isfile(os.path.join(WORKDIR, "configuration.conf")):
+        with open(os.path.join(WORKDIR, "configuration.conf"), "w") as file:
             file.write(json_encode(get_default_config()))
 
     App().mainloop()
