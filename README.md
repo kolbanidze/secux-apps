@@ -11,11 +11,11 @@
 ## ✨ Features
 
 *   **📊 Security Report:** View a snapshot of your system's security status:
-    *   Secure Boot Enabled
+    *   Secure Boot Status
     *   Custom Secure Boot Keys Enrolled (via `sbctl`)
-    *   TPM 2.0 Chip Detected
-    *   TPM 2.0 Enrolled for LUKS
-    *   TPM requires PIN for LUKS Unlock
+    *   TPM 2.0 Chip Info
+    *   TPM 2.0 LUKS Enrollment Info
+    *   PIN usage for LUKS Unlock
     *   Secure Boot Setup Mode Status
     *   Microsoft Secure Boot Keys Presence
 *   **🔑 TPM Enrollment for LUKS:**
