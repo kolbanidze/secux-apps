@@ -21,7 +21,7 @@ from socket import getfqdn as get_hostname
 from secrets import token_bytes, choice
 from base64 import b32encode
 
-VERSION = "0.3"
+VERSION = "0.3.1"
 
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -693,13 +693,11 @@ class App(CTk):
             print("error. no packages selected.")
             return
         
-        packages = " ".join(packages)
-
         if self.offline_repo:
-            self._execute(["/usr/bin/flatpak", "install", '--sideload-repo', self.offline_repo, packages, '-y'])
+            self._execute(["/usr/bin/flatpak", "install", '--sideload-repo', self.offline_repo, '-y'] + packages)
             self._execute(["/usr/bin/echo", self.lang.successfully_installed])
         else:
-            self._execute(["/usr/bin/flatpak", "install", packages, "-y"])
+            self._execute(["/usr/bin/flatpak", "install", "-y"] + packages)
             self._execute(["/usr/bin/echo", self.lang.successfully_installed])
         self._execute(["/usr/bin/mkdir", "-p", "/var/lib/flatpak/overrides"])
         self._execute(["/usr/bin/cp", os.path.join(WORKDIR, "overrides"), "/var/lib/flatpak/overrides/", '-r'])
