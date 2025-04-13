@@ -4,3 +4,4 @@ test.py
 test1.py
 production.conf
 configuration.conf
+org.freedesktop.policykit.securitymanager.policy
