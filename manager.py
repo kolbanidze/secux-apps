@@ -21,7 +21,7 @@ from socket import getfqdn as get_hostname
 from secrets import token_bytes, choice
 from base64 import b32encode
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -700,7 +700,7 @@ class App(CTk):
             self._execute(["/usr/bin/flatpak", "install", "-y"] + packages)
             self._execute(["/usr/bin/echo", self.lang.successfully_installed])
         self._execute(["/usr/bin/mkdir", "-p", "/var/lib/flatpak/overrides"])
-        self._execute(["/usr/bin/cp", os.path.join(WORKDIR, "overrides"), "/var/lib/flatpak/overrides/", '-r'])
+        self._execute(["/usr/bin/cp", os.path.join(WORKDIR, "overrides"), "/var/lib/flatpak/", '-r'])
         self._execute_commands(self.commands)
 
     def _execute(self, command: list, input: str = None):
