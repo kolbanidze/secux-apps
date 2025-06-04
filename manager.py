@@ -8,6 +8,7 @@ from json import loads as json_decode
 from json import dumps as json_encode
 from json.decoder import JSONDecodeError
 import subprocess
+from subprocess import run
 import sys
 import fileinput
 import pexpect
@@ -18,19 +19,33 @@ import threading
 import pwd
 import qrcode
 from socket import getfqdn as get_hostname
-from secrets import token_bytes, choice
+from secrets import token_bytes, choice, token_hex
 from base64 import b32encode
+from os import remove, chown, chmod
+from os.path import isfile
 
-VERSION = "0.3.2"
+VERSION = "0.3.3 DEV"
 
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
 
 DEBUG = False
-DEBUG_PARTITION = "/dev/sda5"
+DEBUG_PARTITION = "/dev/sda4"
 
 DEFAULT_CUSTOM_PCRS = [0, 7, 14]
 STORAGE_2FA_PATH = "/etc/securitymanager-2fa"
+LOCKOUT_KEY_PATH = "/etc/lockout.key"
+BOOT_ALTERED_PCR = 8
+BOOT_ALTERED_PCR_VALUE = b"\x00"*32
+PCRS_FILE = "pcrs.bin"
+PRIMARY_CTX = "primary.ctx"
+SESSION_CTX = "session.ctx"
+POLICY_DIGEST = "policy.digest"
+SEALED_PUB = "sealed.pub"
+SEALED_PRIV = "sealed.priv"
+SEALED_CTX = "sealed.ctx"
+OBJ_ATTRIBUTES = "fixedtpm|fixedparent|adminwithpolicy|userwithauth"
+IDP_FILE = "/etc/IDP.json"
 
 if os.path.isfile(os.path.join(WORKDIR, "debug.conf")):
     DEBUG = True
@@ -105,6 +120,133 @@ class DeletePassword(CTkToplevel):
         Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.delete_password_success, message_bold=True, exit_btn_msg=self.lang.exit)
 
 
+class IDPEnroll:
+    def __init__(self, drive, lang, luks_password, pin, pcrs, bap):
+        self.drive = drive
+        self.lang = lang
+        self.luks_password = luks_password
+        self.pin = pin
+        self.pcrs = pcrs
+        self.bap = bap
+        
+        self.current_dir = os.getcwd()
+        os.chdir("/tmp")
+        
+        if self.bap not in self.pcrs:
+            self.pcrs.append(self.bap)
+        self.pcrs.sort()
+        
+        self.cleanup()
+        self.prepare_tpm()
+        if self.check_if_already_enrolled():
+            Notification(self.lang.error, icon="warning.png", message=self.lang.idp_already_enrolled, message_bold=False,
+                         exit_btn_msg=self.lang.exit)
+            return
+        self.mkinitcpio_enable()
+        
+    def read_pcrs(self):
+        process = run(["tpm2_pcrread", "sha256"], capture_output=True, check=True)
+        values = process.stdout.split(b'\n')[1:-1]
+        values = [bytes.fromhex(i[-64:].decode()) for i in values]
+        return values
+
+    def build_pcrs(self, pcrs: list, prebuild_pcrs: dict):
+        """ pcrs: [0,7,14,16]; prebuild_pcrs = {16: b"hash"} """
+        for key, value in prebuild_pcrs.items():
+            if key not in pcrs:
+                raise ValueError("Prebuild PCR must be in pcrs list!")
+            if type(value) != bytes or len(value) != 32:
+                raise ValueError("Prebuild PCR value must be 32 bytes!")
+        current_pcrs = self.read_pcrs()
+        pcrs_list = []
+        for pcr in pcrs:
+            if pcr in prebuild_pcrs:
+                pcrs_list.append(prebuild_pcrs[pcr])
+            else:
+                pcrs_list.append(current_pcrs[pcr])
+        return pcrs_list
+
+    def run_cmd(self, cmd_list, input_data=None, capture_output=True, show_stdout=True):
+        print(f"Executing: {' '.join(cmd_list)}")
+
+        process = run(cmd_list, input=input_data, capture_output=capture_output)
+        if capture_output and process.stdout and show_stdout:
+            print("STDOUT:", process.stdout.decode() if isinstance(process.stdout, bytes) else process.stdout)
+        if capture_output and process.stderr:
+            print("STDERR:", process.stderr.decode() if isinstance(process.stderr, bytes) else process.stderr)
+        
+        if process.returncode != 0:
+            raise Exception
+
+    def get_free_address(self):
+        process = run(["tpm2_getcap", "handles-persistent"], capture_output=True, check=True)
+        enrolled_addresses = process.stdout.split(b'\n')[:-1]
+        enrolled_addresses = [i[2:].decode() for i in enrolled_addresses]
+        
+        for address in range(0x81000000, 0x817FFFFF):
+            if str(hex(address)) not in enrolled_addresses:
+                return str(hex(address))
+
+    def cleanup(self):
+        files = [PRIMARY_CTX, SESSION_CTX, POLICY_DIGEST, SEALED_PUB, SEALED_PRIV, SEALED_CTX, PCRS_FILE]
+        for file in files:
+            if isfile(file):
+                remove(file)
+
+    def get_lockout_auth_status(self) -> bool:
+        """ lockoutAuth is SET -> True. lockoutAuth is NOT SET -> False"""
+        process = run(["tpm2_getcap", "properties-variable"], capture_output=True, check=True)
+        output = process.stdout.split(b'\n')
+        for i in output:
+            if b'lockoutAuthSet' in i:
+                status = i.split(b' ')[-1]
+                return bool(int(status))
+        return False
+
+    def prepare_tpm(self):
+        if not self.get_lockout_auth_status():
+            lockout_key = token_hex(16)
+            run(["tpm2_changeauth", '-c', 'lockout', lockout_key], capture_output=True, check=True)
+            with open(LOCKOUT_KEY_PATH, "w") as file:
+                file.write(lockout_key)
+            chown(LOCKOUT_KEY_PATH, 0, 0)
+            chmod(LOCKOUT_KEY_PATH, 0o400)
+            run(["tpm2_dictionarylockout", "-s", '-n', '31', '-l', '86400', '-t', '600', '-p', lockout_key], capture_output=True, check=True)
+            print(f"{self.lang.tpm_init_success} {LOCKOUT_KEY_PATH}")
+            Notification(title=self.lang.success, icon="greencheck.png", message=f"{self.lang.tpm_init_success} {LOCKOUT_KEY_PATH}", message_bold=False, exit_btn_msg=self.lang.exit)
+    
+    def check_if_already_enrolled(self):
+        if isfile(IDP_FILE):
+            return True
+        return False
+
+    def mkinitcpio_enable(self):
+        with open("/etc/mkinitcpio.conf", "r") as file:
+            cont = file.read().split("\n")
+        hooks = None
+        for i in range(len(cont)):
+            if cont[i].startswith("HOOKS"):
+                hooks = cont[i].split(" ")
+                hooks_index = i
+                break
+        
+        if not hooks:
+            print("HOOKS not found in /etc/mkinitcpio.conf!")
+            Notification(self.lang.error, icon="warning.png", message=self.lang.hooks_not_found, message_bold=False, exit_btn_msg=self.lang.exit)
+            return
+        
+        if 'idp-tpm' in hooks:
+            return
+        
+        sd_encrypt_index = hooks.index("sd-encrypt")
+        hooks.insert(sd_encrypt_index, "idp-tpm")
+        modified_hooks = " ".join(hooks)
+        cont[hooks_index] = modified_hooks
+        
+        with open("/etc/mkinitcpio.conf", "w") as file:
+            file.write("\n".join(cont))
+
+
 class EnrollTPM(CTkToplevel):
     def __init__(self, lang, drive):
         super().__init__()
@@ -118,7 +260,9 @@ class EnrollTPM(CTkToplevel):
         luks_password_label = CTkLabel(self, text=self.lang.luks_password)
         self.luks_password_entry = CTkEntry(self, show='*')
         self.switch_var = StringVar(value="on")
-        use_pin_switch = CTkSwitch(self, text=self.lang.use_pin, variable=self.switch_var, onvalue="on", offvalue="off", command=self.__pin_switch_handler)
+        self.switch_idp = StringVar(value="off")
+        self.use_pin_switch = CTkSwitch(self, text=self.lang.use_pin, variable=self.switch_var, onvalue="on", offvalue="off", command=self.__pin_switch_handler)
+        use_idp_switch = CTkSwitch(self, text="IDP", variable=self.switch_idp, onvalue="on", offvalue="off", command=self.__idp_switch_handler)
         pin_entry_label = CTkLabel(self, text=self.lang.pin_1)
         self.pin_entry = CTkEntry(self, show='*')
         pin_entry_label_again = CTkLabel(self, text=self.lang.pin_2)
@@ -126,6 +270,9 @@ class EnrollTPM(CTkToplevel):
         tpm_preset_label = CTkLabel(self, text=self.lang.tpm_preset)
         self.tpm_preset = CTkOptionMenu(self, values=[self.lang.preset_secure, self.lang.preset_lesssecure, self.lang.preset_custom], command=self.__profiles_handler)
         self.sign_policy = CTkSwitch(self, text=self.lang.sign_policy)
+        self.bap_label = CTkLabel(self, text=self.lang.boot_altered_pcr)
+        self.boot_altered_pcr = CTkEntry(self)
+        self.boot_altered_pcr.insert(0, str(BOOT_ALTERED_PCR))
         self.sign_policy.select()
         self.pcr_custom = CTkScrollableFrame(self)
         enroll_button = CTkButton(self, text=self.lang.enroll, command=self.__enroll)
@@ -136,7 +283,8 @@ class EnrollTPM(CTkToplevel):
         tpm_enrollment_label.grid(row=0, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
         luks_password_label.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
         self.luks_password_entry.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
-        use_pin_switch.grid(row=2, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        self.use_pin_switch.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
+        use_idp_switch.grid(row=2, column=1, padx=10, pady=5, sticky="nsew")
         pin_entry_label.grid(row=3, column=0, padx=10, pady=5, sticky="nsew")
         self.pin_entry.grid(row=3, column=1, padx=10, pady=5, sticky="nsew")
         pin_entry_label_again.grid(row=4, column=0, padx=10, pady=5, sticky="nsew")
@@ -144,7 +292,7 @@ class EnrollTPM(CTkToplevel):
         tpm_preset_label.grid(row=5, column=0, padx=10, pady=5, sticky="nsew")
         self.tpm_preset.grid(row=5, column=1, padx=10, pady=5, sticky="nsew")
         
-        enroll_button.grid(row=8, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
+        enroll_button.grid(row=9, column=0, padx=10, pady=5, sticky="nsew", columnspan=2)
 
     def __pin_switch_handler(self):
         if self.switch_var.get() == "off":
@@ -154,21 +302,38 @@ class EnrollTPM(CTkToplevel):
             self.pin_entry.configure(state="normal")
             self.pin_entry_again.configure(state="normal")
     
+    def __idp_switch_handler(self):
+        if self.switch_idp.get() == "on":
+            self.use_pin_switch.select()
+            self.__pin_switch_handler()
+            self.use_pin_switch.configure(state="disabled")
+        else:
+            self.use_pin_switch.configure(state="normal")
+            self.__pin_switch_handler()
+    
     def __profiles_handler(self, value):
         if value == self.lang.preset_custom:
             self.__custom_pcrs()
         elif value == self.lang.preset_lesssecure:
             self.pcr_custom.grid_forget()
             self.sign_policy.grid_forget()
+            self.boot_altered_pcr.grid_forget()
+            self.bap_label.grid_forget()
         elif value == self.lang.preset_secure:
             self.pcr_custom.grid_forget()
             self.sign_policy.grid_forget()
+            self.boot_altered_pcr.grid_forget()
+            self.bap_label.grid_forget()
 
     def __custom_pcrs(self):
         if not self.pcr_custom.grid_info():
-            self.pcr_custom.grid(row=7, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
+            self.pcr_custom.grid(row=8, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
         if not self.sign_policy.grid_info():
-            self.sign_policy.grid(row=6, column=0, padx=10, pady=5, sticky="w", columnspan=2)
+            self.sign_policy.grid(row=6, column=0, padx=10, pady=5, sticky="w")
+        if not self.bap_label.grid_info():
+            self.bap_label.grid(row=7, column=0, padx=10, pady=5, sticky="w")
+        if not self.boot_altered_pcr.grid_info():
+            self.boot_altered_pcr.grid(row=7, column=1, padx=10, pady=5, sticky="w")
         if not self.pcrs_drawed:
             for i in range(16):
                 j = CTkCheckBox(self.pcr_custom, text=f"PCR {i}: {self.lang.PCRs_info[i]}")
@@ -177,34 +342,14 @@ class EnrollTPM(CTkToplevel):
                 j.grid(row=i, column=0, padx=10, pady=5, sticky="nsew")
             self.pcrs_drawed = True
 
-    def __enroll(self):
-        use_pin = False
-        if self.switch_var.get() == "on":
-            use_pin = True
-        if use_pin:
-            pin_1 = self.pin_entry.get()
-            pin_2 = self.pin_entry_again.get()
-            if not compare_digest(pin_1, pin_2):
-                Notification(title=self.lang.pin_mismatch, icon="warning.png", message=self.lang.pin_msg, message_bold=False, exit_btn_msg=self.lang.exit)
-                return
-            if len(pin_1) < MIN_PIN_LENGTH:
-                Notification(title=self.lang.short_pin, icon="warning.png", message=self.lang.short_pin_msg, message_bold=False, exit_btn_msg=self.lang.exit)
-                return
-        luks_password = self.luks_password_entry.get()
+    def __enroll_idp(self, luks_password, pin, pcrs, bap):
+        current_dir = os.getcwd()
+        IDPEnroll(self.drive, self.lang, luks_password, pin, pcrs, bap)
+        os.chdir(current_dir)
+    
+    def __enroll_systemd_cryptenroll(self, use_pin, luks_password, pin, pcrs):
 
-        if self.tpm_preset.get() == self.lang.preset_secure:
-            pcrs = "0+7"
-        elif self.tpm_preset.get() == self.lang.preset_lesssecure:
-            pcrs = "0+7+14"
-        else:
-            pcrs = ""
-            for i in self.pcr_custom.winfo_children():
-                pcr = i.cget("text").split(":")[0].split(' ')[-1]
-                if i.get():
-                    pcrs += pcr + "+"
-            pcrs = pcrs[:-1]
-
-        cmd_list = ["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", "--tpm2-device=auto", f"--tpm2-pcrs={pcrs}"]
+        cmd_list = ["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", "--tpm2-device=auto", f"--tpm2-pcrs={'+'.join(pcrs)}"]
         if self.sign_policy.get(): cmd_list.append("--tpm2-public-key=/etc/kernel/pcr-initrd.pub.pem")
         if use_pin: cmd_list.append("--tpm2-with-pin=yes")
         cmd_list.append(self.drive)
@@ -216,13 +361,13 @@ class EnrollTPM(CTkToplevel):
         if use_pin:
             index = child.expect([r"Please enter TPM2", r"please try again"])
             if index == 0:
-                child.sendline(pin_1)
+                child.sendline(pin)
             else:
                 Notification(title=self.lang.enroll_tpm_error, icon="warning.png", message=self.lang.enroll_tpm_error_msg, message_bold=False, exit_btn_msg=self.lang.exit)
                 return
         
             child.expect(r"repeat")
-            child.sendline(pin_1)
+            child.sendline(pin)
         index = child.expect([r"New TPM2 token enrolled", r"please try again", r"executing no operation"])
         if index == 1:
             Notification(title=self.lang.enroll_tpm_error, icon="warning.png", message=self.lang.enroll_tpm_error_msg, message_bold=False, exit_btn_msg=self.lang.exit)
@@ -235,6 +380,41 @@ class EnrollTPM(CTkToplevel):
         else:
             Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.enroll_tpm_failure, message_bold=False, exit_btn_msg=self.lang.exit)
             self.destroy()
+
+    def __enroll(self):
+        use_pin = False
+        pin_1 = None
+        if self.switch_var.get() == "on":
+            use_pin = True
+        if use_pin:
+            pin_1 = self.pin_entry.get()
+            pin_2 = self.pin_entry_again.get()
+            if not compare_digest(pin_1, pin_2):
+                Notification(title=self.lang.pin_mismatch, icon="warning.png", message=self.lang.pin_msg, message_bold=False, exit_btn_msg=self.lang.exit)
+                return
+            if len(pin_1) < MIN_PIN_LENGTH:
+                Notification(title=self.lang.short_pin, icon="warning.png", message=self.lang.short_pin_msg, message_bold=False, exit_btn_msg=self.lang.exit)
+                return
+        luks_password = self.luks_password_entry.get()
+        
+        
+        if self.tpm_preset.get() == self.lang.preset_secure:
+            pcrs = ['0', '7']
+        elif self.tpm_preset.get() == self.lang.preset_lesssecure:
+            pcrs = ['0', '7', '14']
+        else:
+            pcrs = []
+            for i in self.pcr_custom.winfo_children():
+                pcr = i.cget("text").split(":")[0].split(' ')[-1]
+                if i.get():
+                    pcrs.append(pcr)
+        
+        if self.switch_idp.get() == "on":
+            bap = self.boot_altered_pcr.get()
+            self.__enroll_idp(luks_password, pin_1, pcrs, bap)
+        else:
+            self.__enroll_systemd_cryptenroll(use_pin, luks_password, pin_1, pcrs)
+        
 
 class EnrollPassword(CTkToplevel):
     def __init__(self, lang, drive):
@@ -474,8 +654,9 @@ class Manage2FAUsers(CTkToplevel):
         qr.make(fit=True)
         qr_code = CTkImage(qr.make_image(fill_color="black", back_color="white").convert("RGB"), size=(300, 300))
 
-        return {"config": "\n".join(config), "key": key, "recovery_keys": recovery_keys, "qr_code_image": qr_code}
-        
+        return {"config": "\n".join(config), "key": key, "recovery_keys": recovery_keys, "qr_code_image": qr_code}        
+
+
 class App(CTk):
     def __init__(self, fg_color = None, **kwargs):
         super().__init__(fg_color, **kwargs)

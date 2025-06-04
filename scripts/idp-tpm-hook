@@ -1,0 +1,9 @@
+#!/usr/bin/ash
+
+run_hook() {
+    echo Starting IDP TPM script.
+    tpm2_pcrread
+    python /etc/idp-tpm.py
+}
+
+"$@"

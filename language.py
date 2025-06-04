@@ -96,6 +96,10 @@ class Locale:
             self.save_apply = "Save applications"
             self.apply_success = "Apply success."
             self.missing_deps_2fa = "Missing dependencies for 2FA.\nUse: pacman -S libpam-google-authenticator"
+            self.boot_altered_pcr = "IDP: Zeroed boot PCR"
+            self.tpm_init_success = "TPM was successfully initialized. Lockout key was saved to"
+            self.idp_already_enrolled = "IDP уже зарегестрирован. Удалите IDP перед повторной регистрацией."
+            self.hooks_not_found = "HOOKS was not found at /etc/mkinitcpio.conf"
 
         elif language == "ru":
             self.report = "Отчёт"
@@ -192,3 +196,7 @@ class Locale:
             self.save_apply = "Сохранить применения"
             self.apply_success = "Применение успешно."
             self.missing_deps_2fa = "Отсутствуют зависимости для 2FA.\nИспользуйте: pacman -S libpam-google-authenticator"
+            self.boot_altered_pcr = "IDP: Нулевой загрузочный PCR"
+            self.tpm_init_success = "TPM успешно инициализирован. Ключ доступа сохранен в"
+            self.idp_already_enrolled = "IDP уже зарегестрирован. Удалите IDP перед повторной регистрацией."
+            self.hooks_not_found = "HOOKS не были найдены в /etc/mkinitcpio.conf"
