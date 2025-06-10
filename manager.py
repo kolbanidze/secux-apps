@@ -23,6 +23,9 @@ from secrets import token_bytes, choice, token_hex
 from base64 import b32encode
 from os import remove, chown, chmod
 from os.path import isfile
+from shutil import copy
+from argon2.low_level import hash_secret_raw, Type
+from Crypto.Cipher import AES
 
 VERSION = "0.3.3 DEV"
 
@@ -121,13 +124,16 @@ class DeletePassword(CTkToplevel):
 
 
 class IDPEnroll:
-    def __init__(self, drive, lang, luks_password, pin, pcrs, bap):
+    def __init__(self, drive, lang, luks_password, pin, pcrs, bap, time_cost: int = 6, memory_cost: int = 1048576, parallelism: int = 4):
         self.drive = drive
         self.lang = lang
         self.luks_password = luks_password
         self.pin = pin
         self.pcrs = pcrs
         self.bap = bap
+        self.time_cost = time_cost
+        self.memory_cost = memory_cost
+        self.parallelism = parallelism
         
         self.current_dir = os.getcwd()
         os.chdir("/tmp")
@@ -135,7 +141,7 @@ class IDPEnroll:
         if self.bap not in self.pcrs:
             self.pcrs.append(self.bap)
         self.pcrs.sort()
-        
+
         self.cleanup()
         self.prepare_tpm()
         if self.check_if_already_enrolled():
@@ -143,6 +149,8 @@ class IDPEnroll:
                          exit_btn_msg=self.lang.exit)
             return
         self.mkinitcpio_enable()
+        self.build_and_enroll()
+        # self.build_pcrs(self.pcrs, {self.bap: b"\x00"*32})
         
     def read_pcrs(self):
         process = run(["tpm2_pcrread", "sha256"], capture_output=True, check=True)
@@ -151,7 +159,13 @@ class IDPEnroll:
         return values
 
     def build_pcrs(self, pcrs: list, prebuild_pcrs: dict):
-        """ pcrs: [0,7,14,16]; prebuild_pcrs = {16: b"hash"} """
+        """ pcrs: ['0','7','14','16']; prebuild_pcrs = {'16': b"hash"} """
+        
+        pcrs = [int(i) for i in pcrs]
+        for key in [int(i) for i in list(prebuild_pcrs)]:
+            prebuild_pcrs[key] = prebuild_pcrs[str(key)]
+            del prebuild_pcrs[str(key)]     
+        
         for key, value in prebuild_pcrs.items():
             if key not in pcrs:
                 raise ValueError("Prebuild PCR must be in pcrs list!")
@@ -245,7 +259,91 @@ class IDPEnroll:
         
         with open("/etc/mkinitcpio.conf", "w") as file:
             file.write("\n".join(cont))
+        copy(f"{WORKDIR}/scripts/idp-tpm-hook", "/etc/initcpio/hooks/idp-tpm")
+        copy(f"{WORKDIR}/scripts/idp-tpm-install", "/etc/initcpio/install/idp-tpm")
+        copy(f"{WORKDIR}/scripts/idp-tpm.py", "/etc/idp-tpm.py")
+    
+    def build_and_enroll(self):
+        secret = token_bytes(32)
+        
+        process = run(["cryptsetup", "luksAddKey", self.drive, "-"], input=self.luks_password + b"\n" + secret, capture_output=True, check=False)
+        if process.returncode == 0:
+            print("LUKS keyfile was successfully added.")
+        else:
+            print("Something went wrong while adding LUKS keyfile.")
+            print(f"Return code: {process.returncode}")
+            print("stdout:")
+            print(process.stdout)
+            print("stderr:")
+            print(process.stderr)
+            exit(1)
+        
+        keyslot_found = False
+        for keyslot_id in range(32):
+            process = run(["cryptsetup", "luksOpen", "--test-passphrase", self.drive, "--key-file", "-", '--key-slot', str(keyslot_id)], input=secret, capture_output=True, check=False)
+            if process.returncode == 0:
+                print(f"Added keyfile at LUKS slot: {keyslot_id}")
+                keyslot_found = True
+                break
 
+        if not keyslot_found:
+            print("Something wen't wrong and keyslot wasn't found.")
+            exit(1)
+
+        
+        salt_A = token_bytes(32)
+        salt_B = token_bytes(32)
+        A_key = hash_secret_raw(self.pin, salt_A, time_cost=self.time_cost, memory_cost=self.memory_cost, parallelism=self.parallelism, hash_len=32, type=Type.ID)
+        B_key = hash_secret_raw(A_key+self.pin, salt_B, time_cost=self.time_cost, memory_cost=self.memory_cost, parallelism=self.parallelism, hash_len=32, type=Type.ID)
+        address = self.get_free_address()
+        
+        cipher = AES.new(B_key, AES.MODE_GCM)
+        ciphertext, tag = cipher.encrypt_and_digest(secret)
+        nonce = cipher.nonce
+        blob = nonce + tag + ciphertext # 16/16/32
+        
+        pcr_table = self.build_pcrs(self.pcrs, {self.bap: BOOT_ALTERED_PCR_VALUE})
+        with open(PCRS_FILE, 'wb') as file:
+            file.write(b"".join(pcr_table))
+        
+        self.run_cmd(["tpm2_createprimary", "-C", "o", "-G", "ecc", "-g", "sha256", "-c", PRIMARY_CTX])
+        self.run_cmd(["tpm2_startauthsession", "-S", SESSION_CTX])
+        self.run_cmd(["tpm2_policypcr", "-S", SESSION_CTX, "-l", f"sha256:{','.join([str(i) for i in self.pcrs])}", "-f", PCRS_FILE])
+        self.run_cmd(["tpm2_policyauthvalue", '-S', SESSION_CTX])
+        self.run_cmd(["tpm2_getpolicydigest", "-S", SESSION_CTX, "-o", POLICY_DIGEST])
+        self.run_cmd(["tpm2_flushcontext", SESSION_CTX])
+
+        self.run_cmd(["tpm2_create", "-C", PRIMARY_CTX,
+                        "-i", '-',
+                        "-L", POLICY_DIGEST,
+                        '-a', OBJ_ATTRIBUTES,
+                        '-p', f'hex:{A_key.hex()}',
+                        '-u', SEALED_PUB,
+                        '-r', SEALED_PRIV], input_data=blob)
+
+        self.run_cmd(["tpm2_load", "-C", PRIMARY_CTX,
+                        "-u", SEALED_PUB, "-r", SEALED_PRIV,
+                        "-c", SEALED_CTX])
+
+        self.run_cmd(["tpm2_evictcontrol", "-C", "o", "-c", SEALED_CTX, address])
+        
+        json = {
+            "salt_A": str(salt_A.hex()),
+            "salt_B": str(salt_B.hex()),
+            "time_cost": self.time_cost,
+            "parallelism": self.parallelism,
+            "memory_cost": self.memory_cost,
+            "pcrs": self.pcrs,
+            "boot_altered_pcr": BOOT_ALTERED_PCR,
+            "address": address,
+            "key_slot": str(keyslot_id)
+        }
+        
+        with open(IDP_FILE, "w") as file:
+            file.write(json_encode(json))
+        Notification(self.lang.success, 'greencheck.png', 'EVERYTHING IS GOOD!', message_bold=True, exit_btn_msg=self.lang.exit)
+
+        
 
 class EnrollTPM(CTkToplevel):
     def __init__(self, lang, drive):
@@ -344,7 +442,7 @@ class EnrollTPM(CTkToplevel):
 
     def __enroll_idp(self, luks_password, pin, pcrs, bap):
         current_dir = os.getcwd()
-        IDPEnroll(self.drive, self.lang, luks_password, pin, pcrs, bap)
+        IDPEnroll(self.drive, self.lang, luks_password.encode(), pin.encode(), pcrs, bap)
         os.chdir(current_dir)
     
     def __enroll_systemd_cryptenroll(self, use_pin, luks_password, pin, pcrs):
@@ -411,6 +509,7 @@ class EnrollTPM(CTkToplevel):
         
         if self.switch_idp.get() == "on":
             bap = self.boot_altered_pcr.get()
+            
             self.__enroll_idp(luks_password, pin_1, pcrs, bap)
         else:
             self.__enroll_systemd_cryptenroll(use_pin, luks_password, pin_1, pcrs)
