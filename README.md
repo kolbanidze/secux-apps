@@ -1,4 +1,4 @@
-# 🛡️ Security Manager for Secux Linux 🔒
+# 🛡️ Security Manager for Secux Linux
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Russian](https://img.shields.io/badge/README-in_Russian-red.svg)](README.ru.md)
@@ -6,7 +6,7 @@
 
 **Security Manager** is a graphical utility designed for **Secux Linux**, a security-focused Linux distribution based on Arch Linux. It simplifies the management of crucial security features, primarily enabling a **fully verified boot process** using TPM 2.0 and LUKS full-disk encryption.
 
-💻✨ Manage your system's security posture with an easy-to-use interface!
+💻 Manage your system's security posture with an easy-to-use interface!
 
 ## ✨ Features
 
