@@ -150,6 +150,7 @@ class IDPEnroll:
             return
         self.mkinitcpio_enable()
         self.build_and_enroll()
+        self.update_uki()
         # self.build_pcrs(self.pcrs, {self.bap: b"\x00"*32})
         
     def read_pcrs(self):
@@ -342,6 +343,14 @@ class IDPEnroll:
         with open(IDP_FILE, "w") as file:
             file.write(json_encode(json))
         Notification(self.lang.success, 'greencheck.png', 'EVERYTHING IS GOOD!', message_bold=True, exit_btn_msg=self.lang.exit)
+    
+    def update_uki(self):
+        if isfile("/etc/idp-tpm.py"):
+            remove("/etc/idp-tpm.py")
+        copy(f"{WORKDIR}/scripts/idp-tpm.py", "/etc/idp-tpm.py")
+        initcpio = run(["mkinitcpio", '-P'], check=True, capture_output=True)
+        
+        
 
         
 

@@ -55,7 +55,8 @@ build() {
     add_runscript
     add_python_dirs
 
-    add_file "/etc/idp_metadata.json"
+    add_file "/etc/IDP.json"
+    add_file "/etc/idp-tpm.py"
     
     add_binary /usr/bin/tpm2_pcrread
     add_binary /usr/bin/tpm2_startauthsession
