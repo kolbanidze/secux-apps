@@ -35,7 +35,7 @@ PYCODE
 
     for pattern in "${dist_infos[@]}"; do
         local matched=0
-        for distdir in "${site_packages}/${pattern}"; do
+        for distdir in ${site_packages}/${pattern}; do
             if [[ -d "$distdir" ]]; then
                 add_full_dir "$distdir"
                 matched=1
