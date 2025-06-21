@@ -29,8 +29,7 @@ PYCODE
     done
 
     local dist_infos=(
-        "argon2_cffi-*.dist-info"
-        "argon2_cffi_bindings-*.dist-info"
+        "argon2*.dist-info"
         "pycryptodome-*.dist-info"
     )
 

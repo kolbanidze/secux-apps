@@ -260,6 +260,7 @@ class IDPEnroll:
         
         with open("/etc/mkinitcpio.conf", "w") as file:
             file.write("\n".join(cont))
+        # TODO check if file exists
         copy(f"{WORKDIR}/scripts/idp-tpm-hook", "/etc/initcpio/hooks/idp-tpm")
         copy(f"{WORKDIR}/scripts/idp-tpm-install", "/etc/initcpio/install/idp-tpm")
         copy(f"{WORKDIR}/scripts/idp-tpm.py", "/etc/idp-tpm.py")
@@ -345,9 +346,6 @@ class IDPEnroll:
         Notification(self.lang.success, 'greencheck.png', 'EVERYTHING IS GOOD!', message_bold=True, exit_btn_msg=self.lang.exit)
     
     def update_uki(self):
-        if isfile("/etc/idp-tpm.py"):
-            remove("/etc/idp-tpm.py")
-        copy(f"{WORKDIR}/scripts/idp-tpm.py", "/etc/idp-tpm.py")
         initcpio = run(["mkinitcpio", '-P'], check=True, capture_output=True)
         
         
