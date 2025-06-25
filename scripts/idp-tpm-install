@@ -1,61 +1,9 @@
 #!/bin/bash
 
-depends="python"
-
-add_python_dirs() {
-    local site_packages
-    site_packages=$(python - << 'PYCODE'
-import sysconfig
-print(sysconfig.get_path("purelib"))
-PYCODE
-)
-
-    if [[ -z "$site_packages" ]]; then
-        # If for some reason sysconfig.get_path() failed, bail out with a message.
-        # (mkinitcpio will show this on the console.)
-        echo "==> ERROR: Could not detect site-packages via Python." >&2
-        return 1
-    fi
-
-    local dirs=(Crypto argon2 _argon2_cffi_bindings)
-
-    for dir in "${dirs[@]}"; do
-        if [[ -d "${site_packages}/${dir}" ]]; then
-            add_full_dir "${site_packages}/${dir}"
-        else
-            echo "==> ERROR: Required directory '${dir}' not found in ${site_packages}." >&2
-            return 1
-        fi
-    done
-
-    local dist_infos=(
-        "argon2*.dist-info"
-        "pycryptodome-*.dist-info"
-    )
-
-    for pattern in "${dist_infos[@]}"; do
-        local matched=0
-        for distdir in ${site_packages}/${pattern}; do
-            if [[ -d "$distdir" ]]; then
-                add_full_dir "$distdir"
-                matched=1
-                break
-            fi
-        done
-        if [[ "$matched" -eq 0 ]]; then
-            echo "==> ERROR: No matching dist-info directory found for pattern '$pattern' in ${site_packages}." >&2
-            return 1
-        fi
-    done
-} 
-
-
 build() {
     add_runscript
-    add_python_dirs
 
     add_file "/etc/IDP.json"
-    add_file "/etc/idp-tpm.py"
     
     add_binary /usr/bin/tpm2_pcrread
     add_binary /usr/bin/tpm2_startauthsession
@@ -64,6 +12,7 @@ build() {
     add_binary /usr/bin/tpm2_unseal
     add_binary /usr/bin/tpm2_flushcontext
     add_binary /usr/bin/tpm2_pcrextend
+    add_binary /usr/local/bin/secux-apps/scripts/idp-tpm
 
     cat >"$BUILDROOT/usr/lib/systemd/system/idp-tpm.service" <<EOF
 [Unit]

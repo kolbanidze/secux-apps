@@ -346,7 +346,8 @@ class IDPEnroll:
         Notification(self.lang.success, 'greencheck.png', 'EVERYTHING IS GOOD!', message_bold=True, exit_btn_msg=self.lang.exit)
     
     def update_uki(self):
-        initcpio = run(["mkinitcpio", '-P'], check=True, capture_output=True)
+        pass
+        # initcpio = run(["mkinitcpio", '-P'], check=True, capture_output=True)
         
         
 
