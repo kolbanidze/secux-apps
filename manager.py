@@ -136,11 +136,13 @@ class IDPEnroll:
         self.parallelism = parallelism
         
         self.current_dir = os.getcwd()
-        os.chdir("/tmp")
+        os.chdir("/home/user/yoni")
         
         if self.bap not in self.pcrs:
             self.pcrs.append(self.bap)
+        self.pcrs = [int(i) for i in self.pcrs]
         self.pcrs.sort()
+        self.pcrs = [str(i) for i in self.pcrs]
 
         self.cleanup()
         self.prepare_tpm()
@@ -352,6 +354,7 @@ class IDPEnroll:
     
     def update_uki(self):
         initcpio = run(["mkinitcpio", '-P'], check=True, capture_output=True)
+        print("UKI OK.")
         
         
 
@@ -1116,15 +1119,51 @@ class App(CTk):
 
     def _delete_tpm(self, drive):
         try:
-            process = subprocess.run(["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", drive], capture_output=True, text=True, check=True)
+            subprocess.run(["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", drive], capture_output=True, check=True)
         except subprocess.CalledProcessError:
             Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.delete_tpm_failure, message_bold=False, exit_btn_msg=self.lang.exit)
             return
         
-        if process.returncode == 0:
-            Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.delete_tpm_success, message_bold=False, exit_btn_msg=self.lang.exit)
-        else:
-            Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.delete_tpm_failure, message_bold=False, exit_btn_msg=self.lang.exit)
+        if isfile(IDP_FILE):
+            with open(IDP_FILE, "r") as file:
+                idp = json_decode(file.read())
+                address = idp['address']
+                key_slot = idp['key_slot']
+            try:
+                subprocess.run(["/usr/bin/cryptsetup", 'luksKillSlot', drive, str(key_slot), '-q'], check=True, capture_output=True)
+                subprocess.run(["/usr/bin/tpm2_evictcontrol", '-C', 'o', '-c', str(address)])
+            except subprocess.CalledProcessError:
+                Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.delete_tpm_failure, message_bold=False, exit_btn_msg=self.lang.exit)
+                return
+            remove(IDP_FILE)
+            with open("/etc/mkinitcpio.conf", "r") as file:
+                cont = file.read().split("\n")
+            hooks = None
+            for i in range(len(cont)):
+                if cont[i].startswith("HOOKS"):
+                    hooks = cont[i].split(" ")
+                    hooks_index = i
+                    break
+            if not hooks:
+                print("HOOKS missing in /etc/mkinitcpio.conf")
+                return
+            if 'idp-tpm' in hooks:
+                hooks.remove('idp-tpm')
+                cont[hooks_index] = " ".join(hooks)
+            
+                with open("/etc/mkinitcpio.conf", "w") as file:
+                    file.write("\n".join(cont))
+            
+                try:
+                    subprocess.run(['/usr/bin/mkinitcpio', '-P'], check=True, capture_output=True)
+                except subprocess.CalledProcessError:
+                    Notification(title=self.lang.failure, icon="redcross.png", message=self.lang.delete_tpm_failure, message_bold=False, exit_btn_msg=self.lang.exit)
+                    return
+        Notification(title=self.lang.success, icon="greencheck.png", message=self.lang.delete_tpm_success, message_bold=False, exit_btn_msg=self.lang.exit)
+
+            
+
+                
 
     def _delete_recovery(self, drive):
         try:
