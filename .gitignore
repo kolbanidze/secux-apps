@@ -9,5 +9,4 @@ debug.conf
 scripts/idp-tpm.build
 scripts/idp-tpm.dist
 scripts/idp-tpm.onefile-build
-# Remove later
-scripts/idp-tpm
+
