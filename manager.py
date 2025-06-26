@@ -236,6 +236,14 @@ class IDPEnroll:
         return False
 
     def mkinitcpio_enable(self):
+        if isfile("/etc/initcpio/hooks/idp-tpm"):
+            remove("/etc/initcpio/hooks/idp-tpm")
+        copy(f"{WORKDIR}/scripts/idp-tpm-hook", "/etc/initcpio/hooks/idp-tpm")
+        
+        if isfile("/etc/initcpio/install/idp-tpm"):
+            remove("/etc/initcpio/install/idp-tpm")
+        copy(f"{WORKDIR}/scripts/idp-tpm-install", "/etc/initcpio/install/idp-tpm")
+        
         with open("/etc/mkinitcpio.conf", "r") as file:
             cont = file.read().split("\n")
         hooks = None
@@ -260,15 +268,12 @@ class IDPEnroll:
         
         with open("/etc/mkinitcpio.conf", "w") as file:
             file.write("\n".join(cont))
-        # TODO check if file exists
-        copy(f"{WORKDIR}/scripts/idp-tpm-hook", "/etc/initcpio/hooks/idp-tpm")
-        copy(f"{WORKDIR}/scripts/idp-tpm-install", "/etc/initcpio/install/idp-tpm")
-        copy(f"{WORKDIR}/scripts/idp-tpm.py", "/etc/idp-tpm.py")
+
     
     def build_and_enroll(self):
         secret = token_bytes(32)
         
-        process = run(["cryptsetup", "luksAddKey", self.drive, "-"], input=self.luks_password + b"\n" + secret, capture_output=True, check=False)
+        process = run(["cryptsetup", "luksAddKey", '--pbkdf', 'pbkdf2', '--pbkdf-force-iterations', '1000', '--hash', 'sha512', self.drive, "-"], input=self.luks_password + b"\n" + secret, capture_output=True, check=False)
         if process.returncode == 0:
             print("LUKS keyfile was successfully added.")
         else:
@@ -346,8 +351,7 @@ class IDPEnroll:
         Notification(self.lang.success, 'greencheck.png', 'EVERYTHING IS GOOD!', message_bold=True, exit_btn_msg=self.lang.exit)
     
     def update_uki(self):
-        pass
-        # initcpio = run(["mkinitcpio", '-P'], check=True, capture_output=True)
+        initcpio = run(["mkinitcpio", '-P'], check=True, capture_output=True)
         
         
 

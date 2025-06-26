@@ -12,6 +12,8 @@ build() {
     add_binary /usr/bin/tpm2_unseal
     add_binary /usr/bin/tpm2_flushcontext
     add_binary /usr/bin/tpm2_pcrextend
+    add_binary /usr/lib/libargon2.so
+    add_binary /usr/lib/libargon2.so.1
     add_binary /usr/local/bin/secux-apps/scripts/idp-tpm
 
     cat >"$BUILDROOT/usr/lib/systemd/system/idp-tpm.service" <<EOF

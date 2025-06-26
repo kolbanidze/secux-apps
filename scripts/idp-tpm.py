@@ -29,6 +29,7 @@ def run_cmd(cmd_list, input_data=None, capture_output=True, show_stdout=True):
         print("STDERR:", process.stderr.decode() if isinstance(process.stderr, bytes) else process.stderr)
     
     if process.returncode != 0:
+        alter_bap()
         raise Exception
 
 def parse_json(file: str) -> dict:
@@ -86,6 +87,10 @@ def get_luks_info() -> tuple:
         exit(1)
     return luks_uuid, map_name
 
+def alter_bap():
+    if blob["boot_altered_pcr"]:
+        run_cmd(["tpm2_pcrextend", f"{blob["boot_altered_pcr"]}:sha256=F5EA5AD9715B57E215DC9082F836A87AF74BAB13BDED5A9915EE0CDFA9101743"])
+
 blob = parse_json("/etc/IDP.json")
 salt_A = blob['salt_A']
 salt_B = blob['salt_B']
@@ -106,15 +111,15 @@ run_cmd(["tpm2_startauthsession", '--policy-session', '-S', SESSION_CTX])
 run_cmd(["tpm2_policypcr", '-S', SESSION_CTX, '-l', f'sha256:{','.join(blob["pcrs"])}', '-f', PCRS_FILE])
 run_cmd(["tpm2_policyauthvalue", '-S', SESSION_CTX])
 process = run(["tpm2_unseal", '-c', blob['address'], '-p', f"session:{SESSION_CTX}+hex:{A_key.hex()}"], capture_output=True)
-if process.returncode != 0:
-    print("Security violation! Check PIN code, PCRs or DA lockout!") # TODO show if DA lockout
-    print(process.stderr)
-    exit(1)
-unsealed = process.stdout
 run_cmd(["tpm2_flushcontext", SESSION_CTX])
+alter_bap()
 
-if blob["boot_altered_pcr"]:
-    run_cmd(["tpm2_pcrextend", f"{blob["boot_altered_pcr"]}:sha256=F5EA5AD9715B57E215DC9082F836A87AF74BAB13BDED5A9915EE0CDFA9101743"])
+if process.returncode != 0:
+    print("Security violation! Check PIN code, PCRs or DA lockout!")
+    print(process.stderr.decode())
+    exit(1)
+
+unsealed = process.stdout
 
 nonce = unsealed[:16]
 tag = unsealed[16:32]
