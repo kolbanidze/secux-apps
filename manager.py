@@ -27,7 +27,7 @@ from shutil import copy
 from argon2.low_level import hash_secret_raw, Type
 from Crypto.Cipher import AES
 
-VERSION = "0.3.3"
+VERSION = "0.3.4"
 
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -1342,6 +1342,10 @@ class App(CTk):
                             tpm_with_pin = True
         except subprocess.CalledProcessError:
             pass
+        
+        if isfile(IDP_FILE):
+            tpm_enrolled = True
+            tpm_with_pin = True
         
         return {
             "SecureBootState": secure_boot,
