@@ -100,6 +100,7 @@ class Locale:
             self.tpm_init_success = "TPM was successfully initialized. Lockout key was saved to"
             self.idp_already_enrolled = "IDP уже зарегестрирован. Удалите IDP перед повторной регистрацией."
             self.hooks_not_found = "HOOKS was not found at /etc/mkinitcpio.conf"
+            self.idp_was_successfully_enrolled = "Unlocking the drive with TPM (IDP) was successfully enrolled"
 
         elif language == "ru":
             self.report = "Отчёт"
@@ -200,3 +201,4 @@ class Locale:
             self.tpm_init_success = "TPM успешно инициализирован. Ключ доступа сохранен в"
             self.idp_already_enrolled = "IDP уже зарегестрирован. Удалите IDP перед повторной регистрацией."
             self.hooks_not_found = "HOOKS не были найдены в /etc/mkinitcpio.conf"
+            self.idp_was_successfully_enrolled = "Разблокировка диска с помощью TPM (IDP) успешно зарегистрирована"
