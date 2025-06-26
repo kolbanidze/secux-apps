@@ -136,7 +136,7 @@ class IDPEnroll:
         self.parallelism = parallelism
         
         self.current_dir = os.getcwd()
-        os.chdir("/home/user/yoni")
+        os.chdir("/tmp")
         
         if self.bap not in self.pcrs:
             self.pcrs.append(self.bap)
