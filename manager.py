@@ -27,7 +27,7 @@ from shutil import copy
 from argon2.low_level import hash_secret_raw, Type
 from Crypto.Cipher import AES
 
-VERSION = "0.3.5"
+VERSION = "0.4"
 
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
