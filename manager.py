@@ -27,7 +27,7 @@ from shutil import copy
 from argon2.low_level import hash_secret_raw, Type
 from Crypto.Cipher import AES
 
-VERSION = "0.3.4"
+VERSION = "0.3.5"
 
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -816,7 +816,6 @@ class App(CTk):
         update_image = CTkImage(light_image=img, dark_image=img, size=(80, 80))
         update_image_label = CTkLabel(self.update_tab, text="", image=update_image)
         run_update_sm = CTkButton(self.update_tab, text=f"{self.lang.update} Security Manager", command=self.__update_repo)
-        run_update_ka = CTkButton(self.update_tab, text=f"{self.lang.update} KIRTapp", command=self.__update_KIRTapp)
         self.updater_textbox = CTkTextbox(self.update_tab, state="disabled")
         after_update = CTkLabel(self.update_tab, text=self.lang.after_update)
         exit_button = CTkButton(self.update_tab, text=self.lang.exit, command=self.destroy)
@@ -825,8 +824,7 @@ class App(CTk):
         self.update_tab.grid_columnconfigure(0, weight=1)
         self.update_tab.grid_columnconfigure(1, weight=1)
         update_image_label.grid(row=0, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
-        run_update_sm.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
-        run_update_ka.grid(row=1, column=1, padx=10, pady=5, sticky="nsew")
+        run_update_sm.grid(row=1, columnspan=2, padx=10, pady=5, sticky="nsew")
         self.updater_textbox.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
         after_update.grid(row=3, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
         exit_button.grid(row=4, column=0, columnspan=2, padx=10, pady=5, sticky="nsew")
