@@ -27,7 +27,7 @@ from shutil import copy
 from argon2.low_level import hash_secret_raw, Type
 from Crypto.Cipher import AES
 
-VERSION = "0.4"
+VERSION = "0.4.1"
 
 WORKDIR = os.path.dirname(os.path.abspath(__file__))
 MIN_PIN_LENGTH = 4
@@ -238,6 +238,7 @@ class IDPEnroll:
         return False
 
     def mkinitcpio_enable(self):
+        chmod("/usr/local/bin/secux-apps/scripts/idp-tpm", 0o755)
         if isfile("/etc/initcpio/hooks/idp-tpm"):
             remove("/etc/initcpio/hooks/idp-tpm")
         copy(f"{WORKDIR}/scripts/idp-tpm-hook", "/etc/initcpio/hooks/idp-tpm")
