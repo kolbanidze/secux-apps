@@ -1,0 +1,7 @@
+[Context]
+shared=!ipc
+sockets=!x11
+
+[Environment]
+XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons;
+ELECTRON_OZONE_PLATFORM_HINT=auto

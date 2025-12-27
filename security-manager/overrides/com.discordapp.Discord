@@ -1,0 +1,7 @@
+[Context]
+shared=!ipc
+devices=dri
+filesystems=!xdg-videos;!xdg-pictures
+
+[Environment]
+ELECTRON_OZONE_PLATFORM_HINT=auto

@@ -1,0 +1,482 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $SecurityWindow: Adw.ApplicationWindow {
+  title: "Security Manager";
+  default-width: 900;
+  default-height: 620;
+  width-request: 500;
+  height-request: 520;
+
+  content: Adw.ToolbarView {
+    top-bar-style: flat;
+
+    [top]
+    Adw.HeaderBar {}
+
+    content: Adw.ViewStack view_stack {
+      Adw.ViewStackPage {
+        name: "report";
+        title: _("Отчёт");
+        icon-name: "security-high-symbolic";
+
+        child: Adw.StatusPage status_page {
+          title: _("Система защищена");
+          description: _("Secure Boot активен, TPM модули задействованы.");
+          icon-name: "security-high-symbolic"; // channel-insecure-symbolic
+          // success / error
+          styles [
+            "success",
+          ]
+
+          child: Adw.Clamp {
+            maximum-size: 600;
+
+            child: Gtk.Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Adw.PreferencesGroup {
+                title: _("Загрузка и Ключи");
+
+                Adw.ActionRow {
+                  title: "Secure Boot";
+                  subtitle: _("Рекомендуется к использованию");
+
+                  [suffix]
+                  Gtk.Label {
+                    label: _("Включен");
+                  }
+                }
+
+                Adw.ActionRow {
+                  title: _("Состояние Secure Boot");
+                  subtitle: _("Рекомендуется User Mode");
+
+                  [suffix]
+                  Gtk.Label {
+                    label: "User";
+                  }
+                }
+
+                Adw.ActionRow {
+                  title: _("Доверие к ключам Microsoft");
+                  subtitle: _("Недопустимо при максимальном уровне защищённости");
+
+                  [suffix]
+                  Gtk.Label {
+                    label: _("Да");
+                  }
+                }
+              }
+
+              Adw.PreferencesGroup {
+                title: _("TPM и Шифрование");
+
+                Adw.ActionRow {
+                  title: _("Наличие TPM");
+
+                  [suffix]
+                  Gtk.Label {
+                    label: _("Да");
+                  }
+                }
+
+                Adw.ActionRow {
+                  title: _("Разблокировка диска");
+                  subtitle: _("Рекомендуется использование TPM + PIN");
+
+                  [suffix]
+                  Gtk.Label {
+                    label: "TPM + PIN";
+                  }
+                }
+              }
+
+              Gtk.Label lbl_version {
+                label: "Версия модуля: 0.0.1";
+
+                styles [
+                  "dim-label",
+                  "caption",
+                  "numeric",
+                ]
+
+                margin-top: 12;
+              }
+            };
+          };
+        };
+      }
+
+      // --- Вкладка 2: Утилиты ---
+      Adw.ViewStackPage {
+        name: "utils";
+        title: _("Утилиты");
+        icon-name: "tools-check-spelling-symbolic";
+
+        child: Adw.PreferencesPage {
+          Adw.PreferencesGroup {
+            title: _("Управление диском");
+            description: "Диск: /dev/nvme0n1p6";
+
+            Adw.ActionRow {
+              title: "TPM";
+              subtitle: _("Управление модулем TPM");
+
+              [suffix]
+              Gtk.Button btn_enroll_tpm {
+                label: _("Зарегистрировать");
+                valign: center;
+
+                styles [
+                  "suggested-action",
+                ]
+              }
+
+              [suffix]
+              Gtk.Button btn_delete_tpm {
+                label: _("Удалить");
+                valign: center;
+
+                styles [
+                  "destructive-action",
+                ]
+              }
+            }
+
+            Adw.ActionRow {
+              title: _("Ключи восстановления");
+              subtitle: _("Рекомендуемый способ восстановления");
+
+              [suffix]
+              Gtk.Box {
+                spacing: 6;
+
+                Gtk.Button btn_enroll_recovery {
+                  label: _("Зарегистрировать");
+                  valign: center;
+                }
+
+                Gtk.Button btn_delete_recovery {
+                  label: _("Удалить");
+                  valign: center;
+
+                  styles [
+                    "destructive-action",
+                  ]
+                }
+              }
+            }
+
+            Adw.ActionRow {
+              title: _("Пароли");
+              subtitle: _("Опционально");
+
+              [suffix]
+              Gtk.Box {
+                spacing: 6;
+
+                Gtk.Button btn_enroll_password {
+                  label: _("Зарегистрировать");
+                  valign: center;
+                }
+
+                Gtk.Button btn_delete_password {
+                  label: _("Удалить");
+                  valign: center;
+
+                  styles [
+                    "destructive-action",
+                  ]
+                }
+              }
+            }
+          }
+
+          Adw.PreferencesGroup {
+            title: _("Безопасность входа");
+
+            Adw.ActionRow {
+              title: _("Двухфакторная аутентификация");
+              subtitle: _("Настройка TOTP и кодов восстановления");
+              icon-name: "phone-symbolic";
+              activatable: true;
+
+              [suffix]
+              Gtk.Button btn_open_2fa_manager {
+                icon-name: "emblem-system-symbolic";
+                valign: center;
+                tooltip-text: _("Открыть настройки 2FA");
+
+                styles [
+                  "flat",
+                ]
+              }
+            }
+          }
+        };
+      }
+
+      // --- Вкладка 3: Настройки ---
+      Adw.ViewStackPage {
+        name: "settings";
+        title: _("Настройки");
+        icon-name: "emblem-system-symbolic";
+
+        child: Adw.PreferencesPage {
+          Adw.PreferencesGroup {
+            title: "Security Manager";
+
+            Adw.ComboRow combo_language {
+              title: _("Язык");
+              subtitle: _("Language");
+
+              model: Gtk.StringList {
+                strings [
+                  "Русский",
+                  "English",
+                ]
+              };
+            }
+          }
+
+          Adw.PreferencesGroup {
+            title: "Flatpak";
+
+            Adw.SwitchRow switch_offline_repo {
+              title: _("Офлайн репозиторий");
+              subtitle: _("Использовать локальный источник");
+            }
+
+            Adw.ActionRow {
+              title: _("Путь к репозиторию");
+
+              [suffix]
+              Gtk.Box {
+                spacing: 6;
+
+                Gtk.Entry entry_repo_path {
+                  placeholder-text: "/путь/до/репозитория";
+                  editable: false;
+                  width-request: 250;
+                  valign: center;
+                }
+
+                Gtk.Button btn_select_repo {
+                  icon-name: "folder-open-symbolic";
+                  valign: center;
+                }
+              }
+            }
+          }
+
+          Adw.PreferencesGroup {
+            Gtk.Button btn_save_settings {
+              label: _("Сохранить");
+
+              styles [
+                "suggested-action",
+              ]
+            }
+          }
+        };
+      }
+
+      // --- Вкладка 4 Flatpak ---
+      Adw.ViewStackPage {
+        name: "flatpak";
+        title: "Flatpak";
+        icon-name: "package-x-generic-symbolic";
+
+        child: Adw.PreferencesPage {
+          Adw.PreferencesGroup {
+            title: _("Конфигурация");
+
+            Adw.ActionRow {
+              title: _("Источник пакетов");
+              subtitle: _("Flathub (Online)");
+              icon-name: "network-server-symbolic";
+              activatable: true;
+
+              [suffix]
+              Gtk.Button {
+                icon-name: "emblem-system-symbolic";
+                valign: center;
+
+                styles [
+                  "flat",
+                ]
+              }
+            }
+          }
+
+          // Блок приложений с категориями
+          Adw.PreferencesGroup {
+            title: _("Приложения");
+            description: _("Выберите категории для установки");
+            // Категория 1: Интернет
+            Adw.ExpanderRow {
+              title: _("Интернет и общение");
+              subtitle: "Chromium, Telegram, Discord...";
+              icon-name: "network-workgroup-symbolic";
+              expanded: false;
+
+              Adw.SwitchRow chk_chromium {
+                title: "Chromium";
+                icon-name: "web-browser-symbolic";
+              }
+
+              Adw.SwitchRow chk_firefox {
+                title: "Firefox";
+                icon-name: "web-browser-symbolic";
+              }
+
+              Adw.SwitchRow chk_librewolf {
+                title: "Librewolf";
+                icon-name: "web-browser-symbolic";
+              }
+
+              Adw.SwitchRow chk_telegram {
+                title: "Telegram";
+                icon-name: "send-to-symbolic";
+              }
+
+              Adw.SwitchRow chk_discord {
+                title: "Discord";
+                subtitle: _("Внимание: использует старую оконную систему (X11)");
+                icon-name: "call-start-symbolic";
+              }
+            }
+
+            // Категория 2: Мультимедиа
+            Adw.ExpanderRow {
+              title: _("Мультимедиа");
+              subtitle: "Просмотр видео, OBS Studio";
+              icon-name: "applications-multimedia-symbolic";
+
+              Adw.SwitchRow chk_vlc {
+                title: "Видеопроигрыватель";
+                icon-name: "media-playback-start-symbolic";
+              }
+
+              Adw.SwitchRow chk_obs {
+                title: "OBS Studio";
+                icon-name: "camera-video-symbolic";
+              }
+            }
+
+            // Категория 3: Офис
+            Adw.ExpanderRow {
+              title: _("Офис и работа");
+              subtitle: "LibreOffice, OnlyOffice";
+              icon-name: "x-office-document-symbolic";
+
+              Adw.SwitchRow chk_libreoffice {
+                title: "LibreOffice";
+                icon-name: "x-office-spreadsheet-symbolic";
+              }
+
+              Adw.SwitchRow chk_onlyoffice {
+                title: "OnlyOffice";
+                subtitle: _("Внимание: использует старую оконную систему (X11)");
+                icon-name: "x-office-document-symbolic";
+              }
+            }
+
+            // Категория 4: Инструменты и безопасность
+            Adw.ExpanderRow {
+              title: _("Инструменты и безопасность");
+              subtitle: "BitWarden, KeePassXC, Torrent";
+              icon-name: "preferences-system-symbolic";
+
+              Adw.SwitchRow chk_flatseal {
+                title: "Flatseal";
+                subtitle: _("Управление правами Flatpak");
+                icon-name: "emblem-system-symbolic";
+              }
+
+              Adw.SwitchRow chk_keepassxc {
+                title: "KeePassXC";
+                icon-name: "dialog-password-symbolic";
+              }
+
+              Adw.SwitchRow chk_bitwarden {
+                title: "BitWarden";
+                icon-name: "dialog-password-symbolic";
+              }
+
+              Adw.SwitchRow chk_qbittorrent {
+                title: "qBitTorrent";
+                icon-name: "folder-download-symbolic";
+              }
+            }
+          }
+
+          Adw.PreferencesGroup {
+            Gtk.Box {
+              spacing: 12;
+              homogeneous: true;
+              margin-top: 6;
+
+              Gtk.Button btn_flatpak_download {
+                label: _("Скачать пакеты");
+                height-request: 45;
+
+                styles [
+                  "pill",
+                ]
+              }
+
+              Gtk.Button btn_flatpak_install {
+                label: _("Начать установку");
+                height-request: 45;
+
+                styles [
+                  "suggested-action",
+                  "pill",
+                ]
+              }
+            }
+          }
+
+          Adw.PreferencesGroup {
+            margin-top: 12;
+
+            Adw.ExpanderRow {
+              title: _("Лог операций");
+              icon-name: "utilities-terminal-symbolic";
+
+              Gtk.Frame {
+                margin-start: 12;
+                margin-end: 12;
+                margin-bottom: 12;
+                margin-top: 6;
+
+                child: Gtk.ScrolledWindow {
+                  height-request: 150;
+                  min-content-height: 100;
+
+                  child: Gtk.TextView flatpak_console {
+                    editable: false;
+                    monospace: true;
+                    left-margin: 10;
+                    right-margin: 10;
+                    top-margin: 10;
+                    bottom-margin: 10;
+                  };
+                };
+              }
+            }
+          }
+        };
+      }
+    };
+
+    [bottom]
+    Adw.ViewSwitcherBar switcher_bar {
+      stack: view_stack;
+      reveal: true;
+    }
+  };
+}

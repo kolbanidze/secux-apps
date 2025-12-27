@@ -1,0 +1,8 @@
+[Context]
+shared=!ipc
+sockets=!x11
+devices=dri
+filesystems=!xdg-documents;!~/.config/dconf;!xdg-videos;!xdg-pictures;!xdg-music;!~/.config/kioslaverc;xdg-run/dconf:ro;!host-etc
+
+[System Bus Policy]
+org.bluez=none

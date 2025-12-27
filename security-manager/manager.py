@@ -323,6 +323,7 @@ class IDPEnroll:
         self.run_cmd(["tpm2_getpolicydigest", "-S", SESSION_CTX, "-o", POLICY_DIGEST])
         self.run_cmd(["tpm2_flushcontext", SESSION_CTX])
 
+        # TODO: pass A_key as stdin for better security
         self.run_cmd(["tpm2_create", "-C", PRIMARY_CTX,
                         "-i", '-',
                         "-L", POLICY_DIGEST,

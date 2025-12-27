@@ -1,0 +1,8 @@
+[Context]
+shared=!ipc
+sockets=pcsc;!x11
+devices=dri
+filesystems=xdg-run/dconf:ro;xdg-download;xdg-run/pipewire-0;!home
+
+[System Bus Policy]
+org.bluez=none
