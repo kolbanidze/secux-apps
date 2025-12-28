@@ -7,6 +7,7 @@ import datetime
 import threading
 import time
 import subprocess
+import pexpect
 from json import loads as json_decode
 from json import dumps as json_encode
 
@@ -16,11 +17,11 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GObject
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALE_DIR = os.path.join(BASE_DIR, "locales")
 UI_FILE = os.path.join(BASE_DIR, "window.ui")
-DEFAULT_CUSTOM_PCRS = [0, 7, 14]
+DEFAULT_PCRS = [0, 7, 14]
 STORAGE_2FA_PATH = "/etc/securitymanager-2fa"
 IDP_FILE = "/etc/idp.json"
 DEBUG = False
@@ -40,7 +41,7 @@ def load_resources():
     display = Gdk.Display.get_default()
     icon_theme = Gtk.IconTheme.get_for_display(display)
     
-    icon_theme.add_resource_path("/org/secux/installer/icons")
+    icon_theme.add_resource_path("/org/secux/security-manager/icons")
 
 def init_i18n():
     """Инициализация системы перевода для Python и GTK"""
@@ -86,8 +87,9 @@ class TpmEnrollDialog(Adw.Window):
     entry_pin_repeat = Gtk.Template.Child()
     btn_enroll = Gtk.Template.Child()
 
-    def __init__(self, **kwargs):
+    def __init__(self, drive, **kwargs):
         super().__init__(**kwargs)
+        self.drive = drive
 
         self.btn_enroll.connect("clicked", self._on_enroll_clicked)
         self.idp_chk.connect("notify::active", self._on_idp_toggled)
@@ -105,11 +107,128 @@ class TpmEnrollDialog(Adw.Window):
             child = child.get_next_sibling()
         return None
 
+    def enroll_systemd_cryptenroll(self, pin_code=None):
+        luks_pass = self.luks_password.get_text()
+        backend_path = os.path.join(BASE_DIR, "backend.py")
+        
+        payload = {
+            "luks_password": luks_pass,
+            "pin": pin_code
+        }
+        json_payload = json_encode(payload)
 
+        cmd = [
+            "pkexec", 
+            "/usr/bin/python3", 
+            backend_path, 
+            "enroll-tpm", 
+            "--drive", self.drive
+        ]
+
+        self.btn_enroll.set_sensitive(False)
+        
+        def run_thread():
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                
+                stdout, stderr = process.communicate(input=json_payload)
+                
+                if process.returncode != 0:
+                    if "dismissed" in stderr:
+                        msg = _("Ввод пароля администратора отменен.")
+                    else:
+                        msg = f"Backend Error: {stderr}"
+                    GLib.idle_add(self.send_toast, msg)
+                else:
+                    try:
+                        response = json_decode(stdout)
+                        if response.get("status") == "success":
+                            GLib.idle_add(self.send_toast, _("TPM успешно настроен!"))
+                            GLib.idle_add(self.close)
+                            return
+                        else:
+                            error_msg = response.get("message", "Unknown error")
+                            GLib.idle_add(self.send_toast, f"{_('Ошибка')}: {error_msg}")
+                    except Exception as e:
+                        GLib.idle_add(self.send_toast, f"Ошибка чтения ответа: {e}")
+                        print(f"STDOUT RAW: {stdout}")
+
+            except Exception as e:
+                GLib.idle_add(self.send_toast, f"Ошибка запуска: {e}")
+            
+            GLib.idle_add(self.btn_enroll.set_sensitive, True)
+
+        threading.Thread(target=run_thread, daemon=True).start()
+    
     def send_toast(self, message, timeout=3):
         toast = Adw.Toast.new(message)
         toast.set_timeout(timeout)
         self.toast_overlay.add_toast(toast)
+
+    def enroll_idp(self, pin_code):
+        luks_pass = self.luks_password.get_text()
+        backend_path = os.path.join(BASE_DIR, "backend.py")
+        
+        payload = {
+            "luks_password": luks_pass,
+            "pin": pin_code
+        }
+        json_payload = json_encode(payload)
+
+        cmd = [
+            "pkexec", 
+            "/usr/bin/python3", 
+            backend_path, 
+            "enroll-idp", 
+            "--drive", self.drive
+        ]
+
+        self.btn_enroll.set_sensitive(False)
+        
+        def run_thread():
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                
+                stdout, stderr = process.communicate(input=json_payload)
+                
+                if process.returncode != 0:
+                    if "dismissed" in stderr:
+                        msg = _("Ввод пароля администратора отменен.")
+                    else:
+                        msg = f"Backend Error: {stderr}"
+                    GLib.idle_add(self.send_toast, msg)
+                else:
+                    try:
+                        response = json_decode(stdout)
+                        if response.get("status") == "success":
+                            GLib.idle_add(self.send_toast, _("IDP успешно настроен!"))
+                            GLib.idle_add(self.close)
+                            return
+                        else:
+                            error_msg = response.get("message", "Unknown error")
+                            GLib.idle_add(self.send_toast, f"{_('Ошибка')}: {error_msg}")
+                    except Exception as e:
+                        GLib.idle_add(self.send_toast, f"Ошибка чтения ответа: {e}")
+                        print(f"STDOUT RAW: {stdout}")
+
+            except Exception as e:
+                GLib.idle_add(self.send_toast, f"Ошибка запуска: {e}")
+            
+            GLib.idle_add(self.btn_enroll.set_sensitive, True)
+
+        threading.Thread(target=run_thread, daemon=True).start()
 
     def _on_idp_toggled(self, switch, gparam):
         """Если включили IDP -> автоматически включаем PIN"""
@@ -144,11 +263,14 @@ class TpmEnrollDialog(Adw.Window):
         if pin != pin_repeat:
             self.send_toast(_("PIN коды не сходятся"))
             return
-
         
-
-
-
+        if use_pin and not use_idp:
+            self.enroll_systemd_cryptenroll(pin)
+        else:
+            self.enroll_systemd_cryptenroll()
+        
+        if use_idp:
+            self.enroll_idp(pin)
 
 @Gtk.Template(filename=get_ui_path("window.ui"))
 class SecurityWindow(Adw.ApplicationWindow):
@@ -165,6 +287,8 @@ class SecurityWindow(Adw.ApplicationWindow):
     btn_enroll_password = Gtk.Template.Child()
     btn_delete_password = Gtk.Template.Child()
     btn_open_2fa_manager = Gtk.Template.Child()
+
+    luks_configure_group = Gtk.Template.Child()
     
     entry_repo_path = Gtk.Template.Child()
     btn_select_repo = Gtk.Template.Child()
@@ -183,12 +307,66 @@ class SecurityWindow(Adw.ApplicationWindow):
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.drive = None
         
         self.lbl_version.set_label(_("Версия: ") + VERSION)
 
         self._connect_signals()
         self._background_update_stats()
         
+    
+    def _run_backend_command(self, args):
+        """
+        Универсальный метод для запуска backend.py от root
+        args: список аргументов, например ['delete-tpm', '--drive', '/dev/nvme0n1p6']
+        """
+        backend_path = os.path.join(BASE_DIR, "backend.py")
+        
+        # Проверяем, существует ли файл
+        if not os.path.exists(backend_path):
+            print(f"Backend script not found at {backend_path}")
+            return False
+
+        cmd = ["pkexec", "/usr/bin/python3", backend_path] + args
+        
+        print(f"Executing: {' '.join(cmd)}")
+        
+        try:
+            # Запускаем. Окно пароля появится автоматически.
+            process = subprocess.Popen(
+                cmd, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE, 
+                text=True
+            )
+            
+            stdout, stderr = process.communicate()
+            
+            if process.returncode == 0:
+                print("Backend Output:", stdout)
+                return True
+            else:
+                print("Backend Error:", stderr)
+                print("Backend Output:", stdout)
+                if "dismissed" in stderr: # Пользователь закрыл окно пароля
+                    return None 
+                return False
+
+        except Exception as e:
+            print(f"Execution failed: {e}")
+            return False
+
+    
+    def _on_delete_tpm(self, button):
+        success = self._run_backend_command(['delete-tpm', '--drive', self.drive])
+        
+        if success:
+            self.show_dialog_ok(_("TPM успешно удален"))
+            self._background_update_stats()
+        elif success is False:
+            self.show_dialog_ok(_("Ошибка при удалении TPM. См. консоль."))
+    
+
     def _connect_signals(self):
         """Связывает события интерфейса с методами класса"""
         
@@ -283,11 +461,12 @@ class SecurityWindow(Adw.ApplicationWindow):
         if not DEBUG:
             if not rootfs_partition and not self.an_error_occured:
                 print("Не удалось обнаружить раздел LUKS. Вы используете менеджер в Secux Linux?\nFailed to detect LUKS partition. Are you running manager from Secux Linux?")
-                # Notification(title=self.lang.error, icon="redcross.png", message=self.lang.luks_failed, message_bold=True, exit_btn_msg=self.lang.exit, terminate_app=True)
                 self.an_error_occured = True
         else:
             print("debug test")
             rootfs_partition = "/dev/nvme0n1p6"
+        
+        self.drive = rootfs_partition
         
         # Проверка наличия и использования TPM
         tpm_exists = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
@@ -317,11 +496,14 @@ class SecurityWindow(Adw.ApplicationWindow):
             "tpm_exists": tpm_exists,
             "tpm_enrolled": tpm_enrolled,
             "tpm_with_pin_enrolled": tpm_with_pin,
-            "rootfs_partition": rootfs_partition
+            "rootfs_partition": rootfs_partition,
+            "drive": self.drive
         }
 
 
     def _update_ui_stats(self, stats):
+        self.luks_configure_group.set_description(stats['drive'])
+
         is_secure = False
 
         if stats['secure_boot'] and stats['tpm_enrolled'] and stats['tpm_exists'] and not stats['setup_mode']:
@@ -369,13 +551,9 @@ class SecurityWindow(Adw.ApplicationWindow):
 
 
     def _on_enroll_tpm(self, button):
-        dialog = TpmEnrollDialog()
+        dialog = TpmEnrollDialog(drive=self.drive)
         dialog.set_transient_for(self)
         dialog.present()
-
-    def _on_delete_tpm(self, button):
-        self.show_dialog_ok(_("TPM данные очищены"))
-        print("TPM Cleared")
 
     def _on_enroll_recovery(self, button):
         self.show_dialog_ok(_("Регистрация ключа восстановления"))
@@ -461,5 +639,6 @@ class SecurityManager(Adw.Application):
 
 
 if __name__ == "__main__":
+    load_resources()
     app = SecurityManager()
     sys.exit(app.run(sys.argv))

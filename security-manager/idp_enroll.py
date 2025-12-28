@@ -30,7 +30,7 @@ class EnrollIDP:
                  boot_altered_pcr: int = 8,
                  time_cost: int = 6,
                  memory_cost: int = 1048576,
-                 parallelism: int = 4) -> None:
+                 parallelism: int = 4) -> int:
         # Путь до зашифрованного диска LUKS2 (например /dev/nvme0n1p2)
         self.drive: str = drive
 
@@ -64,18 +64,23 @@ class EnrollIDP:
             self.pcrs.append(self.boot_altered_pcr)
             self.pcrs.sort()
         
-        self.enrollment_process()
+        return self.enrollment_process()
 
     def enrollment_process(self):
-        self.cleanup()
-        self.prepare_tpm()
-        if self.check_if_already_enrolled():
-            print("ERROR: IDP was already enrolled.")
-            return
-        self.build_and_enroll()
-        self.mkinitcpio_enable()
-        self.update_initcpio()
-        self.cleanup()
+        try:
+            self.cleanup()
+            self.prepare_tpm()
+            if self.check_if_already_enrolled():
+                print("ERROR: IDP was already enrolled.")
+                return
+            self.build_and_enroll()
+            self.mkinitcpio_enable()
+            self.update_initcpio()
+            self.cleanup()
+        except Exception as e:
+            print(f"Error: {e}")
+            return 1
+        return 0
         
     def cleanup(self):
         """Удаляет мусорные файлы из /tmp (os.chdir('/tmp'))"""
