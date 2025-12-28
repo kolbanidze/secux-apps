@@ -1,1 +1,0 @@
-{"salt_A": "906c31f9a42ddedc8dcb214a0344234fe0cb8a80f29e6fe684a1c2317a8c80e2", "salt_B": "faa9f9bd5063fe1259efc9d5300092ec5af70bb3b5cfd6e96ade9375973230db", "time_cost": 6, "parallelism": 4, "memory_cost": 1048576, "pcrs": ["0", "7", "8", "14"], "boot_altered_pcr": 8, "address": "0x000000", "key_slot": "1"}
