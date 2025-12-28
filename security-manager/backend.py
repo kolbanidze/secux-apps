@@ -185,6 +185,71 @@ def delete_tpm(drive):
             sys.exit(1)
 
 
+def enroll_recovery(drive):
+    try:
+        input_data = json.load(sys.stdin)
+        luks_pass = input_data.get('luks_password')
+        
+        if not luks_pass:
+            send_response("error", "No password provided")
+            return
+    except json.JSONDecodeError:
+        send_response("error", "Invalid JSON input")
+        return
+
+    # Команда для генерации ключа
+    cmd = [
+        "/usr/bin/systemd-cryptenroll", 
+        "--recovery-key", 
+        drive, 
+        "--unlock-key-file=/dev/stdin"
+    ]
+
+    try:
+        process = subprocess.run(
+            cmd,
+            input=luks_pass.encode(), # Передаем пароль в stdin
+            capture_output=True,
+            check=False 
+        )
+
+        if process.returncode == 0:
+            output = process.stdout.decode().strip()                        
+            send_response("success", output)
+        else:
+            err_msg = process.stderr.decode().strip()
+            # Обработка частой ошибки (неверный пароль)
+            if "Passphrase" in err_msg or "incorrect" in err_msg:
+                 send_response("error", "Неверный пароль диска")
+            else:
+                 send_response("error", f"Cryptenroll failed: {err_msg}")
+
+    except Exception as e:
+        send_response("error", f"System error: {str(e)}")
+
+def delete_recovery(drive):
+    # Команда из legacy кода
+    cmd = ["/usr/bin/systemd-cryptenroll", "--wipe-slot=recovery", drive]
+    
+    try:
+        # Запускаем команду.
+        # В legacy коде не передавался пароль, значит предполагаем, 
+        # что от root удаление работает без доп. подтверждения (или оно уже разблокировано)
+        process = subprocess.run(
+            cmd, 
+            check=True, 
+            capture_output=True, 
+            text=True
+        )
+        send_response("success", "Recovery key wiped successfully")
+    except subprocess.CalledProcessError as e:
+        # Если произошла ошибка (например, слот пуст или нужен пароль)
+        err_msg = e.stderr.strip()
+        send_response("error", f"Failed to wipe recovery key: {err_msg}")
+    except Exception as e:
+        send_response("error", f"System error: {str(e)}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', required=True)
@@ -197,11 +262,20 @@ if __name__ == "__main__":
     p_del = subparsers.add_parser('delete-tpm')
     p_del.add_argument('--drive', required=True)
 
+    p_recovery_enroll = subparsers.add_parser('enroll-recovery')
+    p_recovery_enroll.add_argument('--drive', required=True)
+
+    p_del_rec = subparsers.add_parser('delete-recovery')
+    p_del_rec.add_argument('--drive', required=True)
+
+
     args = parser.parse_args()
 
     if args.command == 'enroll-unified':
         enroll_unified(args.drive)
     elif args.command == 'delete-tpm':
         delete_tpm(args.drive)
-        # Твой старый код удаления (обрезан для краткости ответа)
-        # print(json.dumps({"status": "success", "message": "Deleted (placeholder)"}))
+    elif args.command == 'enroll-recovery':
+        enroll_recovery(args.drive)
+    elif args.command == 'delete-recovery':
+        delete_recovery(args.drive)

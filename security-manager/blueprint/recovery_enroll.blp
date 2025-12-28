@@ -1,0 +1,95 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $RecoveryEnrollDialog: Adw.Window {
+  title: _("Ключ восстановления");
+  modal: true;
+  default-width: 500;
+  width-request: 360;
+  resizable: false;
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.ToolbarView {
+      top-bar-style: flat;
+
+      [top]
+      Adw.HeaderBar {}
+
+      content: Adw.ViewStack view_stack {
+        
+        // --- СТРАНИЦА 1: Ввод пароля ---
+        Adw.ViewStackPage {
+          name: "page_input";
+          child: Adw.PreferencesPage {
+            Adw.PreferencesGroup {
+              title: _("Авторизация");
+              description: _("Введите пароль от диска для создания нового ключа восстановления.");
+
+              Adw.PasswordEntryRow luks_password {
+                title: _("Пароль диска");
+              }
+            }
+
+            Adw.PreferencesGroup {
+              margin-top: 24;
+              
+              Gtk.Box {
+                orientation: vertical;
+                spacing: 12;
+                halign: center;
+
+                Gtk.Spinner spinner {
+                  spinning: false;
+                  visible: false;
+                  width-request: 32;
+                  height-request: 32;
+                }
+
+                Gtk.Button btn_enroll {
+                  label: _("Создать ключ");
+                  height-request: 36;
+                  width-request: 200;
+                  styles ["suggested-action", "pill"]
+                }
+              }
+            }
+          };
+        }
+
+        // --- СТРАНИЦА 2: Результат ---
+        Adw.ViewStackPage {
+          name: "page_result";
+          child: Adw.StatusPage {
+            title: _("Ключ создан");
+            description: _("Сохраните этот ключ в надежном месте. Он позволит разблокировать диск при утере TPM или пароля.");
+            icon-name: "emblem-ok-symbolic";
+
+            child: Gtk.Box {
+              orientation: vertical;
+              spacing: 12;
+              halign: center;
+              margin-top: 24;
+
+              // Сам ключ. Делаем его выделяемым и моноширинным
+              Gtk.Label lbl_key {
+                label: "XXXXX-XXXXX-XXXXX";
+                selectable: true;
+                styles ["title-2", "monospace"] 
+                wrap: true;
+                justify: center;
+                margin-bottom: 12;
+              }
+
+              Gtk.Button btn_copy {
+                label: _("Скопировать в буфер");
+                icon-name: "edit-copy-symbolic";
+                styles ["pill"]
+              }
+            };
+          };
+        }
+
+      };
+    };
+  };
+}

@@ -75,6 +75,113 @@ def init_i18n():
     except Exception as e:
         print(f"GTK/C translation bind error: {e}")
 
+@Gtk.Template(filename=get_ui_path("recovery_enroll.ui")) # Скомпилируй blp -> ui
+class RecoveryEnrollDialog(Adw.Window):
+    __gtype_name__ = "RecoveryEnrollDialog"
+
+    toast_overlay = Gtk.Template.Child()
+    view_stack = Gtk.Template.Child()
+    
+    # Страница ввода
+    luks_password = Gtk.Template.Child()
+    btn_enroll = Gtk.Template.Child()
+    spinner = Gtk.Template.Child()
+    
+    # Страница результата
+    lbl_key = Gtk.Template.Child()
+    btn_copy = Gtk.Template.Child()
+
+    def __init__(self, drive, **kwargs):
+        super().__init__(**kwargs)
+        self.drive = drive
+        
+        self.btn_enroll.connect("clicked", self._on_enroll_clicked)
+        self.btn_copy.connect("clicked", self._on_copy_clicked)
+
+    def _set_loading(self, is_loading):
+        if is_loading:
+            self.spinner.set_visible(True)
+            self.spinner.set_spinning(True)
+            self.btn_enroll.set_visible(False)
+            self.luks_password.set_sensitive(False)
+        else:
+            self.spinner.set_spinning(False)
+            self.spinner.set_visible(False)
+            self.btn_enroll.set_visible(True)
+            self.luks_password.set_sensitive(True)
+
+    def _on_enroll_clicked(self, btn):
+        password = self.luks_password.get_text()
+        if not password:
+            self.send_toast(_("Введите пароль"))
+            return
+
+        self._set_loading(True)
+        
+        # Запускаем поток
+        threading.Thread(target=self._run_backend, args=(password,), daemon=True).start()
+
+    def _run_backend(self, password):
+        backend_path = os.path.join(BASE_DIR, "backend.py")
+        cmd = ["pkexec", "/usr/bin/python3", backend_path, "enroll-recovery", "--drive", self.drive]
+        
+        payload = json_encode({"luks_password": password})
+        
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            stdout, stderr = process.communicate(input=payload)
+            
+            GLib.idle_add(self._handle_result, process.returncode, stdout, stderr)
+            
+        except Exception as e:
+            GLib.idle_add(self._set_loading, False)
+            GLib.idle_add(self.send_toast, f"Ошибка запуска: {e}")
+
+    def _handle_result(self, returncode, stdout, stderr):
+        self._set_loading(False)
+        
+        if returncode != 0:
+            if "dismissed" in stderr:
+                self.send_toast(_("Отмена ввода пароля"))
+            else:
+                 # Пытаемся достать сообщение из JSON ошибки
+                try:
+                    resp = json_decode(stdout)
+                    self.send_toast(f"Ошибка: {resp.get('message')}")
+                except:
+                    self.send_toast(f"Ошибка: {stderr}")
+            return
+
+        # Успех
+        try:
+            response = json_decode(stdout)
+            if response.get("status") == "success":
+                key = response.get("message") # В success message у нас лежит ключ
+                self.lbl_key.set_label(key)
+                # Переключаем страницу стека
+                self.view_stack.set_visible_child_name("page_result")
+            else:
+                self.send_toast(f"Ошибка: {response.get('message')}")
+        except Exception as e:
+            self.send_toast(f"Ошибка чтения ответа: {e}")
+            print(f"DEBUG STDOUT: {stdout}")
+
+    def _on_copy_clicked(self, btn):
+        clipboard = Gdk.Display.get_default().get_clipboard()
+        clipboard.set(self.lbl_key.get_label())
+        self.send_toast(_("Скопировано в буфер обмена"))
+
+    def send_toast(self, message):
+        toast = Adw.Toast.new(message)
+        self.toast_overlay.add_toast(toast)
+
+
 @Gtk.Template(filename=get_ui_path("tpm_enroll.ui"))
 class TpmEnrollDialog(Adw.Window):
     __gtype_name__ = "TpmEnrollDialog"
@@ -340,8 +447,17 @@ class SecurityWindow(Adw.ApplicationWindow):
             print(f"Execution failed: {e}")
             return False
 
+    def _on_delete_tpm(self, button):
+        # 1. Спрашиваем подтверждение (опционально, но желательно)
+        # Если не нужно - сразу вызывай self._start_delete_thread()
+        self._show_confirm_dialog(
+            _("Удалить TPM?"), 
+            _("Это сбросит ключи шифрования. Вам понадобится пароль."),
+            self._start_delete_thread
+        )
+
     
-    def _on_delete_tpm(self, btn):
+    def _start_delete_thread(self):
         """Запускает процесс в отдельном потоке"""
         self._set_loading(True)
 
@@ -557,13 +673,67 @@ class SecurityWindow(Adw.ApplicationWindow):
         dialog.present()
 
     def _on_enroll_recovery(self, button):
-        self.show_dialog_ok(_("Регистрация ключа восстановления"))
-        print("Recovery key enrolled")
+        dialog = RecoveryEnrollDialog(drive=self.drive)
+        dialog.set_transient_for(self)
+        dialog.present()
     
     def _on_delete_recovery(self, button):
-        self.show_dialog_ok(_("Ключи восстановления удалены"))
-        print("Ключи восстановления удалены")
+        # 1. Показываем диалог подтверждения
+        self._show_confirm_dialog(
+            _("Удалить ключ восстановления?"),
+            _("Если вы потеряете пароль и TPM будет недоступен, вы потеряете доступ к данным навсегда."),
+            self._start_delete_recovery_thread # Функция, которая запустится при нажатии "Удалить"
+        )
     
+    def _start_delete_recovery_thread(self):
+        """Запускает удаление в фоне"""
+        self._set_loading(True) # Включаем спиннер в заголовке
+
+        def worker():
+            # Вызываем backend
+            # Мы используем общий метод запуска, который ты должен был реализовать ранее
+            # или пишем subprocess.run вручную, как ниже:
+            
+            backend_path = os.path.join(BASE_DIR, "backend.py")
+            cmd = ["pkexec", "/usr/bin/python3", backend_path, "delete-recovery", "--drive", self.drive]
+            
+            try:
+                process = subprocess.run(cmd, capture_output=True, text=True)
+                # Возвращаем результат в главный поток
+                GLib.idle_add(self._on_delete_recovery_finished, process.returncode, process.stdout, process.stderr)
+            except Exception as e:
+                # Ошибка запуска процесса
+                GLib.idle_add(self._on_delete_recovery_finished, -1, "", str(e))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_delete_recovery_finished(self, returncode, stdout, stderr):
+        """Обработчик завершения удаления"""
+        self._set_loading(False) # Выключаем спиннер
+
+        if returncode == 0:
+            try:
+                # Пытаемся прочитать JSON ответа
+                resp = json_decode(stdout)
+                if resp.get("status") == "success":
+                    self.show_dialog_ok(_("Ключ восстановления успешно удален"))
+                    self._background_update_stats() # Обновляем статус в UI
+                    return
+                else:
+                    msg = resp.get("message", "Unknown error")
+                    self.show_dialog_ok(f"{_('Ошибка')}: {msg}")
+            except:
+                # Если backend вернул не JSON (редко)
+                self.show_dialog_ok(_("Ключ удален (raw response)"))
+                self._background_update_stats()
+        elif returncode == 126 or returncode == 127 or "dismissed" in stderr:
+            # Пользователь закрыл окно ввода пароля root
+            pass 
+        else:
+            # Ошибка выполнения
+            self.show_dialog_ok(f"{_('Ошибка удаления')}: {stderr}")
+
+
     def _on_enroll_password(self, button):
         self.show_dialog_ok(_("Регистрация пароля"))
         print("Password enrolled")
@@ -580,6 +750,24 @@ class SecurityWindow(Adw.ApplicationWindow):
         """Пример открытия диалога выбора папки"""
         dialog = Gtk.FileDialog()
         dialog.select_folder(self, None, self._on_repo_selected)
+
+    def _show_confirm_dialog(self, title, body, on_yes_callback):
+        """Вспомогательный диалог подтверждения"""
+        dialog = Adw.AlertDialog(
+            heading=title,
+            body=body
+        )
+        dialog.add_response("cancel", _("Отмена"))
+        dialog.add_response("delete", _("Удалить"))
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        
+        def response_handler(dialog, response):
+            if response == "delete":
+                on_yes_callback()
+        
+        dialog.connect("response", response_handler)
+        dialog.present(self)
+
 
     def _on_repo_selected(self, dialog, result):
         try:
