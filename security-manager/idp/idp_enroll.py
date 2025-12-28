@@ -164,7 +164,7 @@ class EnrollIDP:
 
         input_data = self.luks_password + b"\n" + secret
 
-        return self.run_cmd(cmd, input_data, True) # todo: set to False
+        return self.run_cmd(cmd, input_data, False)
 
     def _find_luks_keyslot(self, secret: bytes) -> int:
         for keyslot_id in range(32):
@@ -186,8 +186,7 @@ class EnrollIDP:
             if proc.returncode == 0:
                 print(f"Verified keyfile at LUKS slot: {keyslot_id}")
                 return keyslot_id
-            else:
-                return -128
+        return -128
 
     def get_free_address(self):
         process = subprocess.run(["tpm2_getcap", "handles-persistent"], capture_output=True, check=True)
