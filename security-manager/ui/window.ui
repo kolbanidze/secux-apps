@@ -48,7 +48,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="title">Secure Boot</property>
                                     <property name="subtitle" translatable="yes">Рекомендуется к использованию</property>
                                     <child type="suffix">
-                                      <object class="GtkLabel">
+                                      <object class="GtkLabel" id="secure_boot_status_label">
                                         <property name="label" translatable="yes">Включен</property>
                                       </object>
                                     </child>
@@ -59,7 +59,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="title" translatable="yes">Состояние Secure Boot</property>
                                     <property name="subtitle" translatable="yes">Рекомендуется User Mode</property>
                                     <child type="suffix">
-                                      <object class="GtkLabel">
+                                      <object class="GtkLabel" id="secure_boot_mode_label">
                                         <property name="label">User</property>
                                       </object>
                                     </child>
@@ -68,9 +68,9 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                 <child>
                                   <object class="AdwActionRow">
                                     <property name="title" translatable="yes">Доверие к ключам Microsoft</property>
-                                    <property name="subtitle" translatable="yes">Недопустимо при максимальном уровне защищённости</property>
+                                    <property name="subtitle" translatable="yes">Необходимо для использования Windows в dual-boot</property>
                                     <child type="suffix">
-                                      <object class="GtkLabel">
+                                      <object class="GtkLabel" id="ms_trust_label">
                                         <property name="label" translatable="yes">Да</property>
                                       </object>
                                     </child>
@@ -85,7 +85,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                   <object class="AdwActionRow">
                                     <property name="title" translatable="yes">Наличие TPM</property>
                                     <child type="suffix">
-                                      <object class="GtkLabel">
+                                      <object class="GtkLabel" id="tpm_exists_label">
                                         <property name="label" translatable="yes">Да</property>
                                       </object>
                                     </child>
@@ -96,7 +96,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="title" translatable="yes">Разблокировка диска</property>
                                     <property name="subtitle" translatable="yes">Рекомендуется использование TPM + PIN</property>
                                     <child type="suffix">
-                                      <object class="GtkLabel">
+                                      <object class="GtkLabel" id="tpm_plus_pin_label">
                                         <property name="label">TPM + PIN</property>
                                       </object>
                                     </child>
@@ -106,7 +106,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                             </child>
                             <child>
                               <object class="GtkLabel" id="lbl_version">
-                                <property name="label">Версия модуля: 0.0.1</property>
+                                <property name="label">Версия: 0.0.1</property>
                                 <style>
                                   <class name="dim-label"/>
                                   <class name="caption"/>

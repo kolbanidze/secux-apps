@@ -1,0 +1,69 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $TpmEnrollDialog: Adw.Window {
+  title: _("Настройка TPM");
+  modal: true;
+  default-width: 480;
+  width-request: 360;
+  resizable: false;
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.ToolbarView {
+      top-bar-style: flat;
+
+      [top]
+      Adw.HeaderBar {
+        show-end-title-buttons: true;
+      }
+
+      content: Adw.PreferencesPage {
+        Adw.PreferencesGroup {
+          title: _("Авторизация");
+          description: _("Введите текущий пароль или ключ восстановления от диска");
+
+          Adw.PasswordEntryRow luks_password {
+            title: _("Пароль диска");
+          }
+        }
+
+        Adw.PreferencesGroup {
+          title: _("Конфигурация защиты");
+
+          Adw.SwitchRow idp_chk {
+            title: "In-depth Protection (IDP)";
+            subtitle: _("Дополнительная защита от атак физического уровня");
+            icon-name: "shield-full-symbolic";
+            active: false;
+          }
+
+          Adw.ExpanderRow pin_chk {
+            title: _("Защита PIN-кодом");
+            subtitle: _("Требовать код при каждой загрузке");
+            icon-name: "password-entry-symbolic";
+            show-enable-switch: true;
+            enable-expansion: false;
+
+            Adw.PasswordEntryRow entry_pin {
+              title: _("Новый PIN");
+            }
+
+            Adw.PasswordEntryRow entry_pin_repeat {
+              title: _("Повторите PIN");
+            }
+          }
+        }
+
+        Adw.PreferencesGroup {
+          margin-top: 12;
+
+          Gtk.Button btn_enroll {
+            label: _("Зарегистрировать в TPM");
+            height-request: 25;
+            styles ["suggested-action", "pill"]
+          }
+        }
+      };
+    };
+  };
+}

@@ -44,7 +44,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
                   subtitle: _("Рекомендуется к использованию");
 
                   [suffix]
-                  Gtk.Label {
+                  Gtk.Label secure_boot_status_label {
                     label: _("Включен");
                   }
                 }
@@ -54,17 +54,17 @@ template $SecurityWindow: Adw.ApplicationWindow {
                   subtitle: _("Рекомендуется User Mode");
 
                   [suffix]
-                  Gtk.Label {
+                  Gtk.Label secure_boot_mode_label {
                     label: "User";
                   }
                 }
 
                 Adw.ActionRow {
                   title: _("Доверие к ключам Microsoft");
-                  subtitle: _("Недопустимо при максимальном уровне защищённости");
+                  subtitle: _("Необходимо для использования Windows в dual-boot");
 
                   [suffix]
-                  Gtk.Label {
+                  Gtk.Label ms_trust_label {
                     label: _("Да");
                   }
                 }
@@ -77,7 +77,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
                   title: _("Наличие TPM");
 
                   [suffix]
-                  Gtk.Label {
+                  Gtk.Label tpm_exists_label {
                     label: _("Да");
                   }
                 }
@@ -87,14 +87,14 @@ template $SecurityWindow: Adw.ApplicationWindow {
                   subtitle: _("Рекомендуется использование TPM + PIN");
 
                   [suffix]
-                  Gtk.Label {
+                  Gtk.Label tpm_plus_pin_label {
                     label: "TPM + PIN";
                   }
                 }
               }
 
               Gtk.Label lbl_version {
-                label: "Версия модуля: 0.0.1";
+                label: "Версия: 0.0.1";
 
                 styles [
                   "dim-label",
