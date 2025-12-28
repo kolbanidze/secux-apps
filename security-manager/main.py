@@ -75,6 +75,133 @@ def init_i18n():
     except Exception as e:
         print(f"GTK/C translation bind error: {e}")
 
+@Gtk.Template(filename=get_ui_path("password_enroll.ui"))
+class PasswordEnrollDialog(Adw.Window):
+    __gtype_name__ = "PasswordEnrollDialog"
+
+    toast_overlay = Gtk.Template.Child()
+    
+    # Поля ввода
+    luks_password = Gtk.Template.Child()
+    new_password = Gtk.Template.Child()
+    new_password_repeat = Gtk.Template.Child()
+    
+    # Кнопки
+    btn_enroll = Gtk.Template.Child()
+    spinner = Gtk.Template.Child()
+
+    def __init__(self, drive, **kwargs):
+        super().__init__(**kwargs)
+        self.drive = drive
+        self.btn_enroll.connect("clicked", self._on_enroll_clicked)
+
+    def _set_loading(self, is_loading):
+        """Блокировка UI и анимация"""
+        if is_loading:
+            self.spinner.set_visible(True)
+            self.spinner.set_spinning(True)
+            self.btn_enroll.set_visible(False)
+            self.sensitive_widgets(False)
+        else:
+            self.spinner.set_spinning(False)
+            self.spinner.set_visible(False)
+            self.btn_enroll.set_visible(True)
+            self.sensitive_widgets(True)
+
+    def sensitive_widgets(self, sensitive):
+        self.luks_password.set_sensitive(sensitive)
+        self.new_password.set_sensitive(sensitive)
+        self.new_password_repeat.set_sensitive(sensitive)
+
+    def _on_enroll_clicked(self, btn):
+        current_pass = self.luks_password.get_text()
+        new_pass = self.new_password.get_text()
+        repeat_pass = self.new_password_repeat.get_text()
+
+        # Валидация
+        if not current_pass:
+            self.send_toast(_("Введите текущий пароль"))
+            return
+        
+        if not new_pass:
+            self.send_toast(_("Введите новый пароль"))
+            return
+        
+        if new_pass != repeat_pass:
+            self.send_toast(_("Новые пароли не совпадают"))
+            return
+        
+        if current_pass == new_pass:
+            self.send_toast(_("Новый пароль совпадает со старым"))
+            return
+
+        # Запуск процесса
+        self._set_loading(True)
+        threading.Thread(target=self._run_backend, args=(current_pass, new_pass), daemon=True).start()
+
+    def _run_backend(self, current_pass, new_pass):
+        backend_path = os.path.join(BASE_DIR, "backend.py")
+        
+        payload = {
+            "luks_password": current_pass,
+            "new_password": new_pass
+        }
+        json_payload = json_encode(payload)
+
+        cmd = [
+            "pkexec", 
+            "/usr/bin/python3", 
+            backend_path, 
+            "enroll-password", 
+            "--drive", self.drive
+        ]
+
+        try:
+            process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            
+            stdout, stderr = process.communicate(input=json_payload)
+            GLib.idle_add(self._handle_result, process.returncode, stdout, stderr)
+
+        except Exception as e:
+            GLib.idle_add(self.send_toast, f"Ошибка запуска: {e}")
+            GLib.idle_add(self._set_loading, False)
+
+    def _handle_result(self, returncode, stdout, stderr):
+        self._set_loading(False)
+        
+        if returncode != 0:
+            if "dismissed" in stderr:
+                self.send_toast(_("Ввод пароля администратора отменен"))
+            else:
+                try:
+                    resp = json_decode(stdout)
+                    self.send_toast(f"Ошибка: {resp.get('message')}")
+                except:
+                    self.send_toast(f"Ошибка системы: {stderr}")
+            return
+
+        # Успех
+        try:
+            response = json_decode(stdout)
+            if response.get("status") == "success":
+                self.send_toast(_("Пароль успешно добавлен!"))
+                self.close()
+            else:
+                self.send_toast(f"Ошибка: {response.get('message')}")
+        except Exception as e:
+            self.send_toast(f"Ошибка ответа: {e}")
+
+    def send_toast(self, message):
+        toast = Adw.Toast.new(message)
+        self.toast_overlay.add_toast(toast)
+
+
 @Gtk.Template(filename=get_ui_path("recovery_enroll.ui")) # Скомпилируй blp -> ui
 class RecoveryEnrollDialog(Adw.Window):
     __gtype_name__ = "RecoveryEnrollDialog"
@@ -735,8 +862,9 @@ class SecurityWindow(Adw.ApplicationWindow):
 
 
     def _on_enroll_password(self, button):
-        self.show_dialog_ok(_("Регистрация пароля"))
-        print("Password enrolled")
+        dialog = PasswordEnrollDialog(drive=self.drive)
+        dialog.set_transient_for(self)
+        dialog.present()
     
     def _on_delete_password(self, button):
         self.show_dialog_ok(_("Удаление пароля"))

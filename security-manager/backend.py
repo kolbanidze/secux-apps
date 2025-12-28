@@ -249,6 +249,66 @@ def delete_recovery(drive):
     except Exception as e:
         send_response("error", f"System error: {str(e)}")
 
+def enroll_password(drive):
+    try:
+        input_data = json.load(sys.stdin)
+        current_pass = input_data.get('luks_password')
+        new_pass = input_data.get('new_password')
+        
+        if not current_pass or not new_pass:
+            send_response("error", "Passwords cannot be empty")
+            return
+    except json.JSONDecodeError:
+        send_response("error", "Invalid JSON input")
+        return
+
+    cmd = ["/usr/bin/systemd-cryptenroll", "--password", drive]
+
+    try:
+        # Запускаем процесс
+        child = pexpect.spawn(cmd[0], args=cmd[1:], encoding='utf-8', timeout=60)
+
+        # 1. Ввод текущего пароля
+        # Ожидаем запрос "Please enter current passphrase"
+        index = child.expect([r"Please enter current passphrase", pexpect.EOF, pexpect.TIMEOUT])
+        if index != 0:
+            send_response("error", "Timeout waiting for current password prompt")
+            return
+        
+        child.sendline(current_pass)
+
+        # 2. Ввод нового пароля
+        # Здесь может быть "Please enter new passphrase" или "please try again" (если старый неверен)
+        index = child.expect([r"Please enter", r"please try again", pexpect.EOF, pexpect.TIMEOUT])
+        
+        if index == 1:
+            send_response("error", "Incorrect current disk password")
+            return
+        elif index != 0:
+            send_response("error", "Error waiting for new password prompt")
+            return
+        
+        child.sendline(new_pass)
+
+        # 3. Повтор нового пароля
+        index = child.expect([r"repeat", pexpect.EOF, pexpect.TIMEOUT])
+        if index != 0:
+            send_response("error", "Error waiting for password confirmation")
+            return
+        
+        child.sendline(new_pass)
+
+        # 4. Финиш
+        child.wait()
+        
+        if child.exitstatus == 0:
+            send_response("success", "New password enrolled successfully")
+        else:
+            send_response("error", f"Process exited with code {child.exitstatus}")
+
+    except Exception as e:
+        send_response("error", f"System error: {str(e)}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -268,6 +328,9 @@ if __name__ == "__main__":
     p_del_rec = subparsers.add_parser('delete-recovery')
     p_del_rec.add_argument('--drive', required=True)
 
+    p_enroll_password = subparsers.add_parser('enroll-password')
+    p_enroll_password.add_argument('--drive', required=True)
+
 
     args = parser.parse_args()
 
@@ -279,3 +342,5 @@ if __name__ == "__main__":
         enroll_recovery(args.drive)
     elif args.command == 'delete-recovery':
         delete_recovery(args.drive)
+    elif args.command == 'enroll-password':
+        enroll_password(args.drive)
