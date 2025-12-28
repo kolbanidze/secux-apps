@@ -5,59 +5,46 @@ import argparse
 import subprocess
 import json
 import pexpect
-from idp_enroll import EnrollIDP
+from contextlib import contextmanager
 
 IDP_FILE = "/etc/idp.json"
-MKINITCPIO_CONF = "/etc/mkinitcpio.conf"
-DEFAULT_PCRS = [0, 7, 14]
+
+# Чтобы print из импортируемых модулей не ломал нам JSON в stdout
+@contextmanager
+def suppress_stdout():
+    with open(os.devnull, "w") as devnull:
+        old_stdout = sys.stdout
+        sys.stdout = devnull
+        try:  
+            yield
+        finally:
+            sys.stdout = old_stdout
+
+def log(msg):
+    print(msg)
+
+# Импортируем аккуратно
+try:
+    with suppress_stdout():
+        from idp_enroll import EnrollIDP
+except ImportError:
+    pass # Обработка ниже, если нужно
+
 PCR_PUB_KEY = "/etc/kernel/pcr-initrd.pub.pem"
-
-
-def log(message):
-    print(message)
+DEFAULT_PCRS = [0, 7, 14]
 
 def run_cmd(cmd, check=True):
     """Обертка для запуска команд"""
     subprocess.run(cmd, check=check, capture_output=True)
 
-def enroll_idp(drive):
-    try:
-        input_data = json.load(sys.stdin)
-        luks_pass = input_data.get('luks_password').encode()
-        pin_code = input_data.get('pin').encode()
-        
-        if not luks_pass:
-            print(json.dumps({"status": "error", "message": "No password provided"}))
-            return
-    except json.JSONDecodeError:
-        print(json.dumps({"status": "error", "message": "Invalid JSON input"}))
-        return
-    
-    status_code = EnrollIDP(drive, luks_pass, pin_code)
-    if status_code == 0:
-        print(json.dumps({"status:": "success", "message": "IDP successfully enrolled"}))
-    else:
-        print(json.dumps({"status": "error", "message": "Failed to enroll IDP"}))
 
+def send_response(status, message):
+    """Отправляет чистый JSON в stdout"""
+    print(json.dumps({"status": status, "message": message}))
+    sys.stdout.flush()
 
-def enroll_tpm(drive):
-    """
-    Настраивает TPM через systemd-cryptenroll.
-    Пароли читаются из STDIN в формате JSON.
-    """
-    try:
-        input_data = json.load(sys.stdin)
-        luks_pass = input_data.get('luks_password')
-        pin_code = input_data.get('pin')
-        
-        if not luks_pass:
-            print(json.dumps({"status": "error", "message": "No password provided"}))
-            return
-    except json.JSONDecodeError:
-        print(json.dumps({"status": "error", "message": "Invalid JSON input"}))
-        return
-
-    # 2. Формируем команду
+def run_systemd_cryptenroll(drive, luks_pass, pin_code):
+    """Логика работы с cryptenroll через pexpect"""
     pcrs_str = "+".join(map(str, DEFAULT_PCRS))
     cmd_list = [
         "/usr/bin/systemd-cryptenroll",
@@ -67,64 +54,92 @@ def enroll_tpm(drive):
         f"--tpm2-public-key={PCR_PUB_KEY}",
         drive
     ]
-    
+
     if pin_code:
-        # Вставляем опцию PIN перед drive (последним аргументом)
         cmd_list.insert(-1, "--tpm2-with-pin=yes")
 
-    # 3. Запускаем интерактивный процесс
     try:
-        # Pexpect запускает процесс напрямую
         child = pexpect.spawn(cmd_list[0], args=cmd_list[1:], encoding='utf-8', timeout=60)
-
-        # Ожидание ввода пароля диска
-        index = child.expect([r"Please enter current passphrase", pexpect.EOF, pexpect.TIMEOUT])
-        if index != 0:
-            print(json.dumps({"status": "error", "message": "Timeout waiting for disk password request"}))
-            return
+        
+        # 1. Пароль от диска
+        idx = child.expect([r"Please enter current passphrase", pexpect.EOF, pexpect.TIMEOUT])
+        if idx != 0:
+            return False, "Timeout waiting for disk password prompt"
         
         child.sendline(luks_pass)
 
-        # Если есть PIN, обрабатываем его установку
+        # 2. PIN код (если нужен)
         if pin_code:
-            index = child.expect([r"Please enter TPM2", r"please try again", pexpect.EOF, pexpect.TIMEOUT])
+            idx = child.expect([r"Please enter TPM2", r"please try again", pexpect.EOF, pexpect.TIMEOUT])
+            if idx == 1: 
+                return False, "Wrong LUKS password"
+            if idx != 0:
+                return False, "Error waiting for PIN prompt"
+            
+            child.sendline(pin_code)
+            
+            # Повтор PIN
+            child.expect(r"repeat")
+            child.sendline(pin_code)
 
-            if index == 1: # please try again -> неверный пароль LUKS
-                print(json.dumps({"status": "error", "message": "Wrong disk password"}))
-                return
-            elif index == 0: # Please enter TPM2 -> вводим PIN
-                child.sendline(pin_code)
-                
-                # Подтверждение PIN
-                child.expect(r"repeat")
-                child.sendline(pin_code)
-            else:
-                print(json.dumps({"status": "error", "message": "Interaction error (waiting for PIN)"}))
-                return
-
-        # Финальная проверка результата
-        index = child.expect([r"New TPM2 token enrolled", r"please try again", r"executing no operation", pexpect.EOF])
+        # 3. Финал
+        idx = child.expect([r"New TPM2 token enrolled", r"please try again", pexpect.EOF])
+        if idx == 1:
+            return False, "Wrong password or PIN mismatch"
         
-        if index == 1:
-            print(json.dumps({"status": "error", "message": "Wrong password or PIN mismatch"}))
-            return
-
         child.wait()
-
         if child.exitstatus == 0:
-            print(json.dumps({"status": "success", "message": "TPM enrolled successfully"}))
+            return True, "OK"
         else:
-            print(json.dumps({"status": "error", "message": f"Process exited with code {child.exitstatus}"}))
+            return False, f"Cryptenroll exited with {child.exitstatus}"
 
     except Exception as e:
-        print(json.dumps({"status": "error", "message": f"System exception: {str(e)}"}))
+        return False, str(e)
 
+def enroll_unified(drive):
+    """Единая точка входа для регистрации"""
+    try:
+        input_data = json.load(sys.stdin)
+        luks_pass = input_data.get('luks_password')
+        pin_code = input_data.get('pin')
+        use_idp = input_data.get('use_idp', False)
+
+        if not luks_pass:
+            send_response("error", "No password provided")
+            return
+
+    except json.JSONDecodeError:
+        send_response("error", "Invalid JSON input")
+        return
+    
+    if not use_idp:
+        success, msg = run_systemd_cryptenroll(drive, luks_pass, pin_code)
+        if not success:
+            send_response("error", f"TPM Enrollment failed: {msg}")
+            return
+    else:
+        try:
+            # Важно: EnrollIDP пишет в stdout, блокируем это, чтобы не сломать JSON ответ
+            with suppress_stdout():
+                EnrollIDP(drive, luks_password=luks_pass.encode(), pin_code=pin_code.encode())
+            
+            # Проверяем успешность (наличие файла конфигурации)
+            if os.path.isfile("/etc/idp.json"):
+                 send_response("success", "TPM + IDP successfully configured")
+            else:
+                 send_response("error", "IDP script finished but file missing")
+            return
+
+        except Exception as e:
+            send_response("error", f"IDP Enrollment crashed: {str(e)}")
+            return
+
+    send_response("success", "TPM successfully configured")
 
 def delete_tpm(drive):
-    log(f"Starting TPM deletion for {drive}...")
-    
+
     run_cmd(["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", drive])
-    
+
     if os.path.isfile(IDP_FILE):
         try:
             with open(IDP_FILE, "r") as file:
@@ -145,7 +160,7 @@ def delete_tpm(drive):
             log(f"Error processing IDP file: {e}")
 
         try:
-            with open(MKINITCPIO_CONF, "r") as file:
+            with open("/etc/mkinitcpio.conf", "r") as file:
                 lines = file.readlines()
             
             modified = False
@@ -157,7 +172,7 @@ def delete_tpm(drive):
                 new_lines.append(line)
             
             if modified:
-                with open(MKINITCPIO_CONF, "w") as file:
+                with open("/etc/mkinitcpio.conf", "w") as file:
                     file.writelines(new_lines)
                 log("Updated mkinitcpio.conf. Rebuilding initramfs...")
                 run_cmd(['/usr/bin/mkinitcpio', '-P'])
@@ -167,37 +182,26 @@ def delete_tpm(drive):
                 
         except Exception as e:
             log(f"Error updating mkinitcpio: {e}")
-            sys.exit(1) 
+            sys.exit(1)
 
-def enroll_recovery(drive):
-    log(f"Enrolling recovery key for {drive}...")
-    log("SUCCESS")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Security Manager Backend (Root)')
+    parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command', required=True)
 
-    parser_delete = subparsers.add_parser('delete-tpm')
-    parser_delete.add_argument('--drive', required=True, help='Path to LUKS drive')
-
-    # Команда добавления Recovery (пример)
-    parser_rec = subparsers.add_parser('enroll-recovery')
-    parser_rec.add_argument('--drive', required=True)
-
-    parser_enroll_tpm = subparsers.add_parser('enroll-tpm')
-    parser_enroll_tpm.add_argument('--drive', required=True)
-
-    parser_enroll_idp = subparsers.add_parser('enroll-idp')
-    parser_enroll_idp.add_argument('--drive', required=True)
-
+    # Единая команда
+    p_unified = subparsers.add_parser('enroll-unified')
+    p_unified.add_argument('--drive', required=True)
+    
+    # Старые команды (можно оставить для совместимости или удалить)
+    p_del = subparsers.add_parser('delete-tpm')
+    p_del.add_argument('--drive', required=True)
 
     args = parser.parse_args()
 
-    # Запуск функций в зависимости от аргументов
-    if args.command == 'delete-tpm':
+    if args.command == 'enroll-unified':
+        enroll_unified(args.drive)
+    elif args.command == 'delete-tpm':
         delete_tpm(args.drive)
-    elif args.command == 'enroll-tpm':
-        enroll_tpm(args.drive)
-    elif args.command == 'enroll-idp':
-        enroll_idp(args.drive)
-    
+        # Твой старый код удаления (обрезан для краткости ответа)
+        # print(json.dumps({"status": "success", "message": "Deleted (placeholder)"}))

@@ -30,7 +30,7 @@ class EnrollIDP:
                  boot_altered_pcr: int = 8,
                  time_cost: int = 6,
                  memory_cost: int = 1048576,
-                 parallelism: int = 4) -> int:
+                 parallelism: int = 4) -> None:
         # Путь до зашифрованного диска LUKS2 (например /dev/nvme0n1p2)
         self.drive: str = drive
 
@@ -64,7 +64,7 @@ class EnrollIDP:
             self.pcrs.append(self.boot_altered_pcr)
             self.pcrs.sort()
         
-        return self.enrollment_process()
+        self.enrollment_process()
 
     def enrollment_process(self):
         try:
@@ -357,4 +357,4 @@ if __name__ == "__main__":
     drive = input("Drive: ")
     luks_password = getpass("LUKS password: ").encode()
     pin = getpass("PIN: ").encode()
-    EnrollIDP("/dev/vda2", luks_password=luks_password, pin_code=pin)
+    EnrollIDP(drive, luks_password=luks_password, pin_code=pin)

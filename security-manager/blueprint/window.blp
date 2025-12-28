@@ -12,7 +12,14 @@ template $SecurityWindow: Adw.ApplicationWindow {
     top-bar-style: flat;
 
     [top]
-    Adw.HeaderBar {}
+    Adw.HeaderBar {
+      [end]
+      Gtk.Spinner global_spinner {
+        spinning: false;
+        visible: false;
+        margin-end: 12; // Отступ справа
+      }
+    }
 
     content: Adw.ViewStack view_stack {
       Adw.ViewStackPage {

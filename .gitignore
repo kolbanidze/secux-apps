@@ -1,7 +1,8 @@
 security-manager/configuration.conf
-security-manager/scripts/idp-tpm.build
-security-manager/scripts/idp-tpm.dist
-security-manager/scripts/idp-tpm.onefile-build
+security-manager/idp/idp-tpm.build
+security-manager/idp/idp-tpm.dist
+security-manager/idp/idp-tpm.onefile-build
+security-manager/__pycache__/
 src/
 pkg/
 security-manager.tar.gz

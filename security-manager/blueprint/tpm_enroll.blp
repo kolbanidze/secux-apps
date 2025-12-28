@@ -18,6 +18,7 @@ template $TpmEnrollDialog: Adw.Window {
       }
 
       content: Adw.PreferencesPage {
+        // Группа 1: Авторизация
         Adw.PreferencesGroup {
           title: _("Авторизация");
           description: _("Введите текущий пароль или ключ восстановления от диска");
@@ -27,6 +28,7 @@ template $TpmEnrollDialog: Adw.Window {
           }
         }
 
+        // Группа 2: Настройки защиты
         Adw.PreferencesGroup {
           title: _("Конфигурация защиты");
 
@@ -54,13 +56,30 @@ template $TpmEnrollDialog: Adw.Window {
           }
         }
 
+        // Группа 3: Кнопка действия и Спиннер
         Adw.PreferencesGroup {
           margin-top: 12;
 
-          Gtk.Button btn_enroll {
-            label: _("Зарегистрировать в TPM");
-            height-request: 25;
-            styles ["suggested-action", "pill"]
+          Gtk.Box {
+            orientation: vertical;
+            spacing: 12;
+            halign: center;
+
+            // Спиннер скрыт по умолчанию (visible: false)
+            // Он будет показан через Python код при начале процесса
+            Gtk.Spinner spinner {
+              spinning: false;
+              visible: false;
+              width-request: 32;
+              height-request: 32;
+            }
+
+            Gtk.Button btn_enroll {
+              label: _("Зарегистрировать в TPM");
+              height-request: 36; // Чуть увеличил для красоты, стандарт ~34-36
+              width-request: 200;
+              styles ["suggested-action", "pill"]
+            }
           }
         }
       };
