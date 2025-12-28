@@ -2,7 +2,7 @@
 
 run_hook() {
     echo Starting IDP TPM script.
-    /usr/local/bin/secux-apps/scripts/idp-tpm
+    /usr/local/bin/security-manager/idp/idp-tpm
 }
 
 "$@"

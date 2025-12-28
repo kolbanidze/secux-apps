@@ -22,18 +22,7 @@ LOCALE_DIR = os.path.join(BASE_DIR, "locales")
 UI_FILE = os.path.join(BASE_DIR, "window.ui")
 DEFAULT_CUSTOM_PCRS = [0, 7, 14]
 STORAGE_2FA_PATH = "/etc/securitymanager-2fa"
-LOCKOUT_KEY_PATH = "/etc/lockout.key"
-BOOT_ALTERED_PCR = 8
-BOOT_ALTERED_PCR_VALUE = b"\x00"*32
-PCRS_FILE = "pcrs.bin"
-PRIMARY_CTX = "primary.ctx"
-SESSION_CTX = "session.ctx"
-POLICY_DIGEST = "policy.digest"
-SEALED_PUB = "sealed.pub"
-SEALED_PRIV = "sealed.priv"
-SEALED_CTX = "sealed.ctx"
-OBJ_ATTRIBUTES = "fixedtpm|fixedparent|adminwithpolicy|userwithauth"
-IDP_FILE = "/etc/IDP.json"
+IDP_FILE = "/etc/idp.json"
 DEBUG = False
 locale.bindtextdomain('security-manager', LOCALE_DIR)
 gettext.bindtextdomain('security-manager', LOCALE_DIR)
