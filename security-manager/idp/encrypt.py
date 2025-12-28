@@ -62,13 +62,14 @@ class IDPEnroll:
         values = [bytes.fromhex(i[-64:].decode()) for i in values]
         return values
 
+    # @staticmethod
     def build_pcrs(self, pcrs: list, prebuild_pcrs: dict):
         """ pcrs: ['0','7','14','16']; prebuild_pcrs = {'16': b"hash"} """
         
         pcrs = [int(i) for i in pcrs]
         for key in [int(i) for i in list(prebuild_pcrs)]:
             prebuild_pcrs[key] = prebuild_pcrs[str(key)]
-            del prebuild_pcrs[str(key)]     
+            del prebuild_pcrs[str(key)]
         
         for key, value in prebuild_pcrs.items():
             if key not in pcrs:
@@ -130,7 +131,7 @@ class IDPEnroll:
             os.chown(LOCKOUT_KEY_PATH, 0, 0)
             os.chmod(LOCKOUT_KEY_PATH, 0o400)
             subprocess.run(["tpm2_dictionarylockout", "-s", '-n', '31', '-l', '86400', '-t', '600', '-p', lockout_key], capture_output=True, check=True)
-            print(f"{self.lang.tpm_init_success} {LOCKOUT_KEY_PATH}")
+            print(f"init success {LOCKOUT_KEY_PATH}")
             print("TPM INIT SUCCESS")
             # Notification(title=self.lang.success, icon="greencheck.png", message=f"{self.lang.tpm_init_success} {LOCKOUT_KEY_PATH}", message_bold=False, exit_btn_msg=self.lang.exit)
     
@@ -267,4 +268,5 @@ class IDPEnroll:
         
         
 if __name__ == "__main__":
-    IDPEnroll("/dev/vda2", b"asdasdasd", b"asda", DEFAULT_CUSTOM_PCRS, BOOT_ALTERED_PCR)
+    IDPEnroll("/dev/vda2", b"asdasdasd", b"asda", DEFAULT_CUSTOM_PCRS, str(BOOT_ALTERED_PCR))
+    # IDPEnroll.build_pcrs(None, ['0', '7', '14', '16'], {8: b"\x00"*32})
