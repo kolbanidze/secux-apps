@@ -164,7 +164,7 @@ class EnrollIDP:
 
         input_data = self.luks_password + b"\n" + secret
 
-        return self.run_cmd(cmd, input_data, False)
+        return self.run_cmd(cmd, input_data, True) # todo: set to False
 
     def _find_luks_keyslot(self, secret: bytes) -> int:
         for keyslot_id in range(32):
@@ -250,6 +250,7 @@ class EnrollIDP:
 
         if self._add_luks_key(secret) != 0:
             print(f"Failed to add LUKS keyfile")
+            return
         else:
             print("LUKS keyfile successfully added.")
         
@@ -342,6 +343,6 @@ class EnrollIDP:
 
 
 if __name__ == "__main__":
-    luks_password = getpass("LUKS: ")
-    pin = getpass("PIN:")
-    EnrollIDP("/dev/nvme0n1p2", luks_password=luks_password, pin_code=pin)
+    luks_password = getpass("LUKS: ").encode()
+    pin = getpass("PIN:").encode()
+    EnrollIDP("/dev/vda2", luks_password=luks_password, pin_code=pin)
