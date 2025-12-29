@@ -1,0 +1,85 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $KeyDeleteDialog: Adw.Window {
+  title: _("Удаление пароля или ключа");
+  modal: true;
+  default-width: 450;
+  width-request: 360;
+  resizable: false;
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.ToolbarView {
+      top-bar-style: flat;
+
+      [top]
+      Adw.HeaderBar {
+        show-end-title-buttons: true;
+      }
+
+      content: Adw.PreferencesPage {
+        Adw.PreferencesGroup {
+          Gtk.Box {
+            orientation: vertical;
+            spacing: 12;
+            margin-bottom: 12;
+
+            Gtk.Image {
+              icon-name: "dialog-warning-symbolic";
+              pixel-size: 48;
+
+              styles [
+                "warning",
+              ]
+            }
+
+            Gtk.Label {
+              label: _("Это действие удалит введённый ключ восстановления или пароль");
+              wrap: true;
+              justify: center;
+
+              styles [
+                "title-4",
+                "error",
+              ]
+            }
+          }
+        }
+
+        Adw.PreferencesGroup {
+          Adw.PasswordEntryRow luks_password {
+            title: _("Пароль или ключ");
+          }
+        }
+
+        Adw.PreferencesGroup {
+          margin-top: 12;
+
+          Gtk.Box {
+            orientation: vertical;
+            spacing: 12;
+            halign: center;
+
+            Gtk.Spinner spinner {
+              spinning: false;
+              visible: false;
+              width-request: 32;
+              height-request: 32;
+            }
+
+            Gtk.Button btn_delete {
+              label: _("Удалить");
+              height-request: 36;
+              width-request: 200;
+
+              styles [
+                "destructive-action",
+                "pill",
+              ]
+            }
+          }
+        }
+      };
+    };
+  };
+}

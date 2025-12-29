@@ -276,13 +276,72 @@ def enroll_recovery(params):
             reply("error", message=stderr)
 
 
-def delete_recovery(params):
+def delete_key(params):
     drive = params.get('drive')
-    success, _, stderr = run_cmd(["/usr/bin/systemd-cryptenroll", "--wipe-slot=recovery", drive])
-    if success:
-        reply("success", message="Recovery key deleted")
-    else:
-        reply("error", message=stderr)
+    key = params.get('key')
+
+    if not drive or not key:
+        return reply("error", "Отсутствует диск или ключ")
+    
+    dump_cmd = ["/usr/bin/cryptsetup", 'luksDump', drive, '--dump-json-metadata']
+    status, stdout, stderr = run_cmd(dump_cmd, check=True)
+    json_data = json.loads(stdout)
+
+    active_slots = sorted([int(k) for k in json_data.get('keyslots', {}).keys()])
+    if not active_slots:
+        return reply("error", "Отсутствуют слоты LUKS")
+    
+    keyslot_id = -1
+    for slot in active_slots:
+        check_cmd = ["/usr/bin/cryptsetup", "luksOpen", "--test-passphrase", drive, '--key-slot', str(slot)]
+
+        success, stdout, stderr = run_cmd(check_cmd, check=True, input_text=key)
+        if success:
+            keyslot_id = slot
+    
+    if keyslot_id == -1:
+        return reply("error", "Соответствующий ключ не найден")
+    
+    remaining_slots_count = len([s for s in active_slots if s != keyslot_id])
+
+    if remaining_slots_count < 1:
+        return reply("error", message="Нельзя удалить единственный метод доступа!")
+    
+    slot_token_map = {}
+    tokens = json_data.get('tokens', {})
+    
+    for token_id, token_info in tokens.items():
+        token_type = token_info.get('type')
+        for s in token_info.get('keyslots', []):
+            slot_token_map[int(s)] = token_type
+
+    valid_backup_exists = False
+    for slot in active_slots:
+        if slot == keyslot_id:
+            continue
+        token_type = slot_token_map.get(slot)
+        if token_type == None:
+            valid_backup_exists = True
+            break
+
+        if token_type == 'systemd-recovery':
+            valid_backup_exists = True
+            break
+    
+    if not valid_backup_exists:
+        return reply("error", "Необходимо чтоб остался запасной ключ для разблокировки")
+    
+    kill_slot_cmd = ['/usr/bin/cryptsetup', 'luksKillSlot', drive, str(keyslot_id), '-q']
+    success, _, _ = run_cmd(kill_slot_cmd)
+    if not success:
+        return reply("error", "Ошибка удаления слота")
+    
+    for token_id, token_info in tokens.items():
+        if str(keyslot_id) in token_info.get('keyslots', []):
+            kill_token_cmd = ['/usr/bin/cryptsetup', 'token', 'remove', drive, '--token-id', str(token_id)]
+            run_cmd(kill_token_cmd, check=False)
+
+    return reply("success", message="Пароль успешно удален")
 
 
 def enroll_password(params):
@@ -344,8 +403,8 @@ def run_daemon():
                 delete_tpm(params)
             elif command == "enroll_recovery":
                 enroll_recovery(params)
-            elif command == "delete_recovery":
-                delete_recovery(params)
+            elif command == "delete_key":
+                delete_key(params)
             elif command == "enroll_password":
                 enroll_password(params)
             else:
@@ -357,10 +416,7 @@ def run_daemon():
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "debug":
         # Для отладки без запуска демона
-        # get_stats({})
-        # password = input("> ")
-        # enroll_unified({'drive': '/dev/nvme0n1p6', 'luks_password': password, 'pin': 'asdasdasd', 'use_idp': True})
-        delete_tpm({'drive': '/dev/nvme0n1p6'})
+        get_stats({})
     else:
         # По умолчанию запускаем режим демона
         run_daemon()

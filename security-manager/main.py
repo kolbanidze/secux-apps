@@ -17,7 +17,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GObject
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.0.2"
+VERSION = "0.0.3"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALE_DIR = os.path.join(BASE_DIR, "locales")
 DEBUG = False
@@ -365,6 +365,62 @@ class TpmEnrollDialog(Adw.Window):
         self.toast_overlay.add_toast(Adw.Toast.new(message))
 
 
+@Gtk.Template(filename=get_ui_path("key_delete.ui"))
+class KeyDeleteDialog(Adw.Window):
+    __gtype_name__ = "KeyDeleteDialog"
+    toast_overlay = Gtk.Template.Child()
+    luks_password = Gtk.Template.Child()
+    btn_delete = Gtk.Template.Child()
+    spinner = Gtk.Template.Child()
+
+    def __init__(self, backend, drive, **kwargs):
+        super().__init__(**kwargs)
+        self.backend = backend
+        self.drive = drive
+        self.btn_delete.connect("clicked", self._on_delete_clicked)
+
+    def _set_loading(self, is_loading):
+        if is_loading:
+            self.spinner.set_visible(True)
+            self.spinner.set_spinning(True)
+            self.btn_delete.set_visible(False)
+            self.luks_password.set_sensitive(False)
+            self.set_sensitive(False) # Блокируем всё окно
+        else:
+            self.spinner.set_spinning(False)
+            self.spinner.set_visible(False)
+            self.btn_delete.set_visible(True)
+            self.luks_password.set_sensitive(True)
+            self.set_sensitive(True)
+
+    def _on_delete_clicked(self, btn):
+        password = self.luks_password.get_text()
+        if not password:
+            self.send_toast(_("Введите пароль или ключ"))
+            return
+
+        self._set_loading(True)
+        threading.Thread(target=self._run_backend, args=(password,), daemon=True).start()
+
+    def _run_backend(self, password):
+        response = self.backend.send_command("delete_key", {
+            "drive": self.drive,
+            "key": password
+        })
+        GLib.idle_add(self._handle_result, response)
+
+    def _handle_result(self, response):
+        self._set_loading(False)
+        if response.get("status") == "success":
+            self.send_toast(_("Успешно! Слот удален."))
+            # Закрыть окно с задержкой
+            GLib.timeout_add(1500, self.close)
+        else:
+            self.send_toast(f"Ошибка: {response.get('message')}")
+
+    def send_toast(self, message):
+        self.toast_overlay.add_toast(Adw.Toast.new(message))
+
 # --- Main Window ---
 
 @Gtk.Template(filename=get_ui_path("window.ui"))
@@ -530,15 +586,15 @@ class SecurityWindow(Adw.ApplicationWindow):
         )
 
     def _on_delete_recovery(self, button):
-        self._show_confirm_dialog(
-            _("Удалить ключ восстановления?"),
-            _("Если вы потеряете пароль и TPM будет недоступен, вы потеряете доступ к данным навсегда."),
-            lambda: self._run_simple_action("delete_recovery")
-        )
-    
+        self._on_delete_password(button)
+
     def _on_delete_password(self, button):
-        # Тут обычно не удаление, а смена, но оставим как заглушку
-        self.show_dialog_ok(_("Удаление пароля не реализовано (используйте смену)"))
+        if not self.backend.is_alive(): 
+            return self.show_dialog_ok("Backend dead")
+        
+        dialog = KeyDeleteDialog(self.backend, self.drive)
+        dialog.set_transient_for(self)
+        dialog.present()
 
     def _run_simple_action(self, command):
         """Запуск простой команды без параметров в фоне"""
