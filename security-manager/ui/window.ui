@@ -36,7 +36,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 <property name="child">
                   <object class="AdwStatusPage" id="status_page">
                     <property name="title" translatable="yes">Система защищена</property>
-                    <property name="description" translatable="yes">Secure Boot активен, TPM модули задействованы.</property>
+                    <property name="description" translatable="yes">Secure Boot активен, задействованы механизмы TPM.</property>
                     <property name="icon-name">security-high-symbolic</property>
                     <style>
                       <class name="success"/>

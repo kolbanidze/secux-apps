@@ -6,5 +6,6 @@
     <file alias="scalable/actions/keepassxc-logo-symbolic.svg">icons/keepassxc-logo-symbolic.svg</file>
     <file alias="scalable/actions/password-entry-symbolic.svg">icons/password-entry-symbolic.svg</file>
     <file alias="scalable/actions/shield-full-symbolic.svg">icons/shield-full-symbolic.svg</file>
+    <file alias="scalable/actions/check-round-outline2-symbolic.svg">icons/check-round-outline2-symbolic.svg</file>
   </gresource>
 </gresources>

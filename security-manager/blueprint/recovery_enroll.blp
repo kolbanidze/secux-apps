@@ -16,8 +16,6 @@ template $RecoveryEnrollDialog: Adw.Window {
       Adw.HeaderBar {}
 
       content: Adw.ViewStack view_stack {
-        
-        // --- СТРАНИЦА 1: Ввод пароля ---
         Adw.ViewStackPage {
           name: "page_input";
           child: Adw.PreferencesPage {
@@ -56,13 +54,12 @@ template $RecoveryEnrollDialog: Adw.Window {
           };
         }
 
-        // --- СТРАНИЦА 2: Результат ---
         Adw.ViewStackPage {
           name: "page_result";
           child: Adw.StatusPage {
             title: _("Ключ создан");
             description: _("Сохраните этот ключ в надежном месте. Он позволит разблокировать диск при утере TPM или пароля.");
-            icon-name: "emblem-ok-symbolic";
+            icon-name: "check-round-outline2-symbolic";
 
             child: Gtk.Box {
               orientation: vertical;
@@ -70,10 +67,8 @@ template $RecoveryEnrollDialog: Adw.Window {
               halign: center;
               margin-top: 24;
 
-              // Сам ключ. Делаем его выделяемым и моноширинным
               Gtk.Label lbl_key {
                 label: "XXXXX-XXXXX-XXXXX";
-                selectable: true;
                 styles ["title-2", "monospace"] 
                 wrap: true;
                 justify: center;

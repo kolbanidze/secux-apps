@@ -7,7 +7,7 @@ import datetime
 import threading
 import time
 import subprocess
-import pexpect
+import json
 from json import loads as json_decode
 from json import dumps as json_encode
 
@@ -20,11 +20,9 @@ APP_ID = "org.secux.securitymanager"
 VERSION = "0.0.2"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALE_DIR = os.path.join(BASE_DIR, "locales")
-UI_FILE = os.path.join(BASE_DIR, "window.ui")
-DEFAULT_PCRS = [0, 7, 14]
-STORAGE_2FA_PATH = "/etc/securitymanager-2fa"
-IDP_FILE = "/etc/idp.json"
 DEBUG = False
+
+# I18N Setup
 locale.bindtextdomain('security-manager', LOCALE_DIR)
 gettext.bindtextdomain('security-manager', LOCALE_DIR)
 gettext.textdomain('security-manager')
@@ -35,20 +33,15 @@ def get_ui_path(filename):
 
 def load_resources():    
     res = Gio.Resource.load(os.path.join(BASE_DIR, "resources.gresource"))
-    
     Gio.resources_register(res)
-
     display = Gdk.Display.get_default()
     icon_theme = Gtk.IconTheme.get_for_display(display)
-    
     icon_theme.add_resource_path("/org/secux/security-manager/icons")
 
 def init_i18n():
-    """Инициализация системы перевода для Python и GTK"""
     try:
         if os.environ.get("LANG") is None:
              os.environ["LANG"] = "en_US.UTF-8"
-        
         locale.setlocale(locale.LC_ALL, '') 
     except locale.Error:
         print("Warning: Failed to set locale. Using default.")
@@ -57,46 +50,107 @@ def init_i18n():
         lang = gettext.translation(APP_ID, localedir=LOCALE_DIR, fallback=True)
         lang.install()
     except Exception as e:
-        print(f"Python translation error: {e}")
         import builtins
         builtins._ = lambda x: x
 
-    try:
-        locale.bindtextdomain(APP_ID, LOCALE_DIR)
+class RootBackendService:
+    """
+    Класс-обертка для общения с backend.py, запущенным от root.
+    """
+    def __init__(self):
+        self.process = None
+        self.lock = threading.Lock() # Для синхронизации потоков
+        self.pid = None
+
+    def start(self):
+        """Запускает backend через pkexec в режиме демона"""
+        backend_path = os.path.join(BASE_DIR, "backend.py")
+        if not os.path.exists(backend_path):
+            print(f"CRITICAL: Backend not found at {backend_path}")
+            return False
+
+        # Запускаем в режиме daemon
+        cmd = ["pkexec", "/usr/bin/python3", backend_path] 
+
+        print("Starting root backend...")
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1 # Line buffered
+            )
+            
+            first_line = self.process.stdout.readline()
+            if not first_line:
+                print("Backend failed to start (Empty stdout). Auth cancelled?")
+                return False
+            
+            try:
+                resp = json_decode(first_line)
+                if resp.get("status") == "ready":
+                    self.pid = resp.get("data", {}).get("pid")
+                    print(f"Backend started. PID: {self.pid}")
+                    return True
+                else:
+                    print(f"Backend returned unexpected status: {first_line}")
+                    return False
+            except json.JSONDecodeError:
+                print(f"Backend returned garbage: {first_line}")
+                return False
+
+        except Exception as e:
+            print(f"Failed to execute pkexec: {e}")
+            return False
+
+    def send_command(self, command, params=None):
+        """Отправляет команду и ждет ответ."""
+
+        if not self.process:
+            return {"status": "error", "message": "Backend is not running"}
+
+        payload = json_encode({"command": command, "params": params or {}})
         
-        if hasattr(locale, 'bind_textdomain_codeset'):
-            locale.bind_textdomain_codeset(APP_ID, 'UTF-8')
-        
-        locale.textdomain(APP_ID)
-        
-        gettext.bindtextdomain(APP_ID, LOCALE_DIR)
-        gettext.textdomain(APP_ID)
-        
-    except Exception as e:
-        print(f"GTK/C translation bind error: {e}")
+        with self.lock:
+            try:
+                # Отправка
+                self.process.stdin.write(payload + "\n")
+                self.process.stdin.flush()
+                
+                # Чтение ответа
+                response_line = self.process.stdout.readline()
+                if not response_line:
+                    self.process = None
+                    return {"status": "error", "message": "Backend connection lost"}
+                
+                return json_decode(response_line)
+            except Exception as e:
+                print(f"Communication error: {e}")
+                return {"status": "error", "message": str(e)}
+
+    def is_alive(self):
+        return self.process is not None and self.process.poll() is None
+
 
 @Gtk.Template(filename=get_ui_path("password_enroll.ui"))
 class PasswordEnrollDialog(Adw.Window):
     __gtype_name__ = "PasswordEnrollDialog"
-
     toast_overlay = Gtk.Template.Child()
-    
-    # Поля ввода
     luks_password = Gtk.Template.Child()
     new_password = Gtk.Template.Child()
     new_password_repeat = Gtk.Template.Child()
-    
-    # Кнопки
     btn_enroll = Gtk.Template.Child()
     spinner = Gtk.Template.Child()
 
-    def __init__(self, drive, **kwargs):
+    def __init__(self, backend, drive, **kwargs):
         super().__init__(**kwargs)
+        self.backend = backend
         self.drive = drive
         self.btn_enroll.connect("clicked", self._on_enroll_clicked)
 
     def _set_loading(self, is_loading):
-        """Блокировка UI и анимация"""
         if is_loading:
             self.spinner.set_visible(True)
             self.spinner.set_spinning(True)
@@ -114,114 +168,55 @@ class PasswordEnrollDialog(Adw.Window):
         self.new_password_repeat.set_sensitive(sensitive)
 
     def _on_enroll_clicked(self, btn):
-        current_pass = self.luks_password.get_text()
-        new_pass = self.new_password.get_text()
-        repeat_pass = self.new_password_repeat.get_text()
+        current = self.luks_password.get_text()
+        new = self.new_password.get_text()
+        repeat = self.new_password_repeat.get_text()
 
-        # Валидация
-        if not current_pass:
-            self.send_toast(_("Введите текущий пароль"))
+        if not current or not new:
+            self.send_toast(_("Заполните все поля"))
             return
-        
-        if not new_pass:
-            self.send_toast(_("Введите новый пароль"))
-            return
-        
-        if new_pass != repeat_pass:
-            self.send_toast(_("Новые пароли не совпадают"))
-            return
-        
-        if current_pass == new_pass:
-            self.send_toast(_("Новый пароль совпадает со старым"))
+        if new != repeat:
+            self.send_toast(_("Пароли не совпадают"))
             return
 
-        # Запуск процесса
         self._set_loading(True)
-        threading.Thread(target=self._run_backend, args=(current_pass, new_pass), daemon=True).start()
+        threading.Thread(target=self._run_backend, args=(current, new), daemon=True).start()
 
-    def _run_backend(self, current_pass, new_pass):
-        backend_path = os.path.join(BASE_DIR, "backend.py")
-        
-        payload = {
-            "luks_password": current_pass,
-            "new_password": new_pass
-        }
-        json_payload = json_encode(payload)
+    def _run_backend(self, current, new):
+        response = self.backend.send_command("enroll_password", {
+            "drive": self.drive,
+            "luks_password": current,
+            "new_password": new
+        })
+        GLib.idle_add(self._handle_result, response)
 
-        cmd = [
-            "pkexec", 
-            "/usr/bin/python3", 
-            backend_path, 
-            "enroll-password", 
-            "--drive", self.drive
-        ]
-
-        try:
-            process = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            
-            stdout, stderr = process.communicate(input=json_payload)
-            GLib.idle_add(self._handle_result, process.returncode, stdout, stderr)
-
-        except Exception as e:
-            GLib.idle_add(self.send_toast, f"Ошибка запуска: {e}")
-            GLib.idle_add(self._set_loading, False)
-
-    def _handle_result(self, returncode, stdout, stderr):
+    def _handle_result(self, response):
         self._set_loading(False)
-        
-        if returncode != 0:
-            if "dismissed" in stderr:
-                self.send_toast(_("Ввод пароля администратора отменен"))
-            else:
-                try:
-                    resp = json_decode(stdout)
-                    self.send_toast(f"Ошибка: {resp.get('message')}")
-                except:
-                    self.send_toast(f"Ошибка системы: {stderr}")
-            return
-
-        # Успех
-        try:
-            response = json_decode(stdout)
-            if response.get("status") == "success":
-                self.send_toast(_("Пароль успешно добавлен!"))
-                self.close()
-            else:
-                self.send_toast(f"Ошибка: {response.get('message')}")
-        except Exception as e:
-            self.send_toast(f"Ошибка ответа: {e}")
+        if response.get("status") == "success":
+            self.send_toast(_("Пароль успешно изменен!"))
+            self.close()
+        else:
+            self.send_toast(f"Ошибка: {response.get('message')}")
 
     def send_toast(self, message):
-        toast = Adw.Toast.new(message)
-        self.toast_overlay.add_toast(toast)
+        self.toast_overlay.add_toast(Adw.Toast.new(message))
 
 
-@Gtk.Template(filename=get_ui_path("recovery_enroll.ui")) # Скомпилируй blp -> ui
+@Gtk.Template(filename=get_ui_path("recovery_enroll.ui"))
 class RecoveryEnrollDialog(Adw.Window):
     __gtype_name__ = "RecoveryEnrollDialog"
-
     toast_overlay = Gtk.Template.Child()
     view_stack = Gtk.Template.Child()
-    
-    # Страница ввода
     luks_password = Gtk.Template.Child()
     btn_enroll = Gtk.Template.Child()
     spinner = Gtk.Template.Child()
-    
-    # Страница результата
     lbl_key = Gtk.Template.Child()
     btn_copy = Gtk.Template.Child()
 
-    def __init__(self, drive, **kwargs):
+    def __init__(self, backend, drive, **kwargs):
         super().__init__(**kwargs)
+        self.backend = backend
         self.drive = drive
-        
         self.btn_enroll.connect("clicked", self._on_enroll_clicked)
         self.btn_copy.connect("clicked", self._on_copy_clicked)
 
@@ -242,77 +237,37 @@ class RecoveryEnrollDialog(Adw.Window):
         if not password:
             self.send_toast(_("Введите пароль"))
             return
-
         self._set_loading(True)
-        
-        # Запускаем поток
         threading.Thread(target=self._run_backend, args=(password,), daemon=True).start()
 
     def _run_backend(self, password):
-        backend_path = os.path.join(BASE_DIR, "backend.py")
-        cmd = ["pkexec", "/usr/bin/python3", backend_path, "enroll-recovery", "--drive", self.drive]
-        
-        payload = json_encode({"luks_password": password})
-        
-        try:
-            process = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            stdout, stderr = process.communicate(input=payload)
-            
-            GLib.idle_add(self._handle_result, process.returncode, stdout, stderr)
-            
-        except Exception as e:
-            GLib.idle_add(self._set_loading, False)
-            GLib.idle_add(self.send_toast, f"Ошибка запуска: {e}")
+        response = self.backend.send_command("enroll_recovery", {
+            "drive": self.drive,
+            "luks_password": password
+        })
+        GLib.idle_add(self._handle_result, response)
 
-    def _handle_result(self, returncode, stdout, stderr):
+    def _handle_result(self, response):
         self._set_loading(False)
-        
-        if returncode != 0:
-            if "dismissed" in stderr:
-                self.send_toast(_("Отмена ввода пароля"))
-            else:
-                 # Пытаемся достать сообщение из JSON ошибки
-                try:
-                    resp = json_decode(stdout)
-                    self.send_toast(f"Ошибка: {resp.get('message')}")
-                except:
-                    self.send_toast(f"Ошибка: {stderr}")
-            return
-
-        # Успех
-        try:
-            response = json_decode(stdout)
-            if response.get("status") == "success":
-                key = response.get("message") # В success message у нас лежит ключ
-                self.lbl_key.set_label(key)
-                # Переключаем страницу стека
-                self.view_stack.set_visible_child_name("page_result")
-            else:
-                self.send_toast(f"Ошибка: {response.get('message')}")
-        except Exception as e:
-            self.send_toast(f"Ошибка чтения ответа: {e}")
-            print(f"DEBUG STDOUT: {stdout}")
+        if response.get("status") == "success":
+            key = response.get("message") 
+            self.lbl_key.set_label(key)
+            self.view_stack.set_visible_child_name("page_result")
+        else:
+            self.send_toast(f"Ошибка: {response.get('message')}")
 
     def _on_copy_clicked(self, btn):
         clipboard = Gdk.Display.get_default().get_clipboard()
         clipboard.set(self.lbl_key.get_label())
-        self.send_toast(_("Скопировано в буфер обмена"))
+        self.send_toast(_("Скопировано"))
 
     def send_toast(self, message):
-        toast = Adw.Toast.new(message)
-        self.toast_overlay.add_toast(toast)
+        self.toast_overlay.add_toast(Adw.Toast.new(message))
 
 
 @Gtk.Template(filename=get_ui_path("tpm_enroll.ui"))
 class TpmEnrollDialog(Adw.Window):
     __gtype_name__ = "TpmEnrollDialog"
-
     toast_overlay = Gtk.Template.Child()
     luks_password = Gtk.Template.Child()
     idp_chk = Gtk.Template.Child()
@@ -322,42 +277,31 @@ class TpmEnrollDialog(Adw.Window):
     btn_enroll = Gtk.Template.Child()
     spinner = Gtk.Template.Child()
 
-    def __init__(self, drive, **kwargs):
+    def __init__(self, backend, drive, **kwargs):
         super().__init__(**kwargs)
+        self.backend = backend
         self.drive = drive
         self.btn_enroll.connect("clicked", self._on_enroll_clicked)
         self.idp_chk.connect("notify::active", self._on_idp_toggled)
 
-        
     def _find_internal_switch(self, parent):
         child = parent.get_first_child()
         while child:
-            if isinstance(child, Gtk.Switch):
-                return child
-            
+            if isinstance(child, Gtk.Switch): return child
             found = self._find_internal_switch(child)
-            if found:
-                return found
-            
+            if found: return found
             child = child.get_next_sibling()
         return None
     
     def _on_idp_toggled(self, a, b):
-        """Если включили IDP -> автоматически включаем PIN"""
-
-        # Рекурсивно ищем внутренний гтк.свитч в экспандер роу
-        pin_switch_widget = self._find_internal_switch(self.pin_chk)
-
+        pin_switch = self._find_internal_switch(self.pin_chk)
         if self.idp_chk.get_active():
             self.pin_chk.set_enable_expansion(True)
-            if pin_switch_widget:
-                pin_switch_widget.set_sensitive(False)
+            if pin_switch: pin_switch.set_sensitive(False)
         else:
-            if pin_switch_widget:
-                pin_switch_widget.set_sensitive(True)
+            if pin_switch: pin_switch.set_sensitive(True)
 
     def _set_loading(self, is_loading):
-        """Управляет состоянием загрузки (Анимация + Блокировка)"""
         if is_loading:
             self.spinner.set_visible(True)
             self.spinner.set_spinning(True)
@@ -375,109 +319,54 @@ class TpmEnrollDialog(Adw.Window):
         self.entry_pin_repeat.set_sensitive(sensitive)
         self.idp_chk.set_sensitive(sensitive)
 
-    def start_unified_enrollment(self, pin_code, use_idp):
-        luks_pass = self.luks_password.get_text()
-        backend_path = os.path.join(BASE_DIR, "backend.py")
-        
-        # Единый payload
-        payload = {
-            "luks_password": luks_pass,
-            "pin": pin_code,
-            "use_idp": use_idp
-        }
-        json_payload = json_encode(payload)
-
-        # Вызываем enroll-unified
-        cmd = [
-            "pkexec", 
-            "/usr/bin/python3", 
-            backend_path, 
-            "enroll-unified", 
-            "--drive", self.drive
-        ]
-
-        self._set_loading(True)
-        
-        def run_thread():
-            try:
-                process = subprocess.Popen(
-                    cmd,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
-                )
-                
-                stdout, stderr = process.communicate(input=json_payload)
-                
-                GLib.idle_add(self._handle_result, process.returncode, stdout, stderr)
-
-            except Exception as e:
-                GLib.idle_add(self.send_toast, f"Ошибка запуска процесса: {e}")
-                GLib.idle_add(self._set_loading, False)
-
-        threading.Thread(target=run_thread, daemon=True).start()
-
-    def _handle_result(self, returncode, stdout, stderr):
-        self._set_loading(False)
-        
-        if returncode != 0:
-            if "dismissed" in stderr:
-                self.send_toast(_("Ввод пароля администратора отменен."))
-            else:
-                # Пытаемся распарсить JSON даже при ошибке, если backend его выдал
-                try:
-                    response = json_decode(stdout)
-                    msg = response.get("message", stderr)
-                    self.send_toast(f"Ошибка: {msg}")
-                except:
-                    print(f"RAW STDERR: {stderr}")
-                    self.send_toast(f"Системная ошибка: {stderr}")
-            return
-
-        # Успешный код возврата
-        try:
-            response = json_decode(stdout)
-            if response.get("status") == "success":
-                self.send_toast(response.get("message", "Успешно!"))
-                self.close() 
-            else:
-                error_msg = response.get("message", "Unknown error")
-                self.send_toast(f"{_('Ошибка backend')}: {error_msg}")
-        except Exception as e:
-            self.send_toast(f"Ошибка чтения ответа: {e}")
-            print(f"STDOUT RAW: {stdout}")
-
-    def send_toast(self, message, timeout=3):
-        toast = Adw.Toast.new(message)
-        toast.set_timeout(timeout)
-        self.toast_overlay.add_toast(toast)
-
     def _on_enroll_clicked(self, button):
-        luks_password = self.luks_password.get_text()
+        luks_pass = self.luks_password.get_text()
         use_idp = self.idp_chk.get_active()
         use_pin = self.pin_chk.get_enable_expansion()
         pin = self.entry_pin.get_text()
-        pin_repeat = self.entry_pin_repeat.get_text()
+        pin_rpt = self.entry_pin_repeat.get_text()
         
-        if not luks_password:
+        if not luks_pass:
             self.send_toast(_("Введите пароль от диска"))
             return
         
-        # Логика: если включен IDP или переключатель PIN -> требуем PIN
         require_pin = use_pin or use_idp 
-        
         if require_pin:
-            if not pin or not pin_repeat:
+            if not pin or not pin_rpt:
                 self.send_toast(_("Введите PIN код"))
                 return
-            if pin != pin_repeat:
+            if pin != pin_rpt:
                 self.send_toast(_("PIN коды не сходятся"))
                 return
         
-        # Запускаем единый процесс
-        self.start_unified_enrollment(pin if require_pin else None, use_idp)
-    
+        self._set_loading(True)
+        threading.Thread(target=self._run_backend, 
+                         args=(luks_pass, pin if require_pin else None, use_idp), 
+                         daemon=True).start()
+
+    def _run_backend(self, luks_pass, pin, use_idp):
+        response = self.backend.send_command("enroll_unified", {
+            "drive": self.drive,
+            "luks_password": luks_pass,
+            "pin": pin,
+            "use_idp": use_idp
+        })
+        GLib.idle_add(self._handle_result, response)
+
+    def _handle_result(self, response):
+        self._set_loading(False)
+        if response.get("status") == "success":
+            self.send_toast(response.get("message", "Успешно!"))
+            self.close()
+        else:
+            self.send_toast(f"Ошибка: {response.get('message')}")
+
+    def send_toast(self, message):
+        self.toast_overlay.add_toast(Adw.Toast.new(message))
+
+
+# --- Main Window ---
+
 @Gtk.Template(filename=get_ui_path("window.ui"))
 class SecurityWindow(Adw.ApplicationWindow):
     __gtype_name__ = "SecurityWindow"
@@ -515,270 +404,90 @@ class SecurityWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.drive = None
-        
+        self.backend = RootBackendService()
         self.lbl_version.set_label(_("Версия: ") + VERSION)
-
+        
         self._connect_signals()
-        self._background_update_stats()
+        
+        threading.Thread(target=self._init_backend_async, daemon=True).start()
+
+    def _init_backend_async(self):
+        """Запуск бэкенда и первая загрузка статистики"""
+        GLib.idle_add(self._set_loading, True)
+        
+        success = self.backend.start()
+        
+        GLib.idle_add(self._set_loading, False)
+        
+        if success:
+            self._background_update_stats()
+        else:
+            GLib.idle_add(self.show_dialog_ok, _("Не удалось получить права root. Функционал будет ограничен."))
 
     def _set_loading(self, is_loading):
-        """Включает анимацию и блокирует интерфейс"""
         if is_loading:
             self.global_spinner.set_visible(True)
             self.global_spinner.set_spinning(True)
-            self.view_stack.set_sensitive(False) # Блокируем клики по кнопкам
+            self.view_stack.set_sensitive(False)
         else:
             self.global_spinner.set_spinning(False)
             self.global_spinner.set_visible(False)
-            self.view_stack.set_sensitive(True)  # Разблокируем
-
-
-    def _run_backend_command(self, args):
-        """
-        Универсальный метод для запуска backend.py от root
-        args: список аргументов, например ['delete-tpm', '--drive', '/dev/nvme0n1p6']
-        """
-        backend_path = os.path.join(BASE_DIR, "backend.py")
-        
-        # Проверяем, существует ли файл
-        if not os.path.exists(backend_path):
-            print(f"Backend script not found at {backend_path}")
-            return False
-
-        cmd = ["pkexec", "/usr/bin/python3", backend_path] + args
-        
-        print(f"Executing: {' '.join(cmd)}")
-        
-        try:
-            # Запускаем. Окно пароля появится автоматически.
-            process = subprocess.Popen(
-                cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE, 
-                text=True
-            )
-            
-            stdout, stderr = process.communicate()
-            
-            if process.returncode == 0:
-                print("Backend Output:", stdout)
-                return True
-            else:
-                print("Backend Error:", stderr)
-                print("Backend Output:", stdout)
-                if "dismissed" in stderr: # Пользователь закрыл окно пароля
-                    return None 
-                return False
-
-        except Exception as e:
-            print(f"Execution failed: {e}")
-            return False
-
-    def _on_delete_tpm(self, button):
-        # 1. Спрашиваем подтверждение (опционально, но желательно)
-        # Если не нужно - сразу вызывай self._start_delete_thread()
-        self._show_confirm_dialog(
-            _("Удалить TPM?"), 
-            _("Это сбросит ключи шифрования. Вам понадобится пароль."),
-            self._start_delete_thread
-        )
-
-    
-    def _start_delete_thread(self):
-        """Запускает процесс в отдельном потоке"""
-        self._set_loading(True)
-
-        def worker():
-            # Это выполняется в фоне и не вешает GUI
-            # Вызываем твой метод запуска backend
-            # Важно: внутри _run_backend_command не должно быть GUI вызовов!
-            success = self._run_backend_command(['delete-tpm', '--drive', self.drive])
-            
-            # Возвращаемся в главный поток для обновления UI
-            GLib.idle_add(self._on_delete_finished, success)
-
-        threading.Thread(target=worker, daemon=True).start()
-    
-    def _on_delete_finished(self, success):
-        """Вызывается когда поток закончил работу"""
-        self._set_loading(False)
-        self._background_update_stats() # Обновляем статус системы
-
-        if success:
-            self.show_dialog_ok(_("TPM успешно удален"))
-        elif success is False: # Если success может быть None (отмена), проверяем именно на False
-            self.show_dialog_ok(_("Ошибка при удалении TPM"))
-        # Если success is None (пользователь отменил ввод пароля), ничего не делаем
-
+            self.view_stack.set_sensitive(True)
 
     def _connect_signals(self):
-        """Связывает события интерфейса с методами класса"""
-        
-        # Отслеживание переключения вкладок
         self.view_stack.connect("notify::visible-child", self._on_tab_switched)
-
-        # Кнопки TPM
         self.btn_enroll_tpm.connect("clicked", self._on_enroll_tpm)
         self.btn_delete_tpm.connect("clicked", self._on_delete_tpm)
-        
-        # Кнопки восстановления
         self.btn_enroll_recovery.connect("clicked", self._on_enroll_recovery)
         self.btn_delete_recovery.connect("clicked", self._on_delete_recovery)
-
-        # Пароли
         self.btn_enroll_password.connect("clicked", self._on_enroll_password)
         self.btn_delete_password.connect("clicked", self._on_delete_password)
-
-        # 2FA
         self.btn_open_2fa_manager.connect("clicked", self._on_open_2fa)
-
-        # Настройки
         self.btn_select_repo.connect("clicked", self._on_select_repo)
         self.btn_save_settings.connect("clicked", self._on_save_settings)
-        
-        # Flatpak
         self.btn_flatpak_download.connect("clicked", self._on_flatpak_download)
         self.btn_flatpak_install.connect("clicked", self._on_flatpak_install)
 
     def _on_tab_switched(self, stack, param):
-        """Вызывается при смене активной вкладки"""
         child_name = stack.get_visible_child_name()
-        
-        if child_name == "report":
-            # Чтобы не было задержки при открытии страницы отчета
+        if child_name == "report" and self.backend.is_alive():
             threading.Thread(target=self._background_update_stats, daemon=True).start()
 
     def _background_update_stats(self):
-        stats = self._get_stats()
-        GLib.idle_add(self._update_ui_stats, stats)
-
-    def _get_stats(self) -> dict:
-        sbctl_exists_output = subprocess.run(['/usr/bin/which', 'sbctl'], text=True, capture_output=True).stdout.strip()
-        keys_enrolled = False
-        secure_boot = False
-        setup_mode = False
-        ms_keys = False
-        
-        if sbctl_exists_output == '/usr/sbin/sbctl':
-            try:
-                sbctl_output = json_decode(subprocess.run(['sbctl', 'status', '--json'], text=True, capture_output=True, check=True).stdout)
-                
-                if sbctl_output.get('installed') and sbctl_output.get('guid'):
-                    keys_enrolled = True
-                
-                setup_mode = bool(sbctl_output.get('setup_mode', False))
-                secure_boot = bool(sbctl_output.get('secure_boot', False))
-                
-                vendors = sbctl_output.get('vendors', [])
-                if 'microsoft' in vendors:
-                    ms_keys = True
-            except subprocess.CalledProcessError:
-                pass
+        resp = self.backend.send_command("get_stats")
+        if resp.get("status") == "success":
+            stats = resp.get("data", {})
+            GLib.idle_add(self._update_ui_stats, stats)
         else:
-            process = subprocess.run(["/usr/bin/mokutil", "--sb-state"], capture_output=True)
-            mokutil_output = process.stdout
-            if b"enabled" in mokutil_output:
-                secure_boot = True
-            if b"Setup Mode" in mokutil_output:
-                setup_mode = True
-
-            try:
-                with open('/sys/firmware/efi/efivars/db-d719b2cb-3d3a-4596-a3bc-dad00e67656f', 'rb') as db:
-                    db_data = db.read()
-                    if b'Microsoft Corporation' in db_data:
-                        ms_keys = True
-            except FileNotFoundError:
-                pass
-        
-        rootfs_partition = None
-        # Определение корневого раздела
-        rootfs_partition_output = json_decode(subprocess.run(["/usr/bin/lsblk", "-J", "-o", 'NAME,TYPE,MOUNTPOINT,FSTYPE'], text=True, capture_output=True, check=True).stdout).get('blockdevices')
-        for drive in rootfs_partition_output:
-            if 'children' in drive:
-                for part in drive['children']:
-                    if part['fstype'] == 'crypto_LUKS':
-                        if 'children' in part:
-                            for children_part in part['children']:
-                                # print(children_part)
-                                if children_part['type'] == 'crypt' and children_part['name'] == 'cryptlvm':
-                                    rootfs_partition = "/dev/" + part['name']
-        if not DEBUG:
-            if not rootfs_partition and not self.an_error_occured:
-                print("Не удалось обнаружить раздел LUKS. Вы используете менеджер в Secux Linux?\nFailed to detect LUKS partition. Are you running manager from Secux Linux?")
-                self.an_error_occured = True
-        else:
-            print("debug test")
-            rootfs_partition = "/dev/nvme0n1p6"
-        
-        self.drive = rootfs_partition
-        
-        # Проверка наличия и использования TPM
-        tpm_exists = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
-        tpm_enrolled = False
-        tpm_with_pin = False
-        
-        try:
-            cryptsetup_output = json_decode(subprocess.run(["/usr/bin/cryptsetup", "luksDump", rootfs_partition, "--dump-json-metadata"], text=True, capture_output=True, check=True).stdout)
-            if cryptsetup_output.get('tokens'):
-                for token in cryptsetup_output['tokens'].values():
-                    if token.get('type') == "systemd-tpm2":
-                        tpm_enrolled = True
-                        if token.get('tpm2-pin'):
-                            tpm_with_pin = True
-        except subprocess.CalledProcessError:
-            pass
-        
-        if os.path.isfile(IDP_FILE):
-            tpm_enrolled = True
-            tpm_with_pin = True
-        
-        return {
-            "secure_boot": secure_boot,
-            "own_keys_enrolled": keys_enrolled,
-            "setup_mode": setup_mode,
-            "microsoft_keys_enrolled": ms_keys,
-            "tpm_exists": tpm_exists,
-            "tpm_enrolled": tpm_enrolled,
-            "tpm_with_pin_enrolled": tpm_with_pin,
-            "rootfs_partition": rootfs_partition,
-            "drive": self.drive
-        }
-
+            print(f"Error getting stats: {resp.get('message')}")
 
     def _update_ui_stats(self, stats):
-        self.luks_configure_group.set_description(stats['drive'])
+        self.drive = stats.get('drive')
+        
+        if self.drive:
+            self.luks_configure_group.set_description(self.drive)
+        else:
+            self.luks_configure_group.set_description(_("Раздел LUKS не найден"))
 
-        is_secure = False
-
-        if stats['secure_boot'] and stats['tpm_enrolled'] and stats['tpm_exists'] and not stats['setup_mode']:
-            is_secure = True
+        # Обновляем метки на основе JSON от бэкенда
+        self.secure_boot_status_label.set_label(_("Включен") if stats.get('secure_boot') else _("Выключен"))
         
-        if stats['secure_boot']:
-            self.secure_boot_mode_label.set_label(_("Включен"))
-        else:
-            self.secure_boot_mode_label.set_label(_("Выключен"))
+        self.secure_boot_mode_label.set_label("Setup" if stats.get('setup_mode') else "User")
         
-        if stats['setup_mode']:
-            self.secure_boot_mode_label.set_label(_("Setup"))
-        else:
-            self.secure_boot_mode_label.set_label(_("User"))
+        self.ms_trust_label.set_label(_("Да") if stats.get('microsoft_keys') else _("Нет"))
+        self.tpm_exists_label.set_label(_("Да") if stats.get('tpm_exists') else _("Нет"))
         
-        if stats['microsoft_keys_enrolled']:
-            self.ms_trust_label.set_label(_("Да"))
-        else:
-            self.ms_trust_label.set_label(_("Нет"))
-
-        if stats['tpm_exists']:
-            self.tpm_exists_label.set_label(_("Да"))
-        else:
-            self.tpm_exists_label.set_label(_("Нет"))
-        
-        if stats["tpm_with_pin_enrolled"]:
+        if stats.get("tpm_with_pin"):
             self.tpm_plus_pin_label.set_label("TPM + PIN")
-        elif stats["tpm_enrolled"]:
+        elif stats.get("tpm_enrolled"):
             self.tpm_plus_pin_label.set_label("TPM")
         else:
             self.tpm_plus_pin_label.set_label(_("Пароль"))
+        
+        # Логика статуса безопасности
+        is_secure = (stats.get('secure_boot') and 
+                     stats.get('tpm_enrolled') and 
+                     not stats.get('setup_mode'))
         
         if is_secure:
             self.status_page.set_title(_("Система защищена"))
@@ -793,117 +502,72 @@ class SecurityWindow(Adw.ApplicationWindow):
             self.status_page.remove_css_class("success")
             self.status_page.add_css_class("error")
 
-
     def _on_enroll_tpm(self, button):
-        dialog = TpmEnrollDialog(drive=self.drive)
+        if not self.backend.is_alive(): return self.show_dialog_ok("Backend dead")
+        dialog = TpmEnrollDialog(self.backend, self.drive)
         dialog.set_transient_for(self)
         dialog.present()
 
     def _on_enroll_recovery(self, button):
-        dialog = RecoveryEnrollDialog(drive=self.drive)
+        if not self.backend.is_alive(): return self.show_dialog_ok("Backend dead")
+        dialog = RecoveryEnrollDialog(self.backend, self.drive)
         dialog.set_transient_for(self)
         dialog.present()
-    
+
+    def _on_enroll_password(self, button):
+        if not self.backend.is_alive(): return self.show_dialog_ok("Backend dead")
+        dialog = PasswordEnrollDialog(self.backend, self.drive)
+        dialog.set_transient_for(self)
+        dialog.present()
+
+    def _on_delete_tpm(self, button):
+        self._show_confirm_dialog(
+            _("Удалить TPM?"), 
+            _("Это сбросит ключи шифрования. Вам понадобится пароль."),
+            lambda: self._run_simple_action("delete_tpm")
+        )
+
     def _on_delete_recovery(self, button):
-        # 1. Показываем диалог подтверждения
         self._show_confirm_dialog(
             _("Удалить ключ восстановления?"),
             _("Если вы потеряете пароль и TPM будет недоступен, вы потеряете доступ к данным навсегда."),
-            self._start_delete_recovery_thread # Функция, которая запустится при нажатии "Удалить"
+            lambda: self._run_simple_action("delete_recovery")
         )
     
-    def _start_delete_recovery_thread(self):
-        """Запускает удаление в фоне"""
-        self._set_loading(True) # Включаем спиннер в заголовке
+    def _on_delete_password(self, button):
+        # Тут обычно не удаление, а смена, но оставим как заглушку
+        self.show_dialog_ok(_("Удаление пароля не реализовано (используйте смену)"))
 
+    def _run_simple_action(self, command):
+        """Запуск простой команды без параметров в фоне"""
+        self._set_loading(True)
         def worker():
-            # Вызываем backend
-            # Мы используем общий метод запуска, который ты должен был реализовать ранее
-            # или пишем subprocess.run вручную, как ниже:
-            
-            backend_path = os.path.join(BASE_DIR, "backend.py")
-            cmd = ["pkexec", "/usr/bin/python3", backend_path, "delete-recovery", "--drive", self.drive]
-            
-            try:
-                process = subprocess.run(cmd, capture_output=True, text=True)
-                # Возвращаем результат в главный поток
-                GLib.idle_add(self._on_delete_recovery_finished, process.returncode, process.stdout, process.stderr)
-            except Exception as e:
-                # Ошибка запуска процесса
-                GLib.idle_add(self._on_delete_recovery_finished, -1, "", str(e))
-
+            resp = self.backend.send_command(command, {"drive": self.drive})
+            GLib.idle_add(self._on_simple_action_finished, resp)
         threading.Thread(target=worker, daemon=True).start()
 
-    def _on_delete_recovery_finished(self, returncode, stdout, stderr):
-        """Обработчик завершения удаления"""
-        self._set_loading(False) # Выключаем спиннер
-
-        if returncode == 0:
-            try:
-                # Пытаемся прочитать JSON ответа
-                resp = json_decode(stdout)
-                if resp.get("status") == "success":
-                    self.show_dialog_ok(_("Ключ восстановления успешно удален"))
-                    self._background_update_stats() # Обновляем статус в UI
-                    return
-                else:
-                    msg = resp.get("message", "Unknown error")
-                    self.show_dialog_ok(f"{_('Ошибка')}: {msg}")
-            except:
-                # Если backend вернул не JSON (редко)
-                self.show_dialog_ok(_("Ключ удален (raw response)"))
-                self._background_update_stats()
-        elif returncode == 126 or returncode == 127 or "dismissed" in stderr:
-            # Пользователь закрыл окно ввода пароля root
-            pass 
+    def _on_simple_action_finished(self, response):
+        self._set_loading(False)
+        self._background_update_stats()
+        
+        if response.get("status") == "success":
+            self.show_dialog_ok(response.get("message", _("Успешно")))
         else:
-            # Ошибка выполнения
-            self.show_dialog_ok(f"{_('Ошибка удаления')}: {stderr}")
-
-
-    def _on_enroll_password(self, button):
-        dialog = PasswordEnrollDialog(drive=self.drive)
-        dialog.set_transient_for(self)
-        dialog.present()
-    
-    def _on_delete_password(self, button):
-        self.show_dialog_ok(_("Удаление пароля"))
-        print("Password deleted")
+            self.show_dialog_ok(f"{_('Ошибка')}: {response.get('message')}")
 
     def _on_open_2fa(self, button):
         print("Opening 2FA Manager external app...")
         self.show_dialog_ok(_("Запуск менеджера 2FA..."))
 
     def _on_select_repo(self, button):
-        """Пример открытия диалога выбора папки"""
         dialog = Gtk.FileDialog()
         dialog.select_folder(self, None, self._on_repo_selected)
-
-    def _show_confirm_dialog(self, title, body, on_yes_callback):
-        """Вспомогательный диалог подтверждения"""
-        dialog = Adw.AlertDialog(
-            heading=title,
-            body=body
-        )
-        dialog.add_response("cancel", _("Отмена"))
-        dialog.add_response("delete", _("Удалить"))
-        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
-        
-        def response_handler(dialog, response):
-            if response == "delete":
-                on_yes_callback()
-        
-        dialog.connect("response", response_handler)
-        dialog.present(self)
-
 
     def _on_repo_selected(self, dialog, result):
         try:
             folder = dialog.select_folder_finish(result)
             if folder:
-                path = folder.get_path()
-                self.entry_repo_path.set_text(path)
-                print(f"Repo path selected: {path}")
+                self.entry_repo_path.set_text(folder.get_path())
         except GLib.Error as e:
             print(f"Error selecting folder: {e}")
 
@@ -913,16 +577,34 @@ class SecurityWindow(Adw.ApplicationWindow):
         print(f"Settings saved. Lang Index: {lang_idx}, Repo: {repo}")
         self.show_dialog_ok(_("Настройки успешно сохранены"))
 
+    # --- Helpers ---
+
+    def _show_confirm_dialog(self, title, body, on_yes_callback):
+        dialog = Adw.AlertDialog(heading=title, body=body)
+        dialog.add_response("cancel", _("Отмена"))
+        dialog.add_response("delete", _("Выполнить"))
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        
+        def response_handler(dialog, response):
+            if response == "delete":
+                on_yes_callback()
+        
+        dialog.connect("response", response_handler)
+        dialog.present(self)
+
+    def show_dialog_ok(self, message):
+        dialog = Adw.AlertDialog(heading=_("Информация"), body=message)
+        dialog.add_response("close", "OK")
+        dialog.present(self)
+
     def _on_flatpak_download(self, button):
         self._log_to_console(_("--> Начало загрузки пакетов..."))
-        
         threading.Thread(target=self._dummy_download_process).start()
 
     def _on_flatpak_install(self, button):
         self._log_to_console(_("--> Установка..."))
 
     def _dummy_download_process(self):
-        """Имитация долгой операции"""
         steps = ["Resolving deps...", "Downloading...", "Verifying checksums...", "Done."]
         for step in steps:
             time.sleep(1)
@@ -933,17 +615,8 @@ class SecurityWindow(Adw.ApplicationWindow):
         end_iter = buffer.get_end_iter()
         timestamp = datetime.datetime.now().strftime("[%H:%M:%S] ")
         buffer.insert(end_iter, timestamp + text + "\n")
-        
         adj = self.flatpak_console.get_vadjustment()
         GLib.idle_add(lambda: adj.set_value(adj.get_upper() - adj.get_page_size()))
-
-    def show_dialog_ok(self, message):
-        dialog = Adw.AlertDialog(
-            heading=_("Опаньки"),
-            body=message
-        )
-        dialog.add_response("close", "OK")
-        dialog.present(self)
 
 
 class SecurityManager(Adw.Application):
@@ -953,7 +626,6 @@ class SecurityManager(Adw.Application):
     def do_activate(self):
         win = SecurityWindow(application=self)
         win.present()
-
 
 if __name__ == "__main__":
     load_resources()
