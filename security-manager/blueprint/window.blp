@@ -29,11 +29,11 @@ template $SecurityWindow: Adw.ApplicationWindow {
 
         child: Adw.StatusPage status_page {
           title: _("Система защищена");
-          description: _("Secure Boot активен, задействованы механизмы TPM.");
+          description: _("Пожалуйста, введите пароль для получения информации о системе.");
           icon-name: "security-high-symbolic"; // channel-insecure-symbolic
           // success / error
           styles [
-            "success",
+            "warning",
           ]
 
           child: Adw.Clamp {
@@ -52,7 +52,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
 
                   [suffix]
                   Gtk.Label secure_boot_status_label {
-                    label: _("Включен");
+                    label: _("Неизвестно");
                   }
                 }
 
@@ -62,7 +62,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
 
                   [suffix]
                   Gtk.Label secure_boot_mode_label {
-                    label: "User";
+                    label: "Неизвестно";
                   }
                 }
 
@@ -72,7 +72,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
 
                   [suffix]
                   Gtk.Label ms_trust_label {
-                    label: _("Да");
+                    label: _("Неизвестно");
                   }
                 }
               }
@@ -85,7 +85,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
 
                   [suffix]
                   Gtk.Label tpm_exists_label {
-                    label: _("Да");
+                    label: _("Неизвестно");
                   }
                 }
 
@@ -95,7 +95,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
 
                   [suffix]
                   Gtk.Label tpm_plus_pin_label {
-                    label: "TPM + PIN";
+                    label: "Неизвестно";
                   }
                 }
               }
@@ -125,7 +125,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
         child: Adw.PreferencesPage {
           Adw.PreferencesGroup luks_configure_group {
             title: _("Управление диском");
-            description: "Диск: /dev/nvme0n1p6";
+            description: "Неизвестно";
 
             Adw.ActionRow {
               title: "TPM";

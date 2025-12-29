@@ -494,12 +494,14 @@ class SecurityWindow(Adw.ApplicationWindow):
             self.status_page.set_description(_("Secure Boot активен, задействованы механизмы TPM."))
             self.status_page.set_icon_name("security-high-symbolic")
             self.status_page.remove_css_class("error")
+            self.status_page.remove_css_class("warning")
             self.status_page.add_css_class("success")
         else:
             self.status_page.set_title(_("Система под угрозой"))
             self.status_page.set_description(_("Устройство уязвимо. Рекомендуется включить Secure Boot и настроить TPM."))
             self.status_page.set_icon_name("dialog-warning-symbolic")
             self.status_page.remove_css_class("success")
+            self.status_page.remove_css_class("warning")
             self.status_page.add_css_class("error")
 
     def _on_enroll_tpm(self, button):

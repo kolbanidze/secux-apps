@@ -1,12 +1,13 @@
 import os
 import secrets
 import subprocess
-from argon2.low_level import hash_secret_raw, Type
 import shutil
+import tempfile
 from Crypto.Cipher import AES
 from json import loads as json_decode
 from json import dumps as json_encode
 from getpass import getpass
+from argon2.low_level import hash_secret_raw, Type
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCKOUT_KEY_PATH = "/etc/lockout.key"
@@ -53,10 +54,7 @@ class EnrollIDP:
         self.memory_cost: int = memory_cost
         self.parallelism: int = parallelism
 
-        self.current_dir = os.getcwd()
-        # Рабочие файлы будут записываться в /tmp
-        # После выполнения и удаления мусорных файлов - скрипт вернется в self.current_dir
-        os.chdir("/tmp")
+        self.tmp_dir = None
 
         # Если BAP (boot altered pcr) не был указан в PCRs, но он добавит его
         # в порядке возрастания
@@ -66,29 +64,30 @@ class EnrollIDP:
         
         self.enrollment_process()
 
+    def _tmp(self, filename: str) -> str:
+        """Хелпер для получения полного пути к файлу во временной директории."""
+        if not self.tmp_dir:
+            raise RuntimeError("Temporary directory not initialized")
+        return os.path.join(self.tmp_dir, filename)
+
+
     def enrollment_process(self):
         try:
-            self.cleanup()
-            self.prepare_tpm()
-            if self.check_if_already_enrolled():
-                print("ERROR: IDP was already enrolled.")
-                return
-            self.build_and_enroll()
-            self.mkinitcpio_enable()
-            self.update_initcpio()
-            self.cleanup()
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                self.tmp_dir = tmp_dir
+
+                self.prepare_tpm()
+                if self.check_if_already_enrolled():
+                    print("ERROR: IDP was already enrolled.")
+                    return
+                self.build_and_enroll()
+                self.mkinitcpio_enable()
+                self.update_initcpio()
         except Exception as e:
             print(f"Error: {e}")
             return 1
         return 0
         
-    def cleanup(self):
-        """Удаляет мусорные файлы из /tmp (os.chdir('/tmp'))"""
-        files = [PRIMARY_CTX, SESSION_CTX, POLICY_DIGEST, SEALED_PUB, SEALED_PRIV, SEALED_CTX, PCRS_FILE, BLOB_FILE]
-        for file in files:
-            if os.path.isfile(file):
-                os.remove(file)
-
     def get_lockout_auth_status(self) -> bool:
         """ lockoutAuth is SET -> True. lockoutAuth is NOT SET -> False"""
         process = subprocess.run(["tpm2_getcap", "properties-variable"], capture_output=True, check=True)

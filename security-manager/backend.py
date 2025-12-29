@@ -34,15 +34,21 @@ def reply(status, data=None, message=None):
     sys.stdout.flush()
 
 def run_cmd(cmd, check=True, input_text=None):
-    """Обертка для subprocess"""
     try:
-        res = subprocess.run(
-            cmd, 
-            check=check, 
-            capture_output=True, 
-            text=True, 
-            input=input_text
-        )
+        kwargs = {
+            "check": check,
+            "capture_output": True,
+            "text": True
+        }
+        
+        # КРИТИЧНО ВАЖНО: Если ввода нет, перенаправляем stdin в DEVNULL,
+        # чтобы процесс не пытался читать из канала управления JSON.
+        if input_text is not None:
+            kwargs["input"] = input_text
+        else:
+            kwargs["stdin"] = subprocess.DEVNULL
+
+        res = subprocess.run(cmd, **kwargs)
         return True, res.stdout.strip(), res.stderr.strip()
     except subprocess.CalledProcessError as e:
         return False, e.stdout.strip(), e.stderr.strip()
@@ -212,7 +218,7 @@ def delete_tpm(params):
     if not drive: return reply("error", message="No drive specified")
 
     # Удаление через systemd
-    success, _, stderr = run_cmd(["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", drive])
+    success, _, stderr = run_cmd(["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", drive], check=True)
     if not success:
         return reply("error", message=stderr)
 
@@ -225,8 +231,10 @@ def delete_tpm(params):
             key_slot = idp.get('key_slot')
             addr = idp.get('address')
 
-            if key_slot: run_cmd(["cryptsetup", 'luksKillSlot', drive, str(key_slot), '-q'], check=False)
-            if addr: run_cmd(["tpm2_evictcontrol", '-C', 'o', '-c', str(addr)], check=False)
+            if key_slot: 
+                run_cmd(["cryptsetup", 'luksKillSlot', drive, str(key_slot), '-q'], check=True)
+            if addr: 
+                run_cmd(["tpm2_evictcontrol", '-C', 'o', '-c', str(addr)], check=True)
             os.remove(IDP_FILE)
 
             with open("/etc/mkinitcpio.conf", "r") as file:
@@ -244,6 +252,7 @@ def delete_tpm(params):
                 with open("/etc/mkinitcpio.conf", "w") as file:
                     file.writelines(new_lines)
                 run_cmd(['/usr/bin/mkinitcpio', '-P'])
+
         except Exception as e:
             return reply("error", message=f"Cleanup error: {e}")
 
@@ -346,9 +355,12 @@ def run_daemon():
             reply("error", message=f"Daemon crash: {e}")
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "get-info":
+    if len(sys.argv) > 1 and sys.argv[1] == "debug":
         # Для отладки без запуска демона
-        get_stats({})
+        # get_stats({})
+        # password = input("> ")
+        # enroll_unified({'drive': '/dev/nvme0n1p6', 'luks_password': password, 'pin': 'asdasdasd', 'use_idp': True})
+        delete_tpm({'drive': '/dev/nvme0n1p6'})
     else:
         # По умолчанию запускаем режим демона
         run_daemon()

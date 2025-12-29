@@ -36,10 +36,10 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 <property name="child">
                   <object class="AdwStatusPage" id="status_page">
                     <property name="title" translatable="yes">Система защищена</property>
-                    <property name="description" translatable="yes">Secure Boot активен, задействованы механизмы TPM.</property>
+                    <property name="description" translatable="yes">Пожалуйста, введите пароль для получения информации о системе.</property>
                     <property name="icon-name">security-high-symbolic</property>
                     <style>
-                      <class name="success"/>
+                      <class name="warning"/>
                     </style>
                     <property name="child">
                       <object class="AdwClamp">
@@ -57,7 +57,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="subtitle" translatable="yes">Рекомендуется к использованию</property>
                                     <child type="suffix">
                                       <object class="GtkLabel" id="secure_boot_status_label">
-                                        <property name="label" translatable="yes">Включен</property>
+                                        <property name="label" translatable="yes">Неизвестно</property>
                                       </object>
                                     </child>
                                   </object>
@@ -68,7 +68,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="subtitle" translatable="yes">Рекомендуется User Mode</property>
                                     <child type="suffix">
                                       <object class="GtkLabel" id="secure_boot_mode_label">
-                                        <property name="label">User</property>
+                                        <property name="label">Неизвестно</property>
                                       </object>
                                     </child>
                                   </object>
@@ -79,7 +79,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="subtitle" translatable="yes">Необходимо для использования Windows в dual-boot</property>
                                     <child type="suffix">
                                       <object class="GtkLabel" id="ms_trust_label">
-                                        <property name="label" translatable="yes">Да</property>
+                                        <property name="label" translatable="yes">Неизвестно</property>
                                       </object>
                                     </child>
                                   </object>
@@ -94,7 +94,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="title" translatable="yes">Наличие TPM</property>
                                     <child type="suffix">
                                       <object class="GtkLabel" id="tpm_exists_label">
-                                        <property name="label" translatable="yes">Да</property>
+                                        <property name="label" translatable="yes">Неизвестно</property>
                                       </object>
                                     </child>
                                   </object>
@@ -105,7 +105,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="subtitle" translatable="yes">Рекомендуется использование TPM + PIN</property>
                                     <child type="suffix">
                                       <object class="GtkLabel" id="tpm_plus_pin_label">
-                                        <property name="label">TPM + PIN</property>
+                                        <property name="label">Неизвестно</property>
                                       </object>
                                     </child>
                                   </object>
@@ -141,7 +141,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                     <child>
                       <object class="AdwPreferencesGroup" id="luks_configure_group">
                         <property name="title" translatable="yes">Управление диском</property>
-                        <property name="description">Диск: /dev/nvme0n1p6</property>
+                        <property name="description">Неизвестно</property>
                         <child>
                           <object class="AdwActionRow">
                             <property name="title">TPM</property>
