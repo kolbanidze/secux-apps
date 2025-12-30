@@ -10,10 +10,12 @@ import subprocess
 import json
 from json import loads as json_decode
 from json import dumps as json_encode
+import io
+import qrcode 
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GObject
+from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
@@ -422,6 +424,210 @@ class KeyDeleteDialog(Adw.Window):
         self.toast_overlay.add_toast(Adw.Toast.new(message))
 
 # --- Main Window ---
+@Gtk.Template(filename=get_ui_path("two_factor.ui"))
+class TwoFaWindow(Adw.Window):
+    __gtype_name__ = "TwoFaWindow"
+
+    toast_overlay = Gtk.Template.Child()
+    system_2fa_switch = Gtk.Template.Child()
+    user_selection = Gtk.Template.Child()
+    status_stack = Gtk.Template.Child()
+    
+    register_btn = Gtk.Template.Child()
+    
+    qr_image = Gtk.Template.Child()
+    secret_label = Gtk.Template.Child()
+    hide_qr_btn = Gtk.Template.Child()
+    delete_btn = Gtk.Template.Child()
+
+    def __init__(self, backend, **kwargs):
+        super().__init__(**kwargs)
+        self.backend = backend
+        self.users_map = []
+        self.hostname = "Linux"
+        
+        self.is_loading = False
+
+        self.system_2fa_switch.connect("notify::active", self._on_system_switch_toggled)
+        self.user_selection.connect("notify::selected", self._on_user_changed)
+        self.register_btn.connect("clicked", self._on_register_clicked)
+        self.delete_btn.connect("clicked", self._on_delete_clicked)
+        self.hide_qr_btn.connect("clicked", self._on_hide_qr_clicked)
+        
+        self._refresh_state()
+
+    def _refresh_state(self):
+        threading.Thread(target=self._fetch_data, daemon=True).start()
+
+    def _fetch_data(self):
+        resp = self.backend.send_command("get_2fa_state")
+        GLib.idle_add(self._update_ui, resp)
+
+    def _update_ui(self, resp):
+        if resp.get("status") != "success":
+            self.send_toast("Ошибка получения данных")
+            return
+
+        data = resp.get("data", {})
+        self.hostname = data.get("hostname", "Secux")
+        
+        # 1. Update System Switch
+        # Блокируем сигнал, чтобы не триггерить обратную запись
+        self.system_2fa_switch.freeze_notify()
+        self.system_2fa_switch.set_active(data.get("system_enabled", False))
+        self.system_2fa_switch.thaw_notify()
+
+        # 2. Update Users Dropdown
+        self.users_map = data.get("users", [])
+        
+        # Создаем StringList для DropDown
+        string_list = Gtk.StringList()
+        selected_idx = 0
+        current_selected_item = self.user_selection.get_selected_item()
+        current_name = current_selected_item.get_string() if current_selected_item else None
+        
+        for idx, u in enumerate(self.users_map):
+            status_mark = " (Active)" if u['enrolled'] else ""
+            string_list.append(f"{u['name']}{status_mark}")
+            if current_name and u['name'] == current_name:
+                selected_idx = idx
+        
+        self.user_selection.set_model(string_list)
+        if len(self.users_map) > 0:
+            self.user_selection.set_selected(selected_idx)
+            self._update_view_stack(self.users_map[selected_idx])
+
+    def _on_user_changed(self, dropdown, param):
+        idx = dropdown.get_selected()
+        if idx < 0 or idx >= len(self.users_map): return
+        
+        user = self.users_map[idx]
+        self._update_view_stack(user)
+
+    def _update_view_stack(self, user):        
+        if user['enrolled']:            
+            page = self.status_stack.get_pages()[1] # Вторая страница
+            self.status_stack.set_visible_child(page.get_child())
+            
+            # Скрываем сам QR, если это просто просмотр
+            if not getattr(self, "_just_enrolled", False):
+                self.qr_image.set_visible(False)
+                self.secret_label.set_label(_("Секрет скрыт. Пересоздайте для отображения."))
+                self.hide_qr_btn.set_visible(False)
+            else:
+                self.qr_image.set_visible(True)
+                self.hide_qr_btn.set_visible(True)
+                self._just_enrolled = False # Reset
+        else:
+            page = self.status_stack.get_pages()[0] # Первая страница
+            self.status_stack.set_visible_child(page.get_child())
+
+    def _on_system_switch_toggled(self, switch, param):
+        state = switch.get_active()
+        threading.Thread(target=self._run_backend_toggle, args=(state,), daemon=True).start()
+
+    def _run_backend_toggle(self, state):
+        resp = self.backend.send_command("toggle_system_2fa", {"enable": state})
+        GLib.idle_add(lambda: self.send_toast(resp.get("message", "Error")))
+
+    def _on_register_clicked(self, btn):
+        idx = self.user_selection.get_selected()
+        user = self.users_map[idx]
+        
+        self.register_btn.set_sensitive(False)
+        threading.Thread(target=self._run_enroll, args=(user['name'],), daemon=True).start()
+
+    def _run_enroll(self, username):
+        resp = self.backend.send_command("enroll_2fa_user", {
+            "user": username,
+            "hostname": self.hostname
+        })
+        GLib.idle_add(self._handle_enroll_result, resp, username)
+
+    def _handle_enroll_result(self, resp, username):
+        self.register_btn.set_sensitive(True)
+        if resp.get("status") == "success":
+            data = resp.get("data")
+            uri = data.get("uri")
+            secret = data.get("secret")
+            recovery = data.get("recovery")
+            
+            # Generate QR
+            self._render_qr(uri)
+            
+            self.secret_label.set_label(_("Секрет: ") + secret + "\n" + _("Ключи восстановления:\n") + '\n'.join(recovery))
+            
+            # Обновляем локальную модель
+            for u in self.users_map:
+                if u['name'] == username:
+                    u['enrolled'] = True
+            
+            self._just_enrolled = True
+            self._on_user_changed(self.user_selection, None) # Refresh view
+            self.send_toast("2FA настроена!")
+        else:
+            self.send_toast(f"Ошибка: {resp.get('message')}")
+
+    def _render_qr(self, uri):
+        # Генерируем QR через библиотеку qrcode -> PIL Image -> Bytes -> GdkTexture
+        try:
+            qr = qrcode.QRCode(box_size=10, border=1)
+            qr.add_data(uri)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white")
+            
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            buf.seek(0)
+            b_data = GLib.Bytes.new(buf.read())
+            
+            stream = Gio.MemoryInputStream.new_from_bytes(b_data)
+            pixbuf = GdkPixbuf.Pixbuf.new_from_stream(stream, None)
+            
+            width = pixbuf.get_width()
+            height = pixbuf.get_height()
+            stride = pixbuf.get_rowstride()
+            has_alpha = pixbuf.get_has_alpha()
+            
+            pixel_bytes = pixbuf.read_pixel_bytes()
+            
+            # Определяем формат
+            format = Gdk.MemoryFormat.R8G8B8A8 if has_alpha else Gdk.MemoryFormat.R8G8B8
+            
+            texture = Gdk.MemoryTexture.new(width, height, format, pixel_bytes, stride)
+            
+            self.qr_image.set_paintable(texture)
+        except Exception as e:
+            print(f"QR Error: {e}")
+            self.send_toast("Ошибка генерации QR кода")
+
+    def _on_delete_clicked(self, btn):
+        idx = self.user_selection.get_selected()
+        user = self.users_map[idx]
+        threading.Thread(target=self._run_delete, args=(user['name'],), daemon=True).start()
+            
+    def _run_delete(self, username):
+        resp = self.backend.send_command("delete_2fa_user", {"user": username})
+        GLib.idle_add(self._handle_delete_result, resp, username)
+
+    def _handle_delete_result(self, resp, username):
+        if resp.get("status") == "success":
+            for u in self.users_map:
+                if u['name'] == username:
+                    u['enrolled'] = False
+            self.send_toast("2FA удалена")
+            self._on_user_changed(self.user_selection, None) # Refresh view
+        else:
+            self.send_toast(f"Ошибка: {resp.get('message')}")
+
+    def _on_hide_qr_clicked(self, btn):
+        self.qr_image.set_visible(False)
+        self.hide_qr_btn.set_visible(False)
+        self.secret_label.set_label("Скрыто")
+
+    def send_toast(self, message):
+        self.toast_overlay.add_toast(Adw.Toast.new(message))
+
 
 @Gtk.Template(filename=get_ui_path("window.ui"))
 class SecurityWindow(Adw.ApplicationWindow):
@@ -438,6 +644,7 @@ class SecurityWindow(Adw.ApplicationWindow):
     btn_delete_recovery = Gtk.Template.Child()
     btn_enroll_password = Gtk.Template.Child()
     btn_delete_password = Gtk.Template.Child()
+    btn_2fa = Gtk.Template.Child()
     btn_open_2fa_manager = Gtk.Template.Child()
 
     luks_configure_group = Gtk.Template.Child()
@@ -498,6 +705,7 @@ class SecurityWindow(Adw.ApplicationWindow):
         self.btn_delete_recovery.connect("clicked", self._on_delete_recovery)
         self.btn_enroll_password.connect("clicked", self._on_enroll_password)
         self.btn_delete_password.connect("clicked", self._on_delete_password)
+        self.btn_2fa.connect("activated", self._on_open_2fa)
         self.btn_open_2fa_manager.connect("clicked", self._on_open_2fa)
         self.btn_select_repo.connect("clicked", self._on_select_repo)
         self.btn_save_settings.connect("clicked", self._on_save_settings)
@@ -614,8 +822,13 @@ class SecurityWindow(Adw.ApplicationWindow):
             self.show_dialog_ok(f"{_('Ошибка')}: {response.get('message')}")
 
     def _on_open_2fa(self, button):
-        print("Opening 2FA Manager external app...")
-        self.show_dialog_ok(_("Запуск менеджера 2FA..."))
+        if not self.backend.is_alive(): 
+            return self.show_dialog_ok("Backend is not running")
+        
+        # Создаем и открываем окно
+        dialog = TwoFaWindow(self.backend)
+        dialog.set_transient_for(self)
+        dialog.present()
 
     def _on_select_repo(self, button):
         dialog = Gtk.FileDialog()

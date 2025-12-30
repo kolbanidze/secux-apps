@@ -5,11 +5,19 @@ import json
 import subprocess
 import pexpect
 import threading
+import pwd
+import glob
+import shutil
+from secrets import token_bytes, choice
+from base64 import b32encode
 from contextlib import contextmanager
 
 IDP_FILE = "/etc/idp.json"
 PCR_PUB_KEY = "/etc/kernel/pcr-initrd.pub.pem"
 DEFAULT_PCRS = [0, 7, 14]
+STORAGE_2FA_PATH = "/etc/securitymanager-2fa"
+PAM_FILES = ["/etc/pam.d/login", "/etc/pam.d/gdm-password"]
+PAM_LINE = f"auth required pam_google_authenticator.so nullok debug user=root secret={STORAGE_2FA_PATH}/${{USER}}\n"
 
 @contextmanager
 def suppress_stdout():
@@ -375,6 +383,135 @@ def enroll_password(params):
     except Exception as e:
         reply("error", message=str(e))
 
+def get_2fa_state(params):
+    """Возвращает список пользователей, статус их 2FA и глобальный статус системы"""
+    # 1. Проверка системного статуса (проверяем /etc/pam.d/login)
+    system_enabled = False
+    try:
+        with open("/etc/pam.d/login", "r") as f:
+            if "pam_google_authenticator.so" in f.read():
+                system_enabled = True
+    except FileNotFoundError:
+        pass
+
+    # 2. Сбор пользователей
+    users = []
+    min_uid = 1000
+    
+    # Добавляем root
+    try:
+        root_pwd = pwd.getpwuid(0)
+        users.append({"name": root_pwd.pw_name, "uid": 0, "enrolled": False})
+    except: pass
+
+    # Обычные пользователи
+    for p in pwd.getpwall():
+        if p.pw_uid >= min_uid and p.pw_name != "nobody":
+            users.append({"name": p.pw_name, "uid": p.pw_uid, "enrolled": False})
+
+    # 3. Проверка enrollment (наличие файла конфига)
+    if os.path.isdir(STORAGE_2FA_PATH):
+        for user in users:
+            user_config = os.path.join(STORAGE_2FA_PATH, user["name"])
+            if os.path.isfile(user_config):
+                user["enrolled"] = True
+
+    return reply("success", {
+        "system_enabled": system_enabled,
+        "users": users,
+        "hostname": os.uname().nodename
+    })
+
+def toggle_system_2fa(params):
+    enable = params.get("enable")
+    
+    try:
+        for file_path in PAM_FILES:
+            if not os.path.exists(file_path): continue
+            
+            lines = []
+            with open(file_path, "r") as f:
+                lines = f.readlines()
+            
+            # Удаляем старые записи, чтобы не дублировать
+            lines = [line for line in lines if "pam_google_authenticator.so" not in line]
+            
+            if enable:
+                lines.append(PAM_LINE)
+            
+            with open(file_path, "w") as f:
+                f.writelines(lines)
+                
+        return reply("success", message=f"System 2FA {'enabled' if enable else 'disabled'}")
+    except Exception as e:
+        return reply("error", message=f"Failed to edit PAM: {e}")
+
+def enroll_2fa_user(params):
+    user = params.get("user")
+    hostname = params.get("hostname", "secux")
+    
+    if not user: return reply("error", message="No user specified")
+
+    try:
+        if not os.path.isdir(STORAGE_2FA_PATH):
+            os.mkdir(STORAGE_2FA_PATH)
+            os.chown(STORAGE_2FA_PATH, 0, 0)
+            os.chmod(STORAGE_2FA_PATH, 0o600)
+
+        # Генерация секрета
+        # 16 байт -> base32
+        secret_bytes = token_bytes(16) 
+        secret_key = b32encode(secret_bytes).decode('utf-8').rstrip("=")
+        
+        recovery_keys = ["".join([choice("0123456789") for _ in range(8)]) for _ in range(5)]
+        
+        # Формирование конфига
+        config_lines = [
+            secret_key,
+            '" RATE_LIMIT 3 30',
+            '" WINDOW_SIZE 3',
+            '" DISALLOW_REUSE',
+            '" TOTP_AUTH'
+        ] + recovery_keys
+        
+        config_content = "\n".join(config_lines) + "\n"
+        
+        user_path = os.path.join(STORAGE_2FA_PATH, user)
+        with open(user_path, "w") as f:
+            f.write(config_content)
+        
+        os.chown(user_path, 0, 0)
+        os.chmod(user_path, 0o600) # Только рут может читать секреты
+        
+        # Генерируем URI для QR кода
+        # otpauth://totp/user@host?secret=KEY&issuer=Secux
+        uri = f"otpauth://totp/{user}@{hostname}?secret={secret_key}&issuer=secux"
+        
+        return reply("success", {
+            "uri": uri,
+            "secret": secret_key,
+            "recovery": recovery_keys
+        })
+
+    except Exception as e:
+        return reply("error", message=str(e))
+
+def delete_2fa_user(params):
+    user = params.get("user")
+    if not user: return reply("error", message="No user")
+    
+    user_path = os.path.join(STORAGE_2FA_PATH, user)
+    if os.path.exists(user_path):
+        try:
+            os.remove(user_path)
+            return reply("success", message="2FA removed for user")
+        except Exception as e:
+            return reply("error", message=str(e))
+    else:
+        return reply("error", message="Registration not found")
+
+
+
 
 def run_daemon():
     # Сигнал готовности
@@ -407,6 +544,14 @@ def run_daemon():
                 delete_key(params)
             elif command == "enroll_password":
                 enroll_password(params)
+            elif command == "get_2fa_state":
+                get_2fa_state(params)
+            elif command == "toggle_system_2fa":
+                toggle_system_2fa(params)
+            elif command == "enroll_2fa_user":
+                enroll_2fa_user(params)
+            elif command == "delete_2fa_user":
+                delete_2fa_user(params)
             else:
                 reply("error", message=f"Unknown command: {command}")
 

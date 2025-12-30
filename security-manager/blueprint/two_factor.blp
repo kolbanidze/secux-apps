@@ -1,0 +1,169 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $TwoFaWindow: Adw.Window {
+  default-width: 450;
+  default-height: 650;
+  title: "Управление 2FA";
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.ToolbarView {
+      [top]
+      Adw.HeaderBar {
+        title-widget: Adw.WindowTitle {
+          title: "Управление 2FA";
+          subtitle: "Администрирование доступа";
+        };
+      }
+
+      content: Adw.PreferencesPage {
+        Adw.PreferencesGroup {
+          title: "Безопасность системы";
+          description: "Глобальные параметры входа в OS";
+
+          Adw.SwitchRow system_2fa_switch {
+            title: "Принудительная 2FA";
+            subtitle: "Требовать код при входе (GNOME, TTY)";
+            icon-name: "system-lock-screen-symbolic";
+          }
+        }
+
+        Adw.PreferencesGroup {
+          title: "Учетная запись";
+
+          Adw.ActionRow {
+            title: "Целевой пользователь";
+            subtitle: "Выберите аккаунт для настройки";
+            icon-name: "avatar-default-symbolic";
+
+            [suffix]
+            Gtk.DropDown user_selection {
+              valign: center;
+
+              model: Gtk.StringList {
+                strings [
+                  "root",
+                  "user",
+                  "admin",
+                ]
+              };
+            }
+          }
+        }
+
+        Adw.PreferencesGroup {
+          title: "Настройка токена";
+          // (Зарегистрирован / Не зарегистрирован / Просмотр QR)
+          Gtk.Stack status_stack {
+            Gtk.Box {
+              orientation: vertical;
+              spacing: 12;
+              margin-top: 12;
+              margin-bottom: 12;
+
+              Gtk.Image {
+                icon-name: "security-low-symbolic";
+                pixel-size: 64;
+
+                css-classes: [
+                  "dim-label",
+                ];
+              }
+
+              Gtk.Label {
+                label: "Двухфакторная аутентификация не настроена";
+
+                css-classes: [
+                  "title-4",
+                ];
+              }
+
+              Gtk.Button register_btn {
+                label: "Зарегистрировать пользователя";
+
+                css-classes: [
+                  "suggested-action",
+                  "pill",
+                ];
+
+                margin-top: 10;
+              }
+            }
+
+            // СОСТОЯНИЕ 2: Успешная регистрация / Просмотр QR
+            Gtk.Box {
+              orientation: vertical;
+              spacing: 12;
+              // Карточка с QR кодом
+              Gtk.Frame {
+                css-classes: [
+                  "view",
+                ];
+
+                margin-bottom: 10;
+
+                Gtk.Box {
+                  orientation: vertical;
+                  spacing: 10;
+                  margin-top: 20;
+                  margin-bottom: 20;
+                  margin-start: 20;
+                  margin-end: 20;
+
+                  Gtk.Label {
+                    label: "Отсканируйте код в Authenticator";
+
+                    css-classes: [
+                      "heading",
+                    ];
+                  }
+
+                  // Место для картинки QR кода
+                  Gtk.Picture qr_image {
+                    height-request: 200;
+                    width-request: 200;
+                    keep-aspect-ratio: true;
+
+                    css-classes: [
+                      "card",
+                    ];
+                  }
+
+                  Gtk.Label secret_label {
+                    label: "Секрет: A1B2 C3D4 E5F6";
+
+                    css-classes: [
+                      "caption",
+                      "monospace",
+                    ];
+
+                    selectable: true;
+                  }
+                }
+              }
+
+              // Кнопки управления существующей регистрацией
+              Gtk.Box {
+                orientation: horizontal;
+                spacing: 10;
+                halign: center;
+
+                Gtk.Button hide_qr_btn {
+                  label: "Скрыть QR";
+                }
+
+                Gtk.Button delete_btn {
+                  label: "Удалить регистрацию";
+
+                  css-classes: [
+                    "destructive-action",
+                  ];
+                }
+              }
+            }
+          }
+        }
+      };
+    };
+  };
+}

@@ -224,7 +224,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                       <object class="AdwPreferencesGroup">
                         <property name="title" translatable="yes">Безопасность входа</property>
                         <child>
-                          <object class="AdwActionRow">
+                          <object class="AdwActionRow" id="btn_2fa">
                             <property name="title" translatable="yes">Двухфакторная аутентификация</property>
                             <property name="subtitle" translatable="yes">Настройка TOTP и кодов восстановления</property>
                             <property name="icon-name">phone-symbolic</property>

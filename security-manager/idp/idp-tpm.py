@@ -35,7 +35,7 @@ def run_cmd(cmd_list, input_data=None, capture_output=True, check=True):
         return process
     except subprocess.CalledProcessError as e:
         if capture_output and e.stderr:
-            print(f"Error executing command: {' '.join(cmd_list)}")
+            print(f"Error executing command: {cmd_list[0]}...")
             print("STDERR:", e.stderr.decode())
         raise e
 
