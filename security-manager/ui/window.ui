@@ -349,9 +349,9 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                             <property name="title" translatable="yes">Источник пакетов</property>
                             <property name="subtitle" translatable="yes">Flathub (Online)</property>
                             <property name="icon-name">network-server-symbolic</property>
-                            <property name="activatable">true</property>
+                            <property name="activatable">false</property>
                             <child type="suffix">
-                              <object class="GtkButton">
+                              <object class="GtkButton" id="flathub_open_settings">
                                 <property name="icon-name">emblem-system-symbolic</property>
                                 <property name="valign">3</property>
                                 <style>
@@ -412,7 +412,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                             <property name="subtitle">Просмотр видео, OBS Studio</property>
                             <property name="icon-name">applications-multimedia-symbolic</property>
                             <child>
-                              <object class="AdwSwitchRow" id="chk_vlc">
+                              <object class="AdwSwitchRow" id="chk_videoplayer">
                                 <property name="title">Видеопроигрыватель</property>
                                 <property name="icon-name">media-playback-start-symbolic</property>
                               </object>

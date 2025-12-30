@@ -724,6 +724,36 @@ class SecurityWindow(Adw.ApplicationWindow):
     flatpak_console = Gtk.Template.Child()
     btn_flatpak_download = Gtk.Template.Child()
     btn_flatpak_install = Gtk.Template.Child()
+    flathub_open_settings = Gtk.Template.Child()
+
+    chk_chromium = Gtk.Template.Child()
+    chk_firefox = Gtk.Template.Child()
+    chk_librewolf = Gtk.Template.Child()
+    chk_telegram = Gtk.Template.Child()
+    chk_discord = Gtk.Template.Child()
+    chk_videoplayer = Gtk.Template.Child()
+    chk_obs = Gtk.Template.Child()
+    chk_libreoffice = Gtk.Template.Child()
+    chk_onlyoffice = Gtk.Template.Child()
+    chk_flatseal = Gtk.Template.Child()
+    chk_keepassxc = Gtk.Template.Child()
+    chk_bitwarden = Gtk.Template.Child()
+    chk_qbittorrent = Gtk.Template.Child()
+    APP_MAPPING = {
+        'chk_chromium': 'org.chromium.Chromium',
+        'chk_firefox': 'org.mozilla.firefox',
+        'chk_librewolf': 'io.gitlab.librewolf-community',
+        'chk_telegram': 'org.telegram.desktop',
+        'chk_discord': 'com.discordapp.Discord',
+        'chk_videoplayer': 'org.gnome.Showtime',
+        'chk_obs': 'com.obsproject.Studio',
+        'chk_libreoffice': 'org.libreoffice.LibreOffice',
+        'chk_onlyoffice': 'org.onlyoffice.desktopeditors',
+        'chk_flatseal': 'com.github.tchx84.Flatseal',
+        'chk_keepassxc': 'org.keepassxc.KeePassXC',
+        'chk_bitwarden': 'com.bitwarden.desktop',
+        'chk_qbittorrent': 'org.qbittorrent.qBittorrent'
+    }
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -773,6 +803,10 @@ class SecurityWindow(Adw.ApplicationWindow):
         self.btn_flatpak_download.connect("clicked", self._on_flatpak_download)
         self.btn_flatpak_install.connect("clicked", self._on_flatpak_install)
         self.btn_view_slots.connect("clicked", self._on_view_slots_clicked)
+        self.flathub_open_settings.connect("clicked", self._open_settings_tab)
+
+    def _open_settings_tab(self, button):
+        self.view_stack.set_visible_child_name("settings")
 
     def _on_tab_switched(self, stack, param):
         child_name = stack.get_visible_child_name()
@@ -934,23 +968,72 @@ class SecurityWindow(Adw.ApplicationWindow):
         dialog.connect("response", response_handler)
         dialog.present(self)
 
+    def _get_selected_apps(self):
+        selected = []
+        for ui_id, app_id in self.APP_MAPPING.items():
+            widget = getattr(self, ui_id, None) 
+            if widget and isinstance(widget, Adw.SwitchRow) and widget.get_active():
+                selected.append(app_id)
+            elif widget and isinstance(widget, Adw.ActionRow): 
+                if hasattr(widget, "get_active") and widget.get_active():
+                    selected.append(app_id)
+        return selected
+        
+
     def show_dialog_ok(self, message):
         dialog = Adw.AlertDialog(heading=_("Информация"), body=message)
         dialog.add_response("close", "OK")
         dialog.present(self)
 
     def _on_flatpak_download(self, button):
+        apps = self._get_selected_apps()
+        if not apps:
+            return self.show_dialog_ok(_("Выберите хотя бы одно приложение"))
+        
+        # TODO: make that shit
+        # repo_path = self.entry_repo_path.get_text()
+        # if not repo_path:
+        #     return self.show_dialog_ok(_("Выберите путь к репозиторию в настройках"))
+
         self._log_to_console(_("--> Начало загрузки пакетов..."))
         threading.Thread(target=self._dummy_download_process).start()
 
     def _on_flatpak_install(self, button):
-        self._log_to_console(_("--> Установка..."))
+        apps = self._get_selected_apps()
+        if not apps:
+            return self.show_dialog_ok(_("Выберите хотя бы одно приложение"))
+        
+        # Проверяем, используем ли оффлайн репо
+        use_offline = self.switch_offline_repo.get_active() # Нужно добавить этот child в класс
+        repo_path = self.entry_repo_path.get_text() if use_offline else None
 
-    def _dummy_download_process(self):
-        steps = ["Resolving deps...", "Downloading...", "Verifying checksums...", "Done."]
-        for step in steps:
-            time.sleep(1)
-            GLib.idle_add(self._log_to_console, step)
+        self._log_to_console(_("--> Начало установки..."))
+        self._set_loading(True)
+        
+        threading.Thread(target=self._run_flatpak_action, 
+                         args=("install", apps, repo_path), 
+                         daemon=True).start()
+    def _run_flatpak_action(self, action, apps, repo_path):
+        resp = self.backend.send_command("flatpak_manager", {
+            "action": action,
+            "apps": apps,
+            "repo_path": repo_path
+        })
+        GLib.idle_add(self._handle_flatpak_result, resp)
+
+    def _handle_flatpak_result(self, resp):
+        self._set_loading(False)
+        log_data = resp.get("data", {}).get("log", "")
+        
+        if log_data:
+            self._log_to_console(log_data)
+        
+        if resp.get("status") == "success":
+            self._log_to_console(_("--> Операция успешно завершена."))
+            self.show_dialog_ok(_("Готово!"))
+        else:
+            self._log_to_console(_("--> ОШИБКА."))
+            self.show_dialog_ok(f"Ошибка: {resp.get('message')}")
 
     def _log_to_console(self, text):
         buffer = self.flatpak_console.get_buffer()

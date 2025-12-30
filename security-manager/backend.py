@@ -18,6 +18,22 @@ DEFAULT_PCRS = [0, 7, 14]
 STORAGE_2FA_PATH = "/etc/securitymanager-2fa"
 PAM_FILES = ["/etc/pam.d/login", "/etc/pam.d/gdm-password"]
 PAM_LINE = f"auth required pam_google_authenticator.so nullok debug user=root secret={STORAGE_2FA_PATH}/${{USER}}\n"
+OVERRIDES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "overrides")
+FLATPAK_PACKAGES = {
+    'chromium': 'org.chromium.Chromium',
+    'firefox': 'org.mozilla.firefox',
+    'librewolf': 'io.gitlab.librewolf-community',
+    'telegram': 'org.telegram.desktop',
+    'discord': 'com.discordapp.Discord',
+    'videoplayer': 'org.gnome.Showtime',
+    'obs': 'com.obsproject.Studio',
+    'libreoffice': 'org.libreoffice.LibreOffice',
+    'onlyoffice': 'org.onlyoffice.desktopeditors',
+    'flatseal': 'com.github.tchx84.Flatseal',
+    'keepassxc': 'org.keepassxc.KeePassXC',
+    'bitwarden': 'com.bitwarden.desktop',
+    'qbittorrent': 'org.qbittorrent.qBittorrent'
+}
 
 @contextmanager
 def suppress_stdout():

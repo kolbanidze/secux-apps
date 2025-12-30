@@ -312,10 +312,10 @@ template $SecurityWindow: Adw.ApplicationWindow {
               title: _("Источник пакетов");
               subtitle: _("Flathub (Online)");
               icon-name: "network-server-symbolic";
-              activatable: true;
+              activatable: false;
 
               [suffix]
-              Gtk.Button {
+              Gtk.Button flathub_open_settings {
                 icon-name: "emblem-system-symbolic";
                 valign: center;
 
@@ -370,7 +370,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
               subtitle: "Просмотр видео, OBS Studio";
               icon-name: "applications-multimedia-symbolic";
 
-              Adw.SwitchRow chk_vlc {
+              Adw.SwitchRow chk_videoplayer {
                 title: "Видеопроигрыватель";
                 icon-name: "media-playback-start-symbolic";
               }
