@@ -1,5 +1,5 @@
 pkgname=secux-security-manager
-pkgver=0.0.1
+pkgver=0.0.4
 pkgrel=1
 pkgdesc="Security Manager"
 arch=('x86_64')
@@ -8,7 +8,7 @@ license=('MIT')
 depends=(python3 python-gobject gtk4 libadwaita python-pexpect)
 makedepends=()
 source=("security-manager.tar.gz")
-sha256sums=('70e5db2fdba8ce181c51465d649ad62df0520aa389c31dc1c771c4371f13f709')
+sha256sums=('39c40522152dabde371afc50ac041bbee4604d25533928db3cbe203b79bc69db')
 options=('!debug')
 
 package() {
@@ -16,5 +16,5 @@ package() {
 
   cp -a "$srcdir/security-manager" "$pkgdir/usr/local/bin/"
 
-  install -Dm644 "$srcdir/security-manager/scripts/security-manager.desktop" "$pkgdir/usr/share/applications/security-manager.desktop"
+  install -Dm644 "$srcdir/security-manager/security-manager.desktop" "$pkgdir/usr/share/applications/security-manager.desktop"
 }
