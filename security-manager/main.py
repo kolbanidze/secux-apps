@@ -423,6 +423,66 @@ class KeyDeleteDialog(Adw.Window):
     def send_toast(self, message):
         self.toast_overlay.add_toast(Adw.Toast.new(message))
 
+@Gtk.Template(filename=get_ui_path("slots_view.ui"))
+class SlotsViewDialog(Adw.Window):
+    __gtype_name__ = "SlotsViewDialog"
+    
+    box_slots_container = Gtk.Template.Child()
+    spinner = Gtk.Template.Child()
+    btn_refresh = Gtk.Template.Child()
+
+    def __init__(self, backend, drive, **kwargs):
+        super().__init__(**kwargs)
+        self.backend = backend
+        self.drive = drive
+        self.btn_refresh.connect("clicked", lambda x: self._load_data())
+        self._load_data()
+
+    def _load_data(self):
+        # Очистка контейнера (кроме спиннера)
+        child = self.box_slots_container.get_first_child()
+        while child:
+            next_child = child.get_next_sibling()
+            if child != self.spinner:
+                self.box_slots_container.remove(child)
+            child = next_child
+            
+        self.spinner.set_visible(True)
+        threading.Thread(target=self._fetch, daemon=True).start()
+
+    def _fetch(self):
+        response = self.backend.send_command("get_luks_slots", {"drive": self.drive})
+        GLib.idle_add(self._render, response)
+
+    def _render(self, response):
+        self.spinner.set_visible(False)
+        
+        if response.get("status") != "success":
+            lbl = Gtk.Label(label=f"Error: {response.get('message')}")
+            lbl.add_css_class("error")
+            self.box_slots_container.append(lbl)
+            return
+
+        slots = response.get("data", [])
+        if not slots:
+            self.box_slots_container.append(Gtk.Label(label=_("Нет активных слотов (странно...)")))
+            return
+
+        for slot in slots:
+            row = Adw.ActionRow()
+            row.set_title(f"Слот {slot['id']}: {slot['description']}")
+            
+            icon_name = "dialog-password-symbolic"
+            if slot['type'] == "tpm":
+                icon_name = "computer-chip-symbolic"
+            elif slot['type'] == "recovery":
+                icon_name = "auth-otp-symbolic"
+            
+            img = Gtk.Image.new_from_icon_name(icon_name)
+            row.add_prefix(img)
+            
+            self.box_slots_container.append(row)
+
 # --- Main Window ---
 @Gtk.Template(filename=get_ui_path("two_factor.ui"))
 class TwoFaWindow(Adw.Window):
@@ -648,6 +708,7 @@ class SecurityWindow(Adw.ApplicationWindow):
     btn_open_2fa_manager = Gtk.Template.Child()
 
     luks_configure_group = Gtk.Template.Child()
+    btn_view_slots = Gtk.Template.Child()
     
     entry_repo_path = Gtk.Template.Child()
     btn_select_repo = Gtk.Template.Child()
@@ -711,11 +772,21 @@ class SecurityWindow(Adw.ApplicationWindow):
         self.btn_save_settings.connect("clicked", self._on_save_settings)
         self.btn_flatpak_download.connect("clicked", self._on_flatpak_download)
         self.btn_flatpak_install.connect("clicked", self._on_flatpak_install)
+        self.btn_view_slots.connect("clicked", self._on_view_slots_clicked)
 
     def _on_tab_switched(self, stack, param):
         child_name = stack.get_visible_child_name()
         if child_name == "report" and self.backend.is_alive():
             threading.Thread(target=self._background_update_stats, daemon=True).start()
+
+    def _on_view_slots_clicked(self, btn):
+        if not self.backend.is_alive(): return self.show_dialog_ok("Backend dead")
+        if not self.drive: return self.show_dialog_ok(_("Диск не определен"))
+        
+        dialog = SlotsViewDialog(self.backend, self.drive)
+        dialog.set_transient_for(self)
+        dialog.present()
+
 
     def _background_update_stats(self):
         resp = self.backend.send_command("get_stats")

@@ -510,7 +510,74 @@ def delete_2fa_user(params):
     else:
         return reply("error", message="Registration not found")
 
+def get_luks_slots(params):
+    drive = params.get('drive')
+    if not drive:
+        return reply("error", "Диск не выбран")
 
+    # Получаем JSON дамп
+    cmd = ["/usr/bin/cryptsetup", "luksDump", drive, "--dump-json-metadata"]
+    success, stdout, stderr = run_cmd(cmd, check=False)
+
+    idp_keyslot = None
+    if os.path.isfile(IDP_FILE):
+        with open(IDP_FILE, "r") as file:
+            idp_keyslot = json.loads(file.read())['key_slot']
+    
+    if not success:
+        return reply("error", f"Ошибка чтения LUKS: {stderr}")
+
+    try:
+        data = json.loads(stdout)
+        keyslots = data.get("keyslots", {})
+        tokens = data.get("tokens", {})
+        
+        results = []
+        
+        # Карта: ID слота -> Тип (по умолчанию Password)
+        slot_map = {}
+        for slot_id in keyslots.keys():
+            slot_map[int(slot_id)] = {"type": "password", "meta": "Пользовательский пароль"}
+
+        # Анализируем токены, чтобы переопределить типы
+        for token in tokens.values():
+            token_type = token.get("type")
+            target_slots = token.get("keyslots", [])
+            
+            for s_id in target_slots:
+                s_id = int(s_id)
+                if s_id in slot_map:
+                    if token_type == "systemd-tpm2":
+                        slot_map[s_id]["type"] = "tpm"
+                        slot_map[s_id]["meta"] = "TPM2 (systemd)"
+                    elif token_type == "systemd-recovery":
+                        slot_map[s_id]["type"] = "recovery"
+                        slot_map[s_id]["meta"] = "Recovery Key"
+                    elif token_type == "systemd-fido2":
+                        slot_map[s_id]["type"] = "fido"
+                        slot_map[s_id]["meta"] = "FIDO2 Token"
+                    else:
+                        slot_map[s_id]["meta"] = token_type
+
+        if idp_keyslot:
+            slot_map[int(idp_keyslot)]['type'] = 'tpm'
+            slot_map[int(idp_keyslot)]['meta'] = 'TPM2 (IDP)'
+
+        # Формируем итоговый список
+        for slot_id, info in slot_map.items():            
+            results.append({
+                "id": slot_id,
+                "type": info["type"],
+                "description": info["meta"],
+            })
+
+        # Сортируем по ID слота
+        results.sort(key=lambda x: x["id"])
+        
+        return reply("success", data=results)
+
+    except Exception as e:
+        return reply("error", f"Ошибка парсинга: {e}")
 
 
 def run_daemon():
@@ -552,6 +619,8 @@ def run_daemon():
                 enroll_2fa_user(params)
             elif command == "delete_2fa_user":
                 delete_2fa_user(params)
+            elif command == 'get_luks_slots':
+                get_luks_slots(params)
             else:
                 reply("error", message=f"Unknown command: {command}")
 
@@ -561,7 +630,7 @@ def run_daemon():
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "debug":
         # Для отладки без запуска демона
-        get_stats({})
+        get_luks_slots({'drive': '/dev/nvme0n1p6'})
     else:
         # По умолчанию запускаем режим демона
         run_daemon()

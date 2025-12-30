@@ -142,6 +142,16 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                       <object class="AdwPreferencesGroup" id="luks_configure_group">
                         <property name="title" translatable="yes">Управление диском</property>
                         <property name="description">Неизвестно</property>
+                        <child type="header-suffix">
+                          <object class="GtkButton" id="btn_view_slots">
+                            <property name="icon-name">view-list-symbolic</property>
+                            <property name="tooltip-text" translatable="yes">Просмотреть активные слоты</property>
+                            <property name="valign">3</property>
+                            <style>
+                              <class name="flat"/>
+                            </style>
+                          </object>
+                        </child>
                         <child>
                           <object class="AdwActionRow">
                             <property name="title">TPM</property>

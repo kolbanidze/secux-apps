@@ -7,5 +7,7 @@
     <file alias="scalable/actions/password-entry-symbolic.svg">icons/password-entry-symbolic.svg</file>
     <file alias="scalable/actions/shield-full-symbolic.svg">icons/shield-full-symbolic.svg</file>
     <file alias="scalable/actions/check-round-outline2-symbolic.svg">icons/check-round-outline2-symbolic.svg</file>
+    <file alias="scalable/actions/computer-chip-symbolic.svg">icons/computer-chip-symbolic.svg</file>
+    <file alias="scalable/actions/auth-otp-symbolic.svg">icons/auth-otp-symbolic.svg</file>
   </gresource>
 </gresources>

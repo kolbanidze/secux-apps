@@ -127,6 +127,14 @@ template $SecurityWindow: Adw.ApplicationWindow {
             title: _("Управление диском");
             description: "Неизвестно";
 
+            [header-suffix]
+            Gtk.Button btn_view_slots {
+              icon-name: "view-list-symbolic";
+              tooltip-text: _("Просмотреть активные слоты");
+              valign: center;
+              styles ["flat"]
+            }
+
             Adw.ActionRow {
               title: "TPM";
               subtitle: _("Управление модулем TPM");
