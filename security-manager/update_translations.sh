@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOMAIN="security-manager"
+DOMAIN="org.secux.securitymanager"
 LOCALE_DIR="locales"
 
 echo "1. Updating UI files..."

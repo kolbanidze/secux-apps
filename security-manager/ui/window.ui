@@ -345,7 +345,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                       <object class="AdwPreferencesGroup">
                         <property name="title" translatable="yes">Конфигурация</property>
                         <child>
-                          <object class="AdwActionRow">
+                          <object class="AdwActionRow" id="row_package_source">
                             <property name="title" translatable="yes">Источник пакетов</property>
                             <property name="subtitle" translatable="yes">Flathub (Online)</property>
                             <property name="icon-name">network-server-symbolic</property>

@@ -19,14 +19,40 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOCALE_DIR = os.path.join(BASE_DIR, "locales")
-DEBUG = False
+LOCALES_DIR = os.path.join(BASE_DIR, "locales")
+LOCALES_DIR = os.path.abspath(LOCALES_DIR)
+CONFIG_DIR = os.path.join(GLib.get_user_config_dir(), "security-manager")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
+_ = lambda x: x
+
+def load_config_data():
+    """Загружает конфигурацию из JSON файла"""
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading config: {e}")
+    return {}
+
+def save_config_data(data):
+    """Сохраняет словарь в JSON файл"""
+    if not os.path.exists(CONFIG_DIR):
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+    
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(data, f, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error saving config: {e}")
+        return False
 
 # I18N Setup
-locale.bindtextdomain('security-manager', LOCALE_DIR)
-gettext.bindtextdomain('security-manager', LOCALE_DIR)
+locale.bindtextdomain('security-manager', LOCALES_DIR)
+gettext.bindtextdomain('security-manager', LOCALES_DIR)
 gettext.textdomain('security-manager')
 _ = gettext.gettext
 
@@ -40,18 +66,49 @@ def load_resources():
     icon_theme = Gtk.IconTheme.get_for_display(display)
     icon_theme.add_resource_path("/org/secux/security-manager/icons")
 
-def init_i18n():
+def init_i18n(lang_code=None):
+    """Инициализация системы перевода для Python и GTK"""
+    
+    # 1. Настройка окружения
+    if lang_code:
+        # gettext смотрит на LANGUAGE в первую очередь
+        os.environ["LANGUAGE"] = lang_code 
+        os.environ["LANG"] = lang_code
+        os.environ["LC_ALL"] = lang_code
+    elif os.environ.get("LANG") is None:
+        os.environ["LANG"] = "en_US.UTF-8"
+        os.environ["LANGUAGE"] = "en_US.UTF-8"
+
+    # 2. Настройка локали на уровне C (libc)
     try:
-        if os.environ.get("LANG") is None:
-             os.environ["LANG"] = "en_US.UTF-8"
-        locale.setlocale(locale.LC_ALL, '') 
+        locale.setlocale(locale.LC_ALL, '')
     except locale.Error:
         print("Warning: Failed to set locale. Using default.")
 
+    # 3. Привязка домена для C-библиотек (важно для GTK .ui файлов)
     try:
-        lang = gettext.translation(APP_ID, localedir=LOCALE_DIR, fallback=True)
-        lang.install()
+        # Важно использовать именно APP_ID, чтобы совпадало с именем .mo файла
+        # Например: locales/ru/LC_MESSAGES/org.secux.securitymanager.mo
+        locale.bindtextdomain(APP_ID, LOCALES_DIR)
+        
+        if hasattr(locale, 'bind_textdomain_codeset'):
+            locale.bind_textdomain_codeset(APP_ID, 'UTF-8')
+        
+        locale.textdomain(APP_ID)
     except Exception as e:
+        print(f"GTK/C translation bind error: {e}")
+
+    # 4. Настройка gettext для Python
+    try:
+        # Устанавливаем перевод в глобальное пространство (builtins)
+        # Это заменит нашу заглушку _ = lambda x: x
+        gettext.bindtextdomain(APP_ID, LOCALES_DIR)
+        gettext.textdomain(APP_ID)
+        
+        translation = gettext.translation(APP_ID, localedir=LOCALES_DIR, fallback=True)
+        translation.install() 
+    except Exception as e:
+        print(f"Python translation error: {e}")
         import builtins
         builtins._ = lambda x: x
 
@@ -725,7 +782,8 @@ class SecurityWindow(Adw.ApplicationWindow):
     btn_flatpak_download = Gtk.Template.Child()
     btn_flatpak_install = Gtk.Template.Child()
     flathub_open_settings = Gtk.Template.Child()
-
+    switch_offline_repo = Gtk.Template.Child()
+    row_package_source = Gtk.Template.Child()
     chk_chromium = Gtk.Template.Child()
     chk_firefox = Gtk.Template.Child()
     chk_librewolf = Gtk.Template.Child()
@@ -804,6 +862,8 @@ class SecurityWindow(Adw.ApplicationWindow):
         self.btn_flatpak_install.connect("clicked", self._on_flatpak_install)
         self.btn_view_slots.connect("clicked", self._on_view_slots_clicked)
         self.flathub_open_settings.connect("clicked", self._open_settings_tab)
+        self.switch_offline_repo.connect("notify::active", self._on_offline_repo_toggled)
+        self._apply_stored_settings()
 
     def _open_settings_tab(self, button):
         self.view_stack.set_visible_child_name("settings")
@@ -829,6 +889,52 @@ class SecurityWindow(Adw.ApplicationWindow):
             GLib.idle_add(self._update_ui_stats, stats)
         else:
             print(f"Error getting stats: {resp.get('message')}")
+
+    def _on_save_settings(self, button):
+        idx = self.combo_language.get_selected()
+        lang_code = "ru_RU.UTF-8" if idx == 0 else "en_US.UTF-8"
+        
+        repo_path = self.entry_repo_path.get_text()
+        offline_mode = self.switch_offline_repo.get_active()
+        
+        config = {
+            "language": lang_code,
+            "repo_path": repo_path,
+            "offline_mode": offline_mode
+        }
+        
+        if save_config_data(config):
+            current_lang = os.environ.get("LANG", "")
+            lang_changed = (lang_code.split('.')[0] not in current_lang)
+            
+            msg = _("Настройки успешно сохранены")
+            if lang_changed:
+                msg += "\n" + _("Для смены языка перезапустите приложение.")
+                
+            self.show_dialog_ok(msg)
+        else:
+            self.show_dialog_ok(_("Ошибка при сохранении файла конфигурации"))
+
+
+    def _apply_stored_settings(self):
+        """Заполняет виджеты значениями из конфига"""
+        config = load_config_data()
+        
+        lang = config.get("language", "en_US.UTF-8")
+        if "ru" in lang.lower():
+            self.combo_language.set_selected(0)
+        else:
+            self.combo_language.set_selected(1)
+            self.combo_language.set_subtitle("Язык")
+            
+        repo_path = config.get("repo_path", "")
+        self.entry_repo_path.set_text(repo_path)
+        
+        offline_mode = config.get("offline_mode", False)
+        self.switch_offline_repo.set_active(offline_mode)
+        
+        self._on_offline_repo_toggled(self.switch_offline_repo, None)
+
 
     def _update_ui_stats(self, stats):
         self.drive = stats.get('drive')
@@ -930,7 +1036,6 @@ class SecurityWindow(Adw.ApplicationWindow):
         if not self.backend.is_alive(): 
             return self.show_dialog_ok("Backend is not running")
         
-        # Создаем и открываем окно
         dialog = TwoFaWindow(self.backend)
         dialog.set_transient_for(self)
         dialog.present()
@@ -946,14 +1051,6 @@ class SecurityWindow(Adw.ApplicationWindow):
                 self.entry_repo_path.set_text(folder.get_path())
         except GLib.Error as e:
             print(f"Error selecting folder: {e}")
-
-    def _on_save_settings(self, button):
-        lang_idx = self.combo_language.get_selected()
-        repo = self.entry_repo_path.get_text()
-        print(f"Settings saved. Lang Index: {lang_idx}, Repo: {repo}")
-        self.show_dialog_ok(_("Настройки успешно сохранены"))
-
-    # --- Helpers ---
 
     def _show_confirm_dialog(self, title, body, on_yes_callback):
         dialog = Adw.AlertDialog(heading=title, body=body)
@@ -979,48 +1076,6 @@ class SecurityWindow(Adw.ApplicationWindow):
                     selected.append(app_id)
         return selected
         
-
-    def show_dialog_ok(self, message):
-        dialog = Adw.AlertDialog(heading=_("Информация"), body=message)
-        dialog.add_response("close", "OK")
-        dialog.present(self)
-
-    def _on_flatpak_download(self, button):
-        apps = self._get_selected_apps()
-        if not apps:
-            return self.show_dialog_ok(_("Выберите хотя бы одно приложение"))
-        
-        # TODO: make that shit
-        # repo_path = self.entry_repo_path.get_text()
-        # if not repo_path:
-        #     return self.show_dialog_ok(_("Выберите путь к репозиторию в настройках"))
-
-        self._log_to_console(_("--> Начало загрузки пакетов..."))
-        threading.Thread(target=self._dummy_download_process).start()
-
-    def _on_flatpak_install(self, button):
-        apps = self._get_selected_apps()
-        if not apps:
-            return self.show_dialog_ok(_("Выберите хотя бы одно приложение"))
-        
-        # Проверяем, используем ли оффлайн репо
-        use_offline = self.switch_offline_repo.get_active() # Нужно добавить этот child в класс
-        repo_path = self.entry_repo_path.get_text() if use_offline else None
-
-        self._log_to_console(_("--> Начало установки..."))
-        self._set_loading(True)
-        
-        threading.Thread(target=self._run_flatpak_action, 
-                         args=("install", apps, repo_path), 
-                         daemon=True).start()
-    def _run_flatpak_action(self, action, apps, repo_path):
-        resp = self.backend.send_command("flatpak_manager", {
-            "action": action,
-            "apps": apps,
-            "repo_path": repo_path
-        })
-        GLib.idle_add(self._handle_flatpak_result, resp)
-
     def _handle_flatpak_result(self, resp):
         self._set_loading(False)
         log_data = resp.get("data", {}).get("log", "")
@@ -1034,6 +1089,64 @@ class SecurityWindow(Adw.ApplicationWindow):
         else:
             self._log_to_console(_("--> ОШИБКА."))
             self.show_dialog_ok(f"Ошибка: {resp.get('message')}")
+
+
+    def show_dialog_ok(self, message):
+        dialog = Adw.AlertDialog(heading=_("Информация"), body=message)
+        dialog.add_response("close", "OK")
+        dialog.present(self)
+
+    def _on_offline_repo_toggled(self, switch, param):
+        """Переключает отображение источника пакетов"""
+        is_offline = switch.get_active()
+        if is_offline:
+            self.row_package_source.set_subtitle(f"Flathub ({_("онлайн")})")
+        else:
+            self.row_package_source.set_subtitle(f"Flathub ({_("офлайн")})")
+
+    def _on_flatpak_download(self, button):
+        apps = self._get_selected_apps()
+        if not apps:
+            return self.show_dialog_ok(_("Выберите хотя бы одно приложение"))
+        
+        repo_path = self.entry_repo_path.get_text()
+        if not repo_path:
+             return self.show_dialog_ok(_("Для скачивания выберите путь к репозиторию в настройках"))
+
+        self._log_to_console(_("--> Инициализация скачивания в локальный репозиторий..."))
+        self._set_loading(True)
+        
+        threading.Thread(target=self._run_flatpak_action, 
+                         args=("download", apps, repo_path, False), 
+                         daemon=True).start()
+
+    def _on_flatpak_install(self, button):
+        apps = self._get_selected_apps()
+        if not apps:
+            return self.show_dialog_ok(_("Выберите хотя бы одно приложение"))
+        
+        use_offline = self.switch_offline_repo.get_active()
+        repo_path = self.entry_repo_path.get_text()
+
+        if use_offline and not repo_path:
+            return self.show_dialog_ok(_("Для офлайн установки укажите путь к репозиторию"))
+
+        mode_str = "OFFLINE" if use_offline else "ONLINE"
+        self._log_to_console(f"--> Начало установки ({mode_str})...")
+        self._set_loading(True)
+        
+        threading.Thread(target=self._run_flatpak_action, 
+                         args=("install", apps, repo_path, use_offline), 
+                         daemon=True).start()
+
+    def _run_flatpak_action(self, action, apps, repo_path, offline_mode):
+        resp = self.backend.send_command("flatpak_manager", {
+            "action": action,
+            "apps": apps,
+            "repo_path": repo_path,
+            "offline_mode": offline_mode
+        })
+        GLib.idle_add(self._handle_flatpak_result, resp)
 
     def _log_to_console(self, text):
         buffer = self.flatpak_console.get_buffer()
@@ -1053,6 +1166,12 @@ class SecurityManager(Adw.Application):
         win.present()
 
 if __name__ == "__main__":
+    cfg = load_config_data()
+    preferred_lang = cfg.get("language")
+    
     load_resources()
+    
+    init_i18n(preferred_lang)
+    
     app = SecurityManager()
     sys.exit(app.run(sys.argv))

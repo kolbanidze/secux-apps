@@ -1,0 +1,516 @@
+# English translations for PACKAGE package.
+# Copyright (C) 2025 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Automatically generated, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-12-30 18:30+0300\n"
+"PO-Revision-Date: 2025-12-30 18:30+0300\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: main.py:202
+msgid "Заполните все поля"
+msgstr "Fill in all fields"
+
+#: main.py:205
+msgid "Пароли не совпадают"
+msgstr "Passwords do not match"
+
+#: main.py:222
+msgid "Пароль успешно изменен!"
+msgstr "Password successfully changed!"
+
+#: main.py:264
+msgid "Введите пароль"
+msgstr "Enter password"
+
+#: main.py:288
+msgid "Скопировано"
+msgstr "Copied"
+
+#: main.py:356
+msgid "Введите пароль от диска"
+msgstr "Enter disk password"
+
+#: main.py:362
+msgid "Введите PIN код"
+msgstr "Enter PIN code"
+
+#: main.py:365
+msgid "PIN коды не сходятся"
+msgstr "PIN codes do not match"
+
+#: main.py:425
+msgid "Введите пароль или ключ"
+msgstr "Enter password or key"
+
+#: main.py:441
+msgid "Успешно! Слот удален."
+msgstr "Success! Slot deleted."
+
+#: main.py:492
+msgid "Нет активных слотов (странно...)"
+msgstr "No active slots (strange...)"
+
+#: main.py:599
+msgid "Секрет скрыт. Пересоздайте для отображения."
+msgstr "Secret hidden. Recreate to display."
+
+#: main.py:642
+msgid "Секрет: "
+msgstr "Secret: "
+
+#: main.py:642
+msgid "Ключи восстановления:\n"
+msgstr "Recovery keys:\n"
+
+#: main.py:787
+msgid "Версия: "
+msgstr "Version: "
+
+#: main.py:804
+msgid "Не удалось получить права root. Функционал будет ограничен."
+msgstr "Failed to obtain root privileges. Functionality will be limited."
+
+#: main.py:844
+msgid "Диск не определен"
+msgstr "Disk not detected"
+
+#: main.py:884 main.py:1038
+msgid "Настройки успешно сохранены"
+msgstr "Settings successfully saved"
+
+#: main.py:886
+msgid "Для смены языка перезапустите приложение."
+msgstr "Restart the application to change the language."
+
+#: main.py:890
+msgid "Ошибка при сохранении файла конфигурации"
+msgstr "Error saving configuration file"
+
+#: main.py:923
+msgid "Раздел LUKS не найден"
+msgstr "LUKS partition not found"
+
+#: main.py:926
+msgid "Включен"
+msgstr "Enabled"
+
+#: main.py:926
+msgid "Выключен"
+msgstr "Disabled"
+
+#: main.py:930 main.py:931
+msgid "Да"
+msgstr "Yes"
+
+#: main.py:930 main.py:931
+msgid "Нет"
+msgstr "No"
+
+#: main.py:938
+msgid "Пароль"
+msgstr "Password"
+
+#: main.py:946 ui/window.ui:38
+msgid "Система защищена"
+msgstr "System is secured"
+
+#: main.py:947
+msgid "Secure Boot активен, задействованы механизмы TPM."
+msgstr "Secure Boot is active, TPM mechanisms are engaged."
+
+#: main.py:953
+msgid "Система под угрозой"
+msgstr "System at risk"
+
+#: main.py:954
+msgid "Устройство уязвимо. Рекомендуется включить Secure Boot и настроить TPM."
+msgstr ""
+"Device is vulnerable. It is recommended to enable Secure Boot and configure "
+"TPM."
+
+#: main.py:980
+msgid "Удалить TPM?"
+msgstr "Remove TPM?"
+
+#: main.py:981
+msgid "Это сбросит ключи шифрования. Вам понадобится пароль."
+msgstr "This will reset encryption keys. You will need the password."
+
+#: main.py:1009
+msgid "Успешно"
+msgstr "Success"
+
+#: main.py:1011
+msgid "Ошибка"
+msgstr "Error"
+
+#: main.py:1044
+msgid "Отмена"
+msgstr "Cancel"
+
+#: main.py:1045
+msgid "Выполнить"
+msgstr "Execute"
+
+#: main.py:1074
+msgid "--> Операция успешно завершена."
+msgstr "--> Operation completed successfully."
+
+#: main.py:1075
+msgid "Готово!"
+msgstr "Done!"
+
+#: main.py:1077
+msgid "--> ОШИБКА."
+msgstr "--> ERROR."
+
+#: main.py:1082
+msgid "Информация"
+msgstr "Information"
+
+#: main.py:1097 main.py:1118
+msgid "Выберите хотя бы одно приложение"
+msgstr "Select at least one application"
+
+#: main.py:1101
+msgid "Для скачивания выберите путь к репозиторию в настройках"
+msgstr "To download, select the repository path in settings"
+
+#: main.py:1107
+msgid "--> Инициализация скачивания в локальный репозиторий..."
+msgstr "--> Initializing download to local repository..."
+
+#: main.py:1124
+msgid "Для офлайн установки укажите путь к репозиторию"
+msgstr "For offline installation, specify the repository path"
+
+#: ui/key_delete.ui:10
+msgid "Удаление пароля или ключа"
+msgstr "Deleting password or key"
+
+#: ui/key_delete.ui:45
+msgid "Это действие удалит введённый ключ восстановления или пароль"
+msgstr "This action will delete the entered recovery key or password"
+
+#: ui/key_delete.ui:62
+msgid "Пароль или ключ"
+msgstr "Password or key"
+
+#: ui/key_delete.ui:85 ui/window.ui:170 ui/window.ui:194 ui/window.ui:220
+msgid "Удалить"
+msgstr "Delete"
+
+#: ui/password_enroll.ui:10
+msgid "Добавление пароля"
+msgstr "Adding a password"
+
+#: ui/password_enroll.ui:29 ui/recovery_enroll.ui:32 ui/tpm_enroll.ui:29
+msgid "Авторизация"
+msgstr "Authorization"
+
+#: ui/password_enroll.ui:30
+msgid "Введите ваш текущий пароль от диска"
+msgstr "Enter your current disk password"
+
+#: ui/password_enroll.ui:33
+msgid "Текущий пароль"
+msgstr "Current password"
+
+#: ui/password_enroll.ui:40 ui/password_enroll.ui:44
+msgid "Новый пароль"
+msgstr "New password"
+
+#: ui/password_enroll.ui:41
+msgid "Этот пароль будет добавлен в свободный слот LUKS"
+msgstr "This password will be added to a free LUKS slot"
+
+#: ui/password_enroll.ui:49
+msgid "Повторите пароль"
+msgstr "Repeat password"
+
+#: ui/password_enroll.ui:72
+msgid "Добавить пароль"
+msgstr "Add password"
+
+#: ui/recovery_enroll.ui:10
+msgid "Ключ восстановления"
+msgstr "Recovery key"
+
+#: ui/recovery_enroll.ui:33
+msgid "Введите пароль от диска для создания нового ключа восстановления."
+msgstr "Enter disk password to create a new recovery key."
+
+#: ui/recovery_enroll.ui:36 ui/tpm_enroll.ui:33
+msgid "Пароль диска"
+msgstr "Disk password"
+
+#: ui/recovery_enroll.ui:59
+msgid "Создать ключ"
+msgstr "Create key"
+
+#: ui/recovery_enroll.ui:81
+msgid "Ключ создан"
+msgstr "Key created"
+
+#: ui/recovery_enroll.ui:82
+msgid ""
+"Сохраните этот ключ в надежном месте. Он позволит разблокировать диск при "
+"утере TPM или пароля."
+msgstr ""
+"Save this key in a safe place. It will allow you to unlock the disk if "
+"the TPM or password is lost."
+
+#: ui/recovery_enroll.ui:104
+msgid "Скопировать в буфер"
+msgstr "Copy to clipboard"
+
+#: ui/slots_view.ui:10
+msgid "Активные слоты LUKS"
+msgstr "Active LUKS slots"
+
+#: ui/slots_view.ui:28
+msgid "Информация о ключах"
+msgstr "Key information"
+
+#: ui/slots_view.ui:29
+msgid "Список активных методов разблокировки диска."
+msgstr "List of active disk unlocking methods."
+
+#: ui/slots_view.ui:53
+msgid "Обновить"
+msgstr "Refresh"
+
+#: ui/tpm_enroll.ui:10
+msgid "Настройка TPM"
+msgstr "TPM Configuration"
+
+#: ui/tpm_enroll.ui:30
+msgid "Введите текущий пароль или ключ восстановления от диска"
+msgstr "Enter current disk password or recovery key"
+
+#: ui/tpm_enroll.ui:40
+msgid "Конфигурация защиты"
+msgstr "Security configuration"
+
+#: ui/tpm_enroll.ui:44
+msgid "Дополнительная защита от атак физического уровня"
+msgstr "Additional protection against physical layer attacks"
+
+#: ui/tpm_enroll.ui:51
+msgid "Защита PIN-кодом"
+msgstr "PIN code protection"
+
+#: ui/tpm_enroll.ui:52
+msgid "Требовать код при каждой загрузке"
+msgstr "Require code at every boot"
+
+#: ui/tpm_enroll.ui:58
+msgid "Новый PIN"
+msgstr "New PIN"
+
+#: ui/tpm_enroll.ui:63
+msgid "Повторите PIN"
+msgstr "Repeat PIN"
+
+#: ui/tpm_enroll.ui:88
+msgid "Зарегистрировать в TPM"
+msgstr "Enroll in TPM"
+
+#: ui/window.ui:34
+msgid "Отчёт"
+msgstr "Report"
+
+#: ui/window.ui:39
+msgid "Пожалуйста, введите пароль для получения информации о системе."
+msgstr "Please enter password to retrieve system information."
+
+#: ui/window.ui:53
+msgid "Загрузка и Ключи"
+msgstr "Boot and Keys"
+
+#: ui/window.ui:57
+msgid "Рекомендуется к использованию"
+msgstr "Recommended for use"
+
+#: ui/window.ui:60 ui/window.ui:82 ui/window.ui:97
+msgid "Неизвестно"
+msgstr "Unknown"
+
+#: ui/window.ui:67
+msgid "Состояние Secure Boot"
+msgstr "Secure Boot State"
+
+#: ui/window.ui:68
+msgid "Рекомендуется User Mode"
+msgstr "User Mode recommended"
+
+#: ui/window.ui:78
+msgid "Доверие к ключам Microsoft"
+msgstr "Trust in Microsoft keys"
+
+#: ui/window.ui:79
+msgid "Необходимо для использования Windows в dual-boot"
+msgstr "Necessary for using Windows in dual-boot"
+
+#: ui/window.ui:91
+msgid "TPM и Шифрование"
+msgstr "TPM and Encryption"
+
+#: ui/window.ui:94
+msgid "Наличие TPM"
+msgstr "TPM Presence"
+
+#: ui/window.ui:104
+msgid "Разблокировка диска"
+msgstr "Disk Unlocking"
+
+#: ui/window.ui:105
+msgid "Рекомендуется использование TPM + PIN"
+msgstr "Using TPM + PIN is recommended"
+
+#: ui/window.ui:137
+msgid "Утилиты"
+msgstr "Utilities"
+
+#: ui/window.ui:143
+msgid "Управление диском"
+msgstr "Disk Management"
+
+#: ui/window.ui:148
+msgid "Просмотреть активные слоты"
+msgstr "View active slots"
+
+#: ui/window.ui:158
+msgid "Управление модулем TPM"
+msgstr "TPM Module Management"
+
+#: ui/window.ui:161 ui/window.ui:188 ui/window.ui:214
+msgid "Зарегистрировать"
+msgstr "Enroll"
+
+#: ui/window.ui:181
+msgid "Ключи восстановления"
+msgstr "Recovery keys"
+
+#: ui/window.ui:182
+msgid "Рекомендуемый способ восстановления"
+msgstr "Recommended recovery method"
+
+#: ui/window.ui:207
+msgid "Пароли"
+msgstr "Passwords"
+
+#: ui/window.ui:208
+msgid "Опционально"
+msgstr "Optional"
+
+#: ui/window.ui:235
+msgid "Безопасность входа"
+msgstr "Login Security"
+
+#: ui/window.ui:238
+msgid "Двухфакторная аутентификация"
+msgstr "Two-factor authentication"
+
+#: ui/window.ui:239
+msgid "Настройка TOTP и кодов восстановления"
+msgstr "Configure TOTP and recovery codes"
+
+#: ui/window.ui:246
+msgid "Открыть настройки 2FA"
+msgstr "Open 2FA settings"
+
+#: ui/window.ui:263
+msgid "Настройки"
+msgstr "Settings"
+
+#: ui/window.ui:272
+msgid "Язык"
+msgstr "Language"
+
+#: ui/window.ui:273
+msgid "Language"
+msgstr "Language"
+
+#: ui/window.ui:291
+msgid "Офлайн репозиторий"
+msgstr "Offline repository"
+
+#: ui/window.ui:292
+msgid "Использовать локальный источник"
+msgstr "Use local source"
+
+#: ui/window.ui:297
+msgid "Путь к репозиторию"
+msgstr "Repository path"
+
+#: ui/window.ui:325
+msgid "Сохранить"
+msgstr "Save"
+
+#: ui/window.ui:346
+msgid "Конфигурация"
+msgstr "Configuration"
+
+#: ui/window.ui:349
+msgid "Источник пакетов"
+msgstr "Package source"
+
+#: ui/window.ui:350
+msgid "Flathub (Online)"
+msgstr "Flathub (Online)"
+
+#: ui/window.ui:368
+msgid "Приложения"
+msgstr "Applications"
+
+#: ui/window.ui:369
+msgid "Выберите категории для установки"
+msgstr "Select categories for installation"
+
+#: ui/window.ui:372
+msgid "Интернет и общение"
+msgstr "Internet and Communication"
+
+#: ui/window.ui:403 ui/window.ui:442
+msgid "Внимание: использует старую оконную систему (X11)"
+msgstr "Warning: uses legacy window system (X11)"
+
+#: ui/window.ui:411
+msgid "Мультимедиа"
+msgstr "Multimedia"
+
+#: ui/window.ui:430
+msgid "Офис и работа"
+msgstr "Office and Work"
+
+#: ui/window.ui:450
+msgid "Инструменты и безопасность"
+msgstr "Tools and Security"
+
+#: ui/window.ui:456
+msgid "Управление правами Flatpak"
+msgstr "Flatpak permission management"
+
+#: ui/window.ui:491
+msgid "Скачать пакеты"
+msgstr "Download packages"
+
+#: ui/window.ui:500
+msgid "Начать установку"
+msgstr "Start installation"
+
+#: ui/window.ui:517
+msgid "Лог операций"
+msgstr "Operation log"

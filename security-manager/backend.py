@@ -19,21 +19,8 @@ STORAGE_2FA_PATH = "/etc/securitymanager-2fa"
 PAM_FILES = ["/etc/pam.d/login", "/etc/pam.d/gdm-password"]
 PAM_LINE = f"auth required pam_google_authenticator.so nullok debug user=root secret={STORAGE_2FA_PATH}/${{USER}}\n"
 OVERRIDES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "overrides")
-FLATPAK_PACKAGES = {
-    'chromium': 'org.chromium.Chromium',
-    'firefox': 'org.mozilla.firefox',
-    'librewolf': 'io.gitlab.librewolf-community',
-    'telegram': 'org.telegram.desktop',
-    'discord': 'com.discordapp.Discord',
-    'videoplayer': 'org.gnome.Showtime',
-    'obs': 'com.obsproject.Studio',
-    'libreoffice': 'org.libreoffice.LibreOffice',
-    'onlyoffice': 'org.onlyoffice.desktopeditors',
-    'flatseal': 'com.github.tchx84.Flatseal',
-    'keepassxc': 'org.keepassxc.KeePassXC',
-    'bitwarden': 'com.bitwarden.desktop',
-    'qbittorrent': 'org.qbittorrent.qBittorrent'
-}
+SYSTEM_OVERRIDES_DIR = "/var/lib/flatpak/overrides"
+
 
 @contextmanager
 def suppress_stdout():
@@ -71,7 +58,6 @@ def run_cmd(cmd, check=True, input_text=None):
             kwargs["input"] = input_text
         else:
             kwargs["stdin"] = subprocess.DEVNULL
-
         res = subprocess.run(cmd, **kwargs)
         return True, res.stdout.strip(), res.stderr.strip()
     except subprocess.CalledProcessError as e:
@@ -595,6 +581,79 @@ def get_luks_slots(params):
     except Exception as e:
         return reply("error", f"Ошибка парсинга: {e}")
 
+def flatpak_manager(params):
+    action = params.get("action")
+    apps = params.get("apps", [])
+    repo_path = params.get("repo_path")
+    offline_mode = params.get("offline_mode", False)
+
+    log_buffer = []
+
+    def log(msg):
+        log_buffer.append(msg)
+
+    if not apps:
+        return reply("error", message="Нет приложений для обработки")
+
+    try:
+        if action == "download":
+            if not repo_path:
+                return reply("error", message="Не указан путь к репозиторию")
+            
+            if not os.path.exists(repo_path):
+                os.makedirs(repo_path, exist_ok=True)
+            success, stdout, stderr = run_cmd(['flatpak', 'create-usb', repo_path, '--allow-partial'] + apps, check=True)
+            log(stdout)
+            log(stderr)
+            if success:
+                return reply("success", message="Скачивание завершено", data={"log": "\n".join(log_buffer)})
+            else:
+                return reply("error", message="Произошла ошибка при скачивании", data={"log": "\n".join(log_buffer)})
+
+        elif action == "install":
+            if offline_mode:
+                cmd = ['flatpak', 'install', '--sideload-repo', offline_mode, '-y', 'flathub'] + apps
+                success, stdout, stderr = run_cmd(cmd, check=True)
+            else:
+                cmd = ['flatpak', 'install', '-y', 'flathub'] + apps
+                success, stdout, stderr = run_cmd(cmd, check=True)
+            
+            log(stdout)
+            log(stderr)
+
+            for app_id in apps:
+                _apply_override(app_id, log)
+
+            if success:
+                return reply("success", message="Приложения успешно установлены", data={"log": "\n".join(log_buffer)})
+            else:
+                return reply("error", message="Что-то пошло не так", data={"log": "\n".join(log_buffer)})
+
+    except Exception as stderr:
+        return reply("error", message=str(stderr), data={"log": "\n".join(log_buffer)})
+
+def _apply_override(app_id, log_func):
+    """
+    Копирует override файл из локальной папки overrides в системную папку.
+    """
+    source_file = os.path.join(OVERRIDES_DIR, app_id)
+    dest_file = os.path.join(SYSTEM_OVERRIDES_DIR, app_id)
+
+    if not os.path.exists(source_file):
+        log_func(f"SKIP: Файл override для {app_id} не найден в {OVERRIDES_DIR}")
+        return
+
+    try:
+        if not os.path.exists(SYSTEM_OVERRIDES_DIR):
+            os.makedirs(SYSTEM_OVERRIDES_DIR, exist_ok=True)
+            os.chmod(SYSTEM_OVERRIDES_DIR, 0o755)
+
+        shutil.copy2(source_file, dest_file)
+        os.chmod(dest_file, 0o644) # Права на чтение всем
+        log_func(f"OVERRIDE: Конфигурация обновлена для {app_id}")
+    except Exception as e:
+        log_func(f"OVERRIDE ERROR: Не удалось скопировать override: {e}")
+
 
 def run_daemon():
     # Сигнал готовности
@@ -637,6 +696,8 @@ def run_daemon():
                 delete_2fa_user(params)
             elif command == 'get_luks_slots':
                 get_luks_slots(params)
+            elif command == "flatpak_manager":
+                flatpak_manager(params)
             else:
                 reply("error", message=f"Unknown command: {command}")
 
@@ -646,7 +707,8 @@ def run_daemon():
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "debug":
         # Для отладки без запуска демона
-        get_luks_slots({'drive': '/dev/nvme0n1p6'})
+        # get_luks_slots({'drive': '/dev/nvme0n1p6'})
+        flatpak_manager({'action': 'install', 'apps': ['org.chromium.Chromium'], 'repo_path': '/home/user/offline-usb', 'offline_mode': False})
     else:
         # По умолчанию запускаем режим демона
         run_daemon()
