@@ -9,7 +9,7 @@ depends=(python3 python-gobject gtk4 libadwaita python-pexpect)
 makedepends=()
 source=("security-manager.tar.gz")
 sha256sums=('39c40522152dabde371afc50ac041bbee4604d25533928db3cbe203b79bc69db')
-options=('!debug')
+options=('!strip' '!debug')
 
 package() {
   mkdir -p "$pkgdir/usr/local/bin/"
