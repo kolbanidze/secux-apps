@@ -19,7 +19,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.0.4"
+VERSION = "0.0.5"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -69,9 +69,7 @@ def load_resources():
 def init_i18n(lang_code=None):
     """Инициализация системы перевода для Python и GTK"""
     
-    # 1. Настройка окружения
     if lang_code:
-        # gettext смотрит на LANGUAGE в первую очередь
         os.environ["LANGUAGE"] = lang_code 
         os.environ["LANG"] = lang_code
         os.environ["LC_ALL"] = lang_code
@@ -79,16 +77,12 @@ def init_i18n(lang_code=None):
         os.environ["LANG"] = "en_US.UTF-8"
         os.environ["LANGUAGE"] = "en_US.UTF-8"
 
-    # 2. Настройка локали на уровне C (libc)
     try:
         locale.setlocale(locale.LC_ALL, '')
     except locale.Error:
         print("Warning: Failed to set locale. Using default.")
 
-    # 3. Привязка домена для C-библиотек (важно для GTK .ui файлов)
     try:
-        # Важно использовать именно APP_ID, чтобы совпадало с именем .mo файла
-        # Например: locales/ru/LC_MESSAGES/org.secux.securitymanager.mo
         locale.bindtextdomain(APP_ID, LOCALES_DIR)
         
         if hasattr(locale, 'bind_textdomain_codeset'):
@@ -98,10 +92,7 @@ def init_i18n(lang_code=None):
     except Exception as e:
         print(f"GTK/C translation bind error: {e}")
 
-    # 4. Настройка gettext для Python
     try:
-        # Устанавливаем перевод в глобальное пространство (builtins)
-        # Это заменит нашу заглушку _ = lambda x: x
         gettext.bindtextdomain(APP_ID, LOCALES_DIR)
         gettext.textdomain(APP_ID)
         
