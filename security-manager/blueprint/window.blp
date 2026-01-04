@@ -62,7 +62,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
 
                   [suffix]
                   Gtk.Label secure_boot_mode_label {
-                    label: "Неизвестно";
+                    label: _("Неизвестно");
                   }
                 }
 
@@ -95,7 +95,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
 
                   [suffix]
                   Gtk.Label tpm_plus_pin_label {
-                    label: "Неизвестно";
+                    label: _("Неизвестно");
                   }
                 }
               }
@@ -125,7 +125,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
         child: Adw.PreferencesPage {
           Adw.PreferencesGroup luks_configure_group {
             title: _("Управление диском");
-            description: "Неизвестно";
+            description: _("Неизвестно");
 
             [header-suffix]
             Gtk.Button btn_view_slots {
@@ -272,7 +272,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
                 spacing: 6;
 
                 Gtk.Entry entry_repo_path {
-                  placeholder-text: "/путь/до/репозитория";
+                  placeholder-text: _("/путь/до/репозитория");
                   editable: false;
                   width-request: 250;
                   valign: center;
@@ -367,7 +367,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
             // Категория 2: Мультимедиа
             Adw.ExpanderRow {
               title: _("Мультимедиа");
-              subtitle: "Просмотр видео, OBS Studio";
+              subtitle: _("Просмотр видео, OBS Studio");
               icon-name: "applications-multimedia-symbolic";
 
               Adw.SwitchRow chk_videoplayer {

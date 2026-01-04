@@ -19,7 +19,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.0.5"
+VERSION = "0.0.6"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -34,7 +34,7 @@ def load_config_data():
             with open(CONFIG_FILE, 'r') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Error loading config: {e}")
+            print(f"{_("Ошибка чтения конфига")}: {e}")
     return {}
 
 def save_config_data(data):
@@ -47,7 +47,7 @@ def save_config_data(data):
             json.dump(data, f, indent=4)
         return True
     except Exception as e:
-        print(f"Error saving config: {e}")
+        print(f"{_("Ошибка сохранения конфига")}: {e}")
         return False
 
 # I18N Setup
@@ -120,9 +120,9 @@ class RootBackendService:
             return False
 
         # Запускаем в режиме daemon
-        cmd = ["pkexec", "/usr/bin/python3", backend_path] 
+        current_lang = os.environ.get("LANG", "en_US.UTF-8")
+        cmd = ["pkexec", "/usr/bin/python3", backend_path, current_lang] 
 
-        print("Starting root backend...")
         try:
             self.process = subprocess.Popen(
                 cmd,
@@ -148,7 +148,7 @@ class RootBackendService:
                     print(f"Backend returned unexpected status: {first_line}")
                     return False
             except json.JSONDecodeError:
-                print(f"Backend returned garbage: {first_line}")
+                print(f"{_("Ошибка backend.py")}: {first_line}")
                 return False
 
         except Exception as e:
@@ -177,7 +177,7 @@ class RootBackendService:
                 
                 return json_decode(response_line)
             except Exception as e:
-                print(f"Communication error: {e}")
+                print(f"{_("Ошибка коммуникации")}: {e}")
                 return {"status": "error", "message": str(e)}
 
     def is_alive(self):
@@ -246,7 +246,7 @@ class PasswordEnrollDialog(Adw.Window):
             self.send_toast(_("Пароль успешно изменен!"))
             self.close()
         else:
-            self.send_toast(f"Ошибка: {response.get('message')}")
+            self.send_toast(f"{_('Ошибка')}: {response.get('message')}")
 
     def send_toast(self, message):
         self.toast_overlay.add_toast(Adw.Toast.new(message))
@@ -304,7 +304,7 @@ class RecoveryEnrollDialog(Adw.Window):
             self.lbl_key.set_label(key)
             self.view_stack.set_visible_child_name("page_result")
         else:
-            self.send_toast(f"Ошибка: {response.get('message')}")
+            self.send_toast(f"{_('Ошибка')}: {response.get('message')}")
 
     def _on_copy_clicked(self, btn):
         clipboard = Gdk.Display.get_default().get_clipboard()
@@ -406,10 +406,10 @@ class TpmEnrollDialog(Adw.Window):
     def _handle_result(self, response):
         self._set_loading(False)
         if response.get("status") == "success":
-            self.send_toast(response.get("message", "Успешно!"))
+            self.send_toast(response.get("message", _("Успешно!")))
             self.close()
         else:
-            self.send_toast(f"Ошибка: {response.get('message')}")
+            self.send_toast(f"{_('Ошибка')}: {response.get('message')}")
 
     def send_toast(self, message):
         self.toast_overlay.add_toast(Adw.Toast.new(message))
@@ -466,7 +466,7 @@ class KeyDeleteDialog(Adw.Window):
             # Закрыть окно с задержкой
             GLib.timeout_add(1500, self.close)
         else:
-            self.send_toast(f"Ошибка: {response.get('message')}")
+            self.send_toast(f"{_('Ошибка')}: {response.get('message')}")
 
     def send_toast(self, message):
         self.toast_overlay.add_toast(Adw.Toast.new(message))
@@ -506,7 +506,7 @@ class SlotsViewDialog(Adw.Window):
         self.spinner.set_visible(False)
         
         if response.get("status") != "success":
-            lbl = Gtk.Label(label=f"Error: {response.get('message')}")
+            lbl = Gtk.Label(label=f"{_("Ошибка")}: {response.get('message')}")
             lbl.add_css_class("error")
             self.box_slots_container.append(lbl)
             return
@@ -518,7 +518,7 @@ class SlotsViewDialog(Adw.Window):
 
         for slot in slots:
             row = Adw.ActionRow()
-            row.set_title(f"Слот {slot['id']}: {slot['description']}")
+            row.set_title(f"{_("Слот")} {slot['id']}: {slot['description']}")
             
             icon_name = "dialog-password-symbolic"
             if slot['type'] == "tpm":
@@ -573,7 +573,7 @@ class TwoFaWindow(Adw.Window):
 
     def _update_ui(self, resp):
         if resp.get("status") != "success":
-            self.send_toast("Ошибка получения данных")
+            self.send_toast(_("Ошибка получения данных"))
             return
 
         data = resp.get("data", {})
@@ -595,7 +595,7 @@ class TwoFaWindow(Adw.Window):
         current_name = current_selected_item.get_string() if current_selected_item else None
         
         for idx, u in enumerate(self.users_map):
-            status_mark = " (Active)" if u['enrolled'] else ""
+            status_mark = f" ({_("активно")})" if u['enrolled'] else ""
             string_list.append(f"{u['name']}{status_mark}")
             if current_name and u['name'] == current_name:
                 selected_idx = idx
@@ -636,7 +636,7 @@ class TwoFaWindow(Adw.Window):
 
     def _run_backend_toggle(self, state):
         resp = self.backend.send_command("toggle_system_2fa", {"enable": state})
-        GLib.idle_add(lambda: self.send_toast(resp.get("message", "Error")))
+        GLib.idle_add(lambda: self.send_toast(resp.get("message", _("Ошибка"))))
 
     def _on_register_clicked(self, btn):
         idx = self.user_selection.get_selected()
@@ -672,9 +672,9 @@ class TwoFaWindow(Adw.Window):
             
             self._just_enrolled = True
             self._on_user_changed(self.user_selection, None) # Refresh view
-            self.send_toast("2FA настроена!")
+            self.send_toast(_("2FA настроена!"))
         else:
-            self.send_toast(f"Ошибка: {resp.get('message')}")
+            self.send_toast(f"{_('Ошибка')}: {resp.get('message')}")
 
     def _render_qr(self, uri):
         # Генерируем QR через библиотеку qrcode -> PIL Image -> Bytes -> GdkTexture
@@ -706,8 +706,8 @@ class TwoFaWindow(Adw.Window):
             
             self.qr_image.set_paintable(texture)
         except Exception as e:
-            print(f"QR Error: {e}")
-            self.send_toast("Ошибка генерации QR кода")
+            print(f"QR {_("Ошибка")}: {e}")
+            self.send_toast(_("Ошибка генерации QR кода"))
 
     def _on_delete_clicked(self, btn):
         idx = self.user_selection.get_selected()
@@ -723,15 +723,15 @@ class TwoFaWindow(Adw.Window):
             for u in self.users_map:
                 if u['name'] == username:
                     u['enrolled'] = False
-            self.send_toast("2FA удалена")
+            self.send_toast(_("2FA удалена"))
             self._on_user_changed(self.user_selection, None) # Refresh view
         else:
-            self.send_toast(f"Ошибка: {resp.get('message')}")
+            self.send_toast(f"{_('Ошибка')}: {resp.get('message')}")
 
     def _on_hide_qr_clicked(self, btn):
         self.qr_image.set_visible(False)
         self.hide_qr_btn.set_visible(False)
-        self.secret_label.set_label("Скрыто")
+        self.secret_label.set_label(_("Скрыто"))
 
     def send_toast(self, message):
         self.toast_overlay.add_toast(Adw.Toast.new(message))
@@ -865,7 +865,7 @@ class SecurityWindow(Adw.ApplicationWindow):
             threading.Thread(target=self._background_update_stats, daemon=True).start()
 
     def _on_view_slots_clicked(self, btn):
-        if not self.backend.is_alive(): return self.show_dialog_ok("Backend dead")
+        if not self.backend.is_alive(): return self.show_dialog_ok(_("Backend не работает."))
         if not self.drive: return self.show_dialog_ok(_("Диск не определен"))
         
         dialog = SlotsViewDialog(self.backend, self.drive)
@@ -879,7 +879,7 @@ class SecurityWindow(Adw.ApplicationWindow):
             stats = resp.get("data", {})
             GLib.idle_add(self._update_ui_stats, stats)
         else:
-            print(f"Error getting stats: {resp.get('message')}")
+            print(f"{_("Ошибка")}: {resp.get('message')}")
 
     def _on_save_settings(self, button):
         idx = self.combo_language.get_selected()
@@ -971,19 +971,19 @@ class SecurityWindow(Adw.ApplicationWindow):
             self.status_page.add_css_class("error")
 
     def _on_enroll_tpm(self, button):
-        if not self.backend.is_alive(): return self.show_dialog_ok("Backend dead")
+        if not self.backend.is_alive(): return self.show_dialog_ok(_("Backend не работает."))
         dialog = TpmEnrollDialog(self.backend, self.drive)
         dialog.set_transient_for(self)
         dialog.present()
 
     def _on_enroll_recovery(self, button):
-        if not self.backend.is_alive(): return self.show_dialog_ok("Backend dead")
+        if not self.backend.is_alive(): return self.show_dialog_ok(_("Backend не работает."))
         dialog = RecoveryEnrollDialog(self.backend, self.drive)
         dialog.set_transient_for(self)
         dialog.present()
 
     def _on_enroll_password(self, button):
-        if not self.backend.is_alive(): return self.show_dialog_ok("Backend dead")
+        if not self.backend.is_alive(): return self.show_dialog_ok(_("Backend не работает."))
         dialog = PasswordEnrollDialog(self.backend, self.drive)
         dialog.set_transient_for(self)
         dialog.present()
@@ -1000,7 +1000,7 @@ class SecurityWindow(Adw.ApplicationWindow):
 
     def _on_delete_password(self, button):
         if not self.backend.is_alive(): 
-            return self.show_dialog_ok("Backend dead")
+            return self.show_dialog_ok(_("Backend не работает."))
         
         dialog = KeyDeleteDialog(self.backend, self.drive)
         dialog.set_transient_for(self)
@@ -1025,7 +1025,7 @@ class SecurityWindow(Adw.ApplicationWindow):
 
     def _on_open_2fa(self, button):
         if not self.backend.is_alive(): 
-            return self.show_dialog_ok("Backend is not running")
+            return self.show_dialog_ok(_("Backend не работает."))
         
         dialog = TwoFaWindow(self.backend)
         dialog.set_transient_for(self)
@@ -1041,7 +1041,7 @@ class SecurityWindow(Adw.ApplicationWindow):
             if folder:
                 self.entry_repo_path.set_text(folder.get_path())
         except GLib.Error as e:
-            print(f"Error selecting folder: {e}")
+            print(f"{_("Ошибка")}: {e}")
 
     def _show_confirm_dialog(self, title, body, on_yes_callback):
         dialog = Adw.AlertDialog(heading=title, body=body)
@@ -1079,7 +1079,7 @@ class SecurityWindow(Adw.ApplicationWindow):
             self.show_dialog_ok(_("Готово!"))
         else:
             self._log_to_console(_("--> ОШИБКА."))
-            self.show_dialog_ok(f"Ошибка: {resp.get('message')}")
+            self.show_dialog_ok(f"{_('Ошибка')}: {resp.get('message')}")
 
 
     def show_dialog_ok(self, message):
@@ -1091,9 +1091,9 @@ class SecurityWindow(Adw.ApplicationWindow):
         """Переключает отображение источника пакетов"""
         is_offline = switch.get_active()
         if is_offline:
-            self.row_package_source.set_subtitle(f"Flathub ({_("онлайн")})")
-        else:
             self.row_package_source.set_subtitle(f"Flathub ({_("офлайн")})")
+        else:
+            self.row_package_source.set_subtitle(f"Flathub ({_("онлайн")})")
 
     def _on_flatpak_download(self, button):
         apps = self._get_selected_apps()
@@ -1123,7 +1123,7 @@ class SecurityWindow(Adw.ApplicationWindow):
             return self.show_dialog_ok(_("Для офлайн установки укажите путь к репозиторию"))
 
         mode_str = "OFFLINE" if use_offline else "ONLINE"
-        self._log_to_console(f"--> Начало установки ({mode_str})...")
+        self._log_to_console(f"--> {_("Начало установки")} ({mode_str})...")
         self._set_loading(True)
         
         threading.Thread(target=self._run_flatpak_action, 

@@ -11,6 +11,8 @@ import shutil
 from secrets import token_bytes, choice
 from base64 import b32encode
 from contextlib import contextmanager
+import gettext
+import locale
 
 IDP_FILE = "/etc/idp.json"
 PCR_PUB_KEY = "/etc/kernel/pcr-initrd.pub.pem"
@@ -20,6 +22,29 @@ PAM_FILES = ["/etc/pam.d/login", "/etc/pam.d/gdm-password"]
 PAM_LINE = f"auth required pam_google_authenticator.so nullok debug user=root secret={STORAGE_2FA_PATH}/${{USER}}\n"
 OVERRIDES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "overrides")
 SYSTEM_OVERRIDES_DIR = "/var/lib/flatpak/overrides"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOCALES_DIR = os.path.join(BASE_DIR, "locales")
+APP_ID = "org.secux.securitymanager"
+_ = lambda x: x 
+
+def init_i18n(lang_code):
+    """Настройка перевода для процесса backend"""
+    global _
+    
+    os.environ["LANGUAGE"] = lang_code
+    os.environ["LANG"] = lang_code
+    os.environ["LC_ALL"] = lang_code
+    
+    try:
+        locale.setlocale(locale.LC_ALL, '')
+    except:
+        pass
+
+    try:
+        t = gettext.translation(APP_ID, localedir=LOCALES_DIR, languages=[lang_code], fallback=True)
+        _ = t.gettext
+    except Exception as e:
+        sys.stderr.write(f"Translation init failed: {e}\n")
 
 
 @contextmanager
@@ -159,7 +184,7 @@ def enroll_unified(params):
     use_idp = params.get('use_idp')
 
     if not drive or not luks_pass:
-        return reply("error", message="Missing drive or password")
+        return reply("error", message=_("Отсутствует диск или пароль"))
 
     # 1. Если нужен IDP
     if use_idp:
@@ -169,11 +194,11 @@ def enroll_unified(params):
                 EnrollIDP(drive, luks_password=luks_pass.encode(), pin_code=pin.encode())
             
             if os.path.isfile(IDP_FILE):
-                return reply("success", message="TPM + IDP configured successfully")
+                return reply("success", message=_("TPM + IDP успешно настроен"))
             else:
-                return reply("error", message="IDP script finished but file missing")
+                return reply("error", message=_("Установка IDP завершена, но файл не был создан"))
         except Exception as e:
-            return reply("error", message=f"IDP Error: {str(e)}")
+            return reply("error", message=f"IDP {_("Ошибка")}: {str(e)}")
 
     # 2. Обычный TPM enrollment через cryptenroll
     pcrs = "+".join(map(str, DEFAULT_PCRS))
@@ -194,15 +219,15 @@ def enroll_unified(params):
         # Ждем запрос пароля диска
         idx = child.expect([r"Please enter current passphrase", pexpect.EOF, pexpect.TIMEOUT])
         if idx != 0:
-            return reply("error", message="Timeout waiting for disk password")
+            return reply("error", message=_("Превышено время ожидания диска"))
         
         child.sendline(luks_pass)
 
         # Если нужен PIN
         if pin:
             idx = child.expect([r"Please enter TPM2", r"please try again", pexpect.EOF, pexpect.TIMEOUT])
-            if idx == 1: return reply("error", message="Wrong LUKS password")
-            if idx != 0: return reply("error", message="Error waiting for PIN prompt")
+            if idx == 1: return reply("error", message=_("Неверный пароль LUKS"))
+            if idx != 0: return reply("error", message=_("Превышено время ожидания запроса PIN"))
             
             child.sendline(pin)
             child.expect(r"repeat")
@@ -211,21 +236,21 @@ def enroll_unified(params):
         # Результат
         idx = child.expect([r"New TPM2 token enrolled", r"please try again", pexpect.EOF])
         if idx == 1:
-            return reply("error", message="Wrong password or PIN mismatch")
+            return reply("error", message=_("Неверный пароль или PIN код"))
         
         child.wait()
         if child.exitstatus == 0:
-            return reply("success", message="TPM successfully enrolled")
+            return reply("success", message=_("TPM успешно зарегистрирован"))
         else:
-            return reply("error", message=f"Cryptenroll failed with code {child.exitstatus}")
+            return reply("error", message=f"{_("systemd-cryptenroll завершил работу с ошибкой")}: {child.exitstatus}")
 
     except Exception as e:
-        return reply("error", message=f"Exception: {str(e)}")
+        return reply("error", message=f"{_("Ошибка")}: {str(e)}")
 
 
 def delete_tpm(params):
     drive = params.get('drive')
-    if not drive: return reply("error", message="No drive specified")
+    if not drive: return reply("error", message=_("Диск не выбран"))
 
     # Удаление через systemd
     success, _, stderr = run_cmd(["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", drive], check=True)
@@ -264,15 +289,15 @@ def delete_tpm(params):
                 run_cmd(['/usr/bin/mkinitcpio', '-P'])
 
         except Exception as e:
-            return reply("error", message=f"Cleanup error: {e}")
+            return reply("error", message=f"{_("Ошибка очистки")}: {e}")
 
-    reply("success", message="TPM wiped")
+    reply("success", message=_("TPM очищен"))
 
 
 def enroll_recovery(params):
     drive = params.get('drive')
     luks_pass = params.get('luks_password')
-    if not drive or not luks_pass: return reply("error", message="Missing data")
+    if not drive or not luks_pass: return reply("error", message=_("Отсутствует диск или пароль"))
 
     cmd = ["/usr/bin/systemd-cryptenroll", "--recovery-key", drive, "--unlock-key-file=/dev/stdin"]
     success, stdout, stderr = run_cmd(cmd, input_text=luks_pass)
@@ -281,7 +306,7 @@ def enroll_recovery(params):
         reply("success", message=stdout.strip())
     else:
         if "Passphrase" in stderr or "incorrect" in stderr:
-            reply("error", message="Incorrect password")
+            reply("error", message=_("Неверный пароль"))
         else:
             reply("error", message=stderr)
 
@@ -291,7 +316,7 @@ def delete_key(params):
     key = params.get('key')
 
     if not drive or not key:
-        return reply("error", "Отсутствует диск или ключ")
+        return reply("error", _("Отсутствует диск или ключ"))
     
     dump_cmd = ["/usr/bin/cryptsetup", 'luksDump', drive, '--dump-json-metadata']
     status, stdout, stderr = run_cmd(dump_cmd, check=True)
@@ -299,7 +324,7 @@ def delete_key(params):
 
     active_slots = sorted([int(k) for k in json_data.get('keyslots', {}).keys()])
     if not active_slots:
-        return reply("error", "Отсутствуют слоты LUKS")
+        return reply("error", _("Отсутствуют слоты LUKS"))
     
     keyslot_id = -1
     for slot in active_slots:
@@ -310,12 +335,12 @@ def delete_key(params):
             keyslot_id = slot
     
     if keyslot_id == -1:
-        return reply("error", "Соответствующий ключ не найден")
+        return reply("error", _("Соответствующий ключ не найден"))
     
     remaining_slots_count = len([s for s in active_slots if s != keyslot_id])
 
     if remaining_slots_count < 1:
-        return reply("error", message="Нельзя удалить единственный метод доступа!")
+        return reply("error", message=_("Нельзя удалить единственный метод доступа!"))
     
     slot_token_map = {}
     tokens = json_data.get('tokens', {})
@@ -339,19 +364,19 @@ def delete_key(params):
             break
     
     if not valid_backup_exists:
-        return reply("error", "Необходимо чтоб остался запасной ключ для разблокировки")
+        return reply("error", _("Необходимо чтоб остался запасной ключ для разблокировки"))
     
     kill_slot_cmd = ['/usr/bin/cryptsetup', 'luksKillSlot', drive, str(keyslot_id), '-q']
     success, _, _ = run_cmd(kill_slot_cmd)
     if not success:
-        return reply("error", "Ошибка удаления слота")
+        return reply("error", _("Ошибка удаления слота"))
     
     for token_id, token_info in tokens.items():
         if str(keyslot_id) in token_info.get('keyslots', []):
             kill_token_cmd = ['/usr/bin/cryptsetup', 'token', 'remove', drive, '--token-id', str(token_id)]
             run_cmd(kill_token_cmd, check=False)
 
-    return reply("success", message="Пароль успешно удален")
+    return reply("success", message=_("Пароль успешно удален"))
 
 
 def enroll_password(params):
@@ -360,18 +385,18 @@ def enroll_password(params):
     new_pass = params.get('new_password')
     
     if not all([drive, current_pass, new_pass]):
-        return reply("error", message="Missing passwords")
+        return reply("error", message=_("Отсутствует диск или ключ"))
 
     try:
         child = pexpect.spawn("/usr/bin/systemd-cryptenroll", ["--password", drive], encoding='utf-8', timeout=60)
         
         idx = child.expect([r"Please enter current passphrase", pexpect.EOF])
-        if idx != 0: return reply("error", message="Failed to start")
+        if idx != 0: return reply("error", message=_("Не удалось запустить systemd-cryptenroll"))
         child.sendline(current_pass)
 
         idx = child.expect([r"Please enter", r"please try again", pexpect.EOF])
-        if idx == 1: return reply("error", message="Incorrect current password")
-        if idx != 0: return reply("error", message="Waiting for new password failed")
+        if idx == 1: return reply("error", message=_("Неверный текущий пароль"))
+        if idx != 0: return reply("error", message=_("Превышено время ожидания"))
         
         child.sendline(new_pass)
         child.expect(r"repeat")
@@ -379,9 +404,9 @@ def enroll_password(params):
         
         child.wait()
         if child.exitstatus == 0:
-            reply("success", message="Password changed")
+            reply("success", message=_("Пароль изменен"))
         else:
-            reply("error", message="Failed to change password")
+            reply("error", message=_("Не удалось изменить пароль"))
     except Exception as e:
         reply("error", message=str(e))
 
@@ -452,7 +477,7 @@ def enroll_2fa_user(params):
     user = params.get("user")
     hostname = params.get("hostname", "secux")
     
-    if not user: return reply("error", message="No user specified")
+    if not user: return reply("error", message=_("Пользователь не выбран"))
 
     try:
         if not os.path.isdir(STORAGE_2FA_PATH):
@@ -500,22 +525,22 @@ def enroll_2fa_user(params):
 
 def delete_2fa_user(params):
     user = params.get("user")
-    if not user: return reply("error", message="No user")
+    if not user: return reply("error", message=_("Пользователь не выбран"))
     
     user_path = os.path.join(STORAGE_2FA_PATH, user)
     if os.path.exists(user_path):
         try:
             os.remove(user_path)
-            return reply("success", message="2FA removed for user")
+            return reply("success", message=_("2FA удалена для пользователя"))
         except Exception as e:
             return reply("error", message=str(e))
     else:
-        return reply("error", message="Registration not found")
+        return reply("error", message=_("Регистрация не найдена"))
 
 def get_luks_slots(params):
     drive = params.get('drive')
     if not drive:
-        return reply("error", "Диск не выбран")
+        return reply("error", _("Диск не выбран"))
 
     # Получаем JSON дамп
     cmd = ["/usr/bin/cryptsetup", "luksDump", drive, "--dump-json-metadata"]
@@ -527,7 +552,7 @@ def get_luks_slots(params):
             idp_keyslot = json.loads(file.read())['key_slot']
     
     if not success:
-        return reply("error", f"Ошибка чтения LUKS: {stderr}")
+        return reply("error", f"{_("Ошибка")}: {stderr}")
 
     try:
         data = json.loads(stdout)
@@ -539,7 +564,7 @@ def get_luks_slots(params):
         # Карта: ID слота -> Тип (по умолчанию Password)
         slot_map = {}
         for slot_id in keyslots.keys():
-            slot_map[int(slot_id)] = {"type": "password", "meta": "Пользовательский пароль"}
+            slot_map[int(slot_id)] = {"type": "password", "meta": _("Пользовательский пароль")}
 
         # Анализируем токены, чтобы переопределить типы
         for token in tokens.values():
@@ -554,10 +579,10 @@ def get_luks_slots(params):
                         slot_map[s_id]["meta"] = "TPM2 (systemd)"
                     elif token_type == "systemd-recovery":
                         slot_map[s_id]["type"] = "recovery"
-                        slot_map[s_id]["meta"] = "Recovery Key"
+                        slot_map[s_id]["meta"] = _("Ключ восстановления")
                     elif token_type == "systemd-fido2":
                         slot_map[s_id]["type"] = "fido"
-                        slot_map[s_id]["meta"] = "FIDO2 Token"
+                        slot_map[s_id]["meta"] = _("FIDO2 токен")
                     else:
                         slot_map[s_id]["meta"] = token_type
 
@@ -579,7 +604,7 @@ def get_luks_slots(params):
         return reply("success", data=results)
 
     except Exception as e:
-        return reply("error", f"Ошибка парсинга: {e}")
+        return reply("error", f"{_("Ошибка")}: {e}")
 
 def flatpak_manager(params):
     action = params.get("action")
@@ -593,12 +618,12 @@ def flatpak_manager(params):
         log_buffer.append(msg)
 
     if not apps:
-        return reply("error", message="Нет приложений для обработки")
+        return reply("error", message=_("Нет приложений для обработки"))
 
     try:
         if action == "download":
             if not repo_path:
-                return reply("error", message="Не указан путь к репозиторию")
+                return reply("error", message=_("Не указан путь к репозиторию"))
             
             if not os.path.exists(repo_path):
                 os.makedirs(repo_path, exist_ok=True)
@@ -606,9 +631,9 @@ def flatpak_manager(params):
             log(stdout)
             log(stderr)
             if success:
-                return reply("success", message="Скачивание завершено", data={"log": "\n".join(log_buffer)})
+                return reply("success", message=_("Скачивание завершено"), data={"log": "\n".join(log_buffer)})
             else:
-                return reply("error", message="Произошла ошибка при скачивании", data={"log": "\n".join(log_buffer)})
+                return reply("error", message=_("Произошла ошибка при скачивании"), data={"log": "\n".join(log_buffer)})
 
         elif action == "install":
             if offline_mode:
@@ -625,9 +650,9 @@ def flatpak_manager(params):
                 _apply_override(app_id, log)
 
             if success:
-                return reply("success", message="Приложения успешно установлены", data={"log": "\n".join(log_buffer)})
+                return reply("success", message=_("Приложения успешно установлены"), data={"log": "\n".join(log_buffer)})
             else:
-                return reply("error", message="Что-то пошло не так", data={"log": "\n".join(log_buffer)})
+                return reply("error", message=_("Что-то пошло не так"), data={"log": "\n".join(log_buffer)})
 
     except Exception as stderr:
         return reply("error", message=str(stderr), data={"log": "\n".join(log_buffer)})
@@ -640,7 +665,7 @@ def _apply_override(app_id, log_func):
     dest_file = os.path.join(SYSTEM_OVERRIDES_DIR, app_id)
 
     if not os.path.exists(source_file):
-        log_func(f"SKIP: Файл override для {app_id} не найден в {OVERRIDES_DIR}")
+        log_func(f"{_('SKIP: Файл override не найден')}: {app_id}")
         return
 
     try:
@@ -650,9 +675,9 @@ def _apply_override(app_id, log_func):
 
         shutil.copy2(source_file, dest_file)
         os.chmod(dest_file, 0o644) # Права на чтение всем
-        log_func(f"OVERRIDE: Конфигурация обновлена для {app_id}")
+        log_func(f"{_("OVERRIDE: Конфигурация обновлена для")} {app_id}")
     except Exception as e:
-        log_func(f"OVERRIDE ERROR: Не удалось скопировать override: {e}")
+        log_func(f"{_("OVERRIDE ERROR: Не удалось скопировать override")}: {e}")
 
 
 def run_daemon():
@@ -668,7 +693,7 @@ def run_daemon():
             try:
                 req = json.loads(line)
             except json.JSONDecodeError:
-                reply("error", message="Invalid JSON")
+                reply("error", message=_("Ошибка JSON"))
                 continue
 
             command = req.get("command")
@@ -699,15 +724,20 @@ def run_daemon():
             elif command == "flatpak_manager":
                 flatpak_manager(params)
             else:
-                reply("error", message=f"Unknown command: {command}")
+                reply("error", message=f"{_("Unknown command")}: {command}")
 
         except Exception as e:
-            reply("error", message=f"Daemon crash: {e}")
+            reply("error", message=f"{_("Ошибка")}: {e}")
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "debug":
-        # Для отладки без запуска демона
-        # get_luks_slots({'drive': '/dev/nvme0n1p6'})
+    target_lang = "en_US.UTF-8"
+    if len(sys.argv) > 1 and sys.argv[1] != "debug":
+        target_lang = sys.argv[1]
+    
+    init_i18n(target_lang)
+
+    if len(sys.argv) > 1 and sys.argv[1] == 'debug':
+        # Debug без запуска демона
         flatpak_manager({'action': 'install', 'apps': ['org.chromium.Chromium'], 'repo_path': '/home/user/offline-usb', 'offline_mode': False})
     else:
         # По умолчанию запускаем режим демона

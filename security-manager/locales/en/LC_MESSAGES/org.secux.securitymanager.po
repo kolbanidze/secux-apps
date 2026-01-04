@@ -1,189 +1,252 @@
-# English translations for PACKAGE package.
-# Copyright (C) 2025 THE PACKAGE'S COPYRIGHT HOLDER
+# English translations for secux-security-manager package.
+# Copyright (C) 2026 Kolbanidze
 # This file is distributed under the same license as the PACKAGE package.
-# Automatically generated, 2025.
+# Automatically generated, 2026.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
+"Project-Id-Version: 0.0.6\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-30 18:30+0300\n"
-"PO-Revision-Date: 2025-12-30 18:30+0300\n"
+"POT-Creation-Date: 2026-01-04 22:01+0300\n"
+"PO-Revision-Date: 2026-01-04 21:54+0300\n"
 "Last-Translator: Automatically generated\n"
-"Language-Team: none\n"
+"Language-Team: English\n"
 "Language: en\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: main.py:202
+#: main.py:37
+msgid "Ошибка чтения конфига"
+msgstr "Config reading error"
+
+#: main.py:50
+msgid "Ошибка сохранения конфига"
+msgstr "Error saving config"
+
+#: main.py:151
+msgid "Ошибка backend.py"
+msgstr "backend.py error"
+
+#: main.py:180
+msgid "Ошибка коммуникации"
+msgstr "Communication error"
+
+#: main.py:226
 msgid "Заполните все поля"
 msgstr "Fill in all fields"
 
-#: main.py:205
+#: main.py:229
 msgid "Пароли не совпадают"
 msgstr "Passwords do not match"
 
-#: main.py:222
+#: main.py:246
 msgid "Пароль успешно изменен!"
 msgstr "Password successfully changed!"
 
-#: main.py:264
-msgid "Введите пароль"
-msgstr "Enter password"
-
-#: main.py:288
-msgid "Скопировано"
-msgstr "Copied"
-
-#: main.py:356
-msgid "Введите пароль от диска"
-msgstr "Enter disk password"
-
-#: main.py:362
-msgid "Введите PIN код"
-msgstr "Enter PIN code"
-
-#: main.py:365
-msgid "PIN коды не сходятся"
-msgstr "PIN codes do not match"
-
-#: main.py:425
-msgid "Введите пароль или ключ"
-msgstr "Enter password or key"
-
-#: main.py:441
-msgid "Успешно! Слот удален."
-msgstr "Success! Slot deleted."
-
-#: main.py:492
-msgid "Нет активных слотов (странно...)"
-msgstr "No active slots (strange...)"
-
-#: main.py:599
-msgid "Секрет скрыт. Пересоздайте для отображения."
-msgstr "Secret hidden. Recreate to display."
-
-#: main.py:642
-msgid "Секрет: "
-msgstr "Secret: "
-
-#: main.py:642
-msgid "Ключи восстановления:\n"
-msgstr "Recovery keys:\n"
-
-#: main.py:787
-msgid "Версия: "
-msgstr "Version: "
-
-#: main.py:804
-msgid "Не удалось получить права root. Функционал будет ограничен."
-msgstr "Failed to obtain root privileges. Functionality will be limited."
-
-#: main.py:844
-msgid "Диск не определен"
-msgstr "Disk not detected"
-
-#: main.py:884 main.py:1038
-msgid "Настройки успешно сохранены"
-msgstr "Settings successfully saved"
-
-#: main.py:886
-msgid "Для смены языка перезапустите приложение."
-msgstr "Restart the application to change the language."
-
-#: main.py:890
-msgid "Ошибка при сохранении файла конфигурации"
-msgstr "Error saving configuration file"
-
-#: main.py:923
-msgid "Раздел LUKS не найден"
-msgstr "LUKS partition not found"
-
-#: main.py:926
-msgid "Включен"
-msgstr "Enabled"
-
-#: main.py:926
-msgid "Выключен"
-msgstr "Disabled"
-
-#: main.py:930 main.py:931
-msgid "Да"
-msgstr "Yes"
-
-#: main.py:930 main.py:931
-msgid "Нет"
-msgstr "No"
-
-#: main.py:938
-msgid "Пароль"
-msgstr "Password"
-
-#: main.py:946 ui/window.ui:38
-msgid "Система защищена"
-msgstr "System is secured"
-
-#: main.py:947
-msgid "Secure Boot активен, задействованы механизмы TPM."
-msgstr "Secure Boot is active, TPM mechanisms are engaged."
-
-#: main.py:953
-msgid "Система под угрозой"
-msgstr "System at risk"
-
-#: main.py:954
-msgid "Устройство уязвимо. Рекомендуется включить Secure Boot и настроить TPM."
-msgstr ""
-"Device is vulnerable. It is recommended to enable Secure Boot and configure "
-"TPM."
-
-#: main.py:980
-msgid "Удалить TPM?"
-msgstr "Remove TPM?"
-
-#: main.py:981
-msgid "Это сбросит ключи шифрования. Вам понадобится пароль."
-msgstr "This will reset encryption keys. You will need the password."
-
-#: main.py:1009
-msgid "Успешно"
-msgstr "Success"
-
-#: main.py:1011
+#: main.py:249 main.py:307 main.py:412 main.py:469 main.py:509 main.py:639
+#: main.py:677 main.py:709 main.py:729 main.py:882 main.py:1024 main.py:1044
+#: main.py:1082 backend.py:201 backend.py:248 backend.py:555 backend.py:607
+#: backend.py:730
 msgid "Ошибка"
 msgstr "Error"
 
-#: main.py:1044
+#: main.py:288
+msgid "Введите пароль"
+msgstr "Enter password"
+
+#: main.py:312
+msgid "Скопировано"
+msgstr "Copied"
+
+#: main.py:380
+msgid "Введите пароль от диска"
+msgstr "Enter disk password"
+
+#: main.py:386
+msgid "Введите PIN код"
+msgstr "Enter PIN code"
+
+#: main.py:389
+msgid "PIN коды не сходятся"
+msgstr "PIN codes do not match"
+
+#: main.py:409
+msgid "Успешно!"
+msgstr "Success!"
+
+#: main.py:449
+msgid "Введите пароль или ключ"
+msgstr "Enter password or key"
+
+#: main.py:465
+msgid "Успешно! Слот удален."
+msgstr "Success! Slot deleted."
+
+#: main.py:516
+msgid "Нет активных слотов (странно...)"
+msgstr "No active slots (strange...)"
+
+#: main.py:521
+msgid "Слот"
+msgstr "Slot"
+
+#: main.py:576
+msgid "Ошибка получения данных"
+msgstr "Error retrieving data"
+
+#: main.py:598
+msgid "активно"
+msgstr "active"
+
+#: main.py:623
+msgid "Секрет скрыт. Пересоздайте для отображения."
+msgstr "Secret hidden. Re-create to display."
+
+#: main.py:666
+msgid "Секрет: "
+msgstr "Secret: "
+
+#: main.py:666
+msgid "Ключи восстановления:\n"
+msgstr "Recovery keys:\n"
+
+#: main.py:675
+msgid "2FA настроена!"
+msgstr "2FA configured!"
+
+#: main.py:710
+msgid "Ошибка генерации QR кода"
+msgstr "QR code generation error"
+
+#: main.py:726
+msgid "2FA удалена"
+msgstr "2FA removed"
+
+#: main.py:734
+msgid "Скрыто"
+msgstr "Hidden"
+
+#: main.py:811
+msgid "Версия: "
+msgstr "Version: "
+
+#: main.py:828
+msgid "Не удалось получить права root. Функционал будет ограничен."
+msgstr "Failed to obtain root privileges. Functionality will be limited."
+
+#: main.py:868 main.py:974 main.py:980 main.py:986 main.py:1003 main.py:1028
+msgid "Backend не работает."
+msgstr "Backend is not running."
+
+#: main.py:869
+msgid "Диск не определен"
+msgstr "Disk not detected"
+
+#: main.py:901
+msgid "Настройки успешно сохранены"
+msgstr "Settings saved successfully"
+
+#: main.py:903
+msgid "Для смены языка перезапустите приложение."
+msgstr "Restart the application to change the language."
+
+#: main.py:907
+msgid "Ошибка при сохранении файла конфигурации"
+msgstr "Error saving configuration file"
+
+#: main.py:936
+msgid "Раздел LUKS не найден"
+msgstr "LUKS partition not found"
+
+#: main.py:939
+msgid "Включен"
+msgstr "Enabled"
+
+#: main.py:939
+msgid "Выключен"
+msgstr "Disabled"
+
+#: main.py:943 main.py:944
+msgid "Да"
+msgstr "Yes"
+
+#: main.py:943 main.py:944
+msgid "Нет"
+msgstr "No"
+
+#: main.py:951
+msgid "Пароль"
+msgstr "Password"
+
+#: main.py:959 ui/window.ui:38
+msgid "Система защищена"
+msgstr "System protected"
+
+#: main.py:960
+msgid "Secure Boot активен, задействованы механизмы TPM."
+msgstr "Secure Boot is active, TPM mechanisms are engaged."
+
+#: main.py:966
+msgid "Система под угрозой"
+msgstr "System at risk"
+
+#: main.py:967
+msgid "Устройство уязвимо. Рекомендуется включить Secure Boot и настроить TPM."
+msgstr ""
+"Device is vulnerable. Enabling Secure Boot and configuring TPM is "
+"recommended."
+
+#: main.py:993
+msgid "Удалить TPM?"
+msgstr "Remove TPM?"
+
+#: main.py:994
+msgid "Это сбросит ключи шифрования. Вам понадобится пароль."
+msgstr "This will reset encryption keys. You will need the password."
+
+#: main.py:1022
+msgid "Успешно"
+msgstr "Success"
+
+#: main.py:1048
 msgid "Отмена"
 msgstr "Cancel"
 
-#: main.py:1045
+#: main.py:1049
 msgid "Выполнить"
 msgstr "Execute"
 
-#: main.py:1074
+#: main.py:1078
 msgid "--> Операция успешно завершена."
 msgstr "--> Operation completed successfully."
 
-#: main.py:1075
+#: main.py:1079
 msgid "Готово!"
 msgstr "Done!"
 
-#: main.py:1077
+#: main.py:1081
 msgid "--> ОШИБКА."
 msgstr "--> ERROR."
 
-#: main.py:1082
+#: main.py:1086
 msgid "Информация"
 msgstr "Information"
 
-#: main.py:1097 main.py:1118
+#: main.py:1094
+msgid "офлайн"
+msgstr "offline"
+
+#: main.py:1096
+msgid "онлайн"
+msgstr "online"
+
+#: main.py:1101 main.py:1117
 msgid "Выберите хотя бы одно приложение"
 msgstr "Select at least one application"
 
-#: main.py:1101
+#: main.py:1105
 msgid "Для скачивания выберите путь к репозиторию в настройках"
 msgstr "To download, select the repository path in settings"
 
@@ -191,9 +254,181 @@ msgstr "To download, select the repository path in settings"
 msgid "--> Инициализация скачивания в локальный репозиторий..."
 msgstr "--> Initializing download to local repository..."
 
-#: main.py:1124
+#: main.py:1123
 msgid "Для офлайн установки укажите путь к репозиторию"
-msgstr "For offline installation, specify the repository path"
+msgstr "Specify repository path for offline installation"
+
+#: main.py:1126
+msgid "Начало установки"
+msgstr "Starting installation"
+
+#: backend.py:187 backend.py:300
+msgid "Отсутствует диск или пароль"
+msgstr "Missing disk or password"
+
+#: backend.py:197
+msgid "TPM + IDP успешно настроен"
+msgstr "TPM + IDP successfully configured"
+
+#: backend.py:199
+msgid "Установка IDP завершена, но файл не был создан"
+msgstr "IDP installation finished, but file was not created"
+
+#: backend.py:222
+msgid "Превышено время ожидания диска"
+msgstr "Disk timeout exceeded"
+
+#: backend.py:229
+msgid "Неверный пароль LUKS"
+msgstr "Invalid LUKS password"
+
+#: backend.py:230
+msgid "Превышено время ожидания запроса PIN"
+msgstr "PIN request timeout exceeded"
+
+#: backend.py:239
+msgid "Неверный пароль или PIN код"
+msgstr "Invalid password or PIN code"
+
+#: backend.py:243
+msgid "TPM успешно зарегистрирован"
+msgstr "TPM successfully registered"
+
+#: backend.py:245
+msgid "systemd-cryptenroll завершил работу с ошибкой"
+msgstr "systemd-cryptenroll finished with an error"
+
+#: backend.py:253 backend.py:543
+msgid "Диск не выбран"
+msgstr "Disk not selected"
+
+#: backend.py:292
+msgid "Ошибка очистки"
+msgstr "Clearing error"
+
+#: backend.py:294
+msgid "TPM очищен"
+msgstr "TPM cleared"
+
+#: backend.py:309
+msgid "Неверный пароль"
+msgstr "Invalid password"
+
+#: backend.py:319 backend.py:388
+msgid "Отсутствует диск или ключ"
+msgstr "Missing disk or key"
+
+#: backend.py:327
+msgid "Отсутствуют слоты LUKS"
+msgstr "Missing LUKS slots"
+
+#: backend.py:338
+msgid "Соответствующий ключ не найден"
+msgstr "Matching key not found"
+
+#: backend.py:343
+msgid "Нельзя удалить единственный метод доступа!"
+msgstr "Cannot remove the only access method!"
+
+#: backend.py:367
+msgid "Необходимо чтоб остался запасной ключ для разблокировки"
+msgstr "A spare unlock key must remain"
+
+#: backend.py:372
+msgid "Ошибка удаления слота"
+msgstr "Slot deletion error"
+
+#: backend.py:379
+msgid "Пароль успешно удален"
+msgstr "Password successfully removed"
+
+#: backend.py:394
+msgid "Не удалось запустить systemd-cryptenroll"
+msgstr "Failed to start systemd-cryptenroll"
+
+#: backend.py:398
+msgid "Неверный текущий пароль"
+msgstr "Invalid current password"
+
+#: backend.py:399
+msgid "Превышено время ожидания"
+msgstr "Timeout exceeded"
+
+#: backend.py:407
+msgid "Пароль изменен"
+msgstr "Password changed"
+
+#: backend.py:409
+msgid "Не удалось изменить пароль"
+msgstr "Failed to change password"
+
+#: backend.py:480 backend.py:528
+msgid "Пользователь не выбран"
+msgstr "User not selected"
+
+#: backend.py:534
+msgid "2FA удалена для пользователя"
+msgstr "2FA removed for user"
+
+#: backend.py:538
+msgid "Регистрация не найдена"
+msgstr "Registration not found"
+
+#: backend.py:567
+msgid "Пользовательский пароль"
+msgstr "User password"
+
+#: backend.py:582 ui/recovery_enroll.ui:10
+msgid "Ключ восстановления"
+msgstr "Recovery key"
+
+#: backend.py:585
+msgid "FIDO2 токен"
+msgstr "FIDO2 token"
+
+#: backend.py:621
+msgid "Нет приложений для обработки"
+msgstr "No applications to process"
+
+#: backend.py:626
+msgid "Не указан путь к репозиторию"
+msgstr "Repository path not specified"
+
+#: backend.py:634
+msgid "Скачивание завершено"
+msgstr "Download completed"
+
+#: backend.py:636
+msgid "Произошла ошибка при скачивании"
+msgstr "An error occurred during download"
+
+#: backend.py:653
+msgid "Приложения успешно установлены"
+msgstr "Applications successfully installed"
+
+#: backend.py:655
+msgid "Что-то пошло не так"
+msgstr "Something went wrong"
+
+#: backend.py:668
+msgid "SKIP: Файл override не найден"
+msgstr "SKIP: Override file not found"
+
+#: backend.py:678
+msgid "OVERRIDE: Конфигурация обновлена для"
+msgstr "OVERRIDE: Configuration updated for"
+
+#: backend.py:680
+msgid "OVERRIDE ERROR: Не удалось скопировать override"
+msgstr "OVERRIDE ERROR: Failed to copy override"
+
+#: backend.py:696
+msgid "Ошибка JSON"
+msgstr "JSON Error"
+
+#: backend.py:727
+msgid "Unknown command"
+msgstr "Unknown command"
 
 #: ui/key_delete.ui:10
 msgid "Удаление пароля или ключа"
@@ -201,7 +436,7 @@ msgstr "Deleting password or key"
 
 #: ui/key_delete.ui:45
 msgid "Это действие удалит введённый ключ восстановления или пароль"
-msgstr "This action will delete the entered recovery key or password"
+msgstr "This action will remove the entered recovery key or password"
 
 #: ui/key_delete.ui:62
 msgid "Пароль или ключ"
@@ -213,7 +448,7 @@ msgstr "Delete"
 
 #: ui/password_enroll.ui:10
 msgid "Добавление пароля"
-msgstr "Adding a password"
+msgstr "Adding password"
 
 #: ui/password_enroll.ui:29 ui/recovery_enroll.ui:32 ui/tpm_enroll.ui:29
 msgid "Авторизация"
@@ -243,10 +478,6 @@ msgstr "Repeat password"
 msgid "Добавить пароль"
 msgstr "Add password"
 
-#: ui/recovery_enroll.ui:10
-msgid "Ключ восстановления"
-msgstr "Recovery key"
-
 #: ui/recovery_enroll.ui:33
 msgid "Введите пароль от диска для создания нового ключа восстановления."
 msgstr "Enter disk password to create a new recovery key."
@@ -268,8 +499,8 @@ msgid ""
 "Сохраните этот ключ в надежном месте. Он позволит разблокировать диск при "
 "утере TPM или пароля."
 msgstr ""
-"Save this key in a safe place. It will allow you to unlock the disk if "
-"the TPM or password is lost."
+"Save this key in a safe place. It will allow you to unlock the disk if the "
+"TPM or password is lost."
 
 #: ui/recovery_enroll.ui:104
 msgid "Скопировать в буфер"
@@ -293,15 +524,15 @@ msgstr "Refresh"
 
 #: ui/tpm_enroll.ui:10
 msgid "Настройка TPM"
-msgstr "TPM Configuration"
+msgstr "TPM configuration"
 
 #: ui/tpm_enroll.ui:30
 msgid "Введите текущий пароль или ключ восстановления от диска"
-msgstr "Enter current disk password or recovery key"
+msgstr "Enter current password or recovery key for the disk"
 
 #: ui/tpm_enroll.ui:40
 msgid "Конфигурация защиты"
-msgstr "Security configuration"
+msgstr "Protection configuration"
 
 #: ui/tpm_enroll.ui:44
 msgid "Дополнительная защита от атак физического уровня"
@@ -343,13 +574,14 @@ msgstr "Boot and Keys"
 msgid "Рекомендуется к использованию"
 msgstr "Recommended for use"
 
-#: ui/window.ui:60 ui/window.ui:82 ui/window.ui:97
+#: ui/window.ui:60 ui/window.ui:71 ui/window.ui:82 ui/window.ui:97
+#: ui/window.ui:108 ui/window.ui:144
 msgid "Неизвестно"
 msgstr "Unknown"
 
 #: ui/window.ui:67
 msgid "Состояние Secure Boot"
-msgstr "Secure Boot State"
+msgstr "Secure Boot Status"
 
 #: ui/window.ui:68
 msgid "Рекомендуется User Mode"
@@ -361,7 +593,7 @@ msgstr "Trust in Microsoft keys"
 
 #: ui/window.ui:79
 msgid "Необходимо для использования Windows в dual-boot"
-msgstr "Necessary for using Windows in dual-boot"
+msgstr "Required for using Windows in dual-boot"
 
 #: ui/window.ui:91
 msgid "TPM и Шифрование"
@@ -369,7 +601,7 @@ msgstr "TPM and Encryption"
 
 #: ui/window.ui:94
 msgid "Наличие TPM"
-msgstr "TPM Presence"
+msgstr "TPM Availability"
 
 #: ui/window.ui:104
 msgid "Разблокировка диска"
@@ -401,7 +633,7 @@ msgstr "Enroll"
 
 #: ui/window.ui:181
 msgid "Ключи восстановления"
-msgstr "Recovery keys"
+msgstr "Recovery Keys"
 
 #: ui/window.ui:182
 msgid "Рекомендуемый способ восстановления"
@@ -425,7 +657,7 @@ msgstr "Two-factor authentication"
 
 #: ui/window.ui:239
 msgid "Настройка TOTP и кодов восстановления"
-msgstr "Configure TOTP and recovery codes"
+msgstr "TOTP and recovery code setup"
 
 #: ui/window.ui:246
 msgid "Открыть настройки 2FA"
@@ -441,7 +673,7 @@ msgstr "Language"
 
 #: ui/window.ui:273
 msgid "Language"
-msgstr "Language"
+msgstr "Язык"
 
 #: ui/window.ui:291
 msgid "Офлайн репозиторий"
@@ -454,6 +686,10 @@ msgstr "Use local source"
 #: ui/window.ui:297
 msgid "Путь к репозиторию"
 msgstr "Repository path"
+
+#: ui/window.ui:303
+msgid "/путь/до/репозитория"
+msgstr "/path/to/repo"
 
 #: ui/window.ui:325
 msgid "Сохранить"
@@ -477,7 +713,7 @@ msgstr "Applications"
 
 #: ui/window.ui:369
 msgid "Выберите категории для установки"
-msgstr "Select categories for installation"
+msgstr "Select categories to install"
 
 #: ui/window.ui:372
 msgid "Интернет и общение"
@@ -485,11 +721,15 @@ msgstr "Internet and Communication"
 
 #: ui/window.ui:403 ui/window.ui:442
 msgid "Внимание: использует старую оконную систему (X11)"
-msgstr "Warning: uses legacy window system (X11)"
+msgstr "Warning: uses legacy windowing system (X11)"
 
 #: ui/window.ui:411
 msgid "Мультимедиа"
 msgstr "Multimedia"
+
+#: ui/window.ui:412
+msgid "Просмотр видео, OBS Studio"
+msgstr "Video viewer, OBS Studio"
 
 #: ui/window.ui:430
 msgid "Офис и работа"
@@ -501,7 +741,7 @@ msgstr "Tools and Security"
 
 #: ui/window.ui:456
 msgid "Управление правами Flatpak"
-msgstr "Flatpak permission management"
+msgstr "Flatpak permissions management"
 
 #: ui/window.ui:491
 msgid "Скачать пакеты"

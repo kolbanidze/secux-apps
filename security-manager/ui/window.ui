@@ -68,7 +68,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="subtitle" translatable="yes">Рекомендуется User Mode</property>
                                     <child type="suffix">
                                       <object class="GtkLabel" id="secure_boot_mode_label">
-                                        <property name="label">Неизвестно</property>
+                                        <property name="label" translatable="yes">Неизвестно</property>
                                       </object>
                                     </child>
                                   </object>
@@ -105,7 +105,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                     <property name="subtitle" translatable="yes">Рекомендуется использование TPM + PIN</property>
                                     <child type="suffix">
                                       <object class="GtkLabel" id="tpm_plus_pin_label">
-                                        <property name="label">Неизвестно</property>
+                                        <property name="label" translatable="yes">Неизвестно</property>
                                       </object>
                                     </child>
                                   </object>
@@ -141,7 +141,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                     <child>
                       <object class="AdwPreferencesGroup" id="luks_configure_group">
                         <property name="title" translatable="yes">Управление диском</property>
-                        <property name="description">Неизвестно</property>
+                        <property name="description" translatable="yes">Неизвестно</property>
                         <child type="header-suffix">
                           <object class="GtkButton" id="btn_view_slots">
                             <property name="icon-name">view-list-symbolic</property>
@@ -300,7 +300,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                 <property name="spacing">6</property>
                                 <child>
                                   <object class="GtkEntry" id="entry_repo_path">
-                                    <property name="placeholder-text">/путь/до/репозитория</property>
+                                    <property name="placeholder-text" translatable="yes">/путь/до/репозитория</property>
                                     <property name="editable">false</property>
                                     <property name="width-request">250</property>
                                     <property name="valign">3</property>
@@ -409,7 +409,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                         <child>
                           <object class="AdwExpanderRow">
                             <property name="title" translatable="yes">Мультимедиа</property>
-                            <property name="subtitle">Просмотр видео, OBS Studio</property>
+                            <property name="subtitle" translatable="yes">Просмотр видео, OBS Studio</property>
                             <property name="icon-name">applications-multimedia-symbolic</property>
                             <child>
                               <object class="AdwSwitchRow" id="chk_videoplayer">
