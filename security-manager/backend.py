@@ -103,9 +103,9 @@ def get_stats(params):
     }
 
     # Проверка Secure Boot (sbctl или mokutil)
-    success, stdout, _ = run_cmd(['/usr/bin/which', 'sbctl'], check=False)
+    success, stdout, stderr = run_cmd(['/usr/bin/which', 'sbctl'], check=False)
     if success and stdout:
-        success, sb_out, _ = run_cmd(['sbctl', 'status', '--json'], check=False)
+        success, sb_out, sb_err = run_cmd(['sbctl', 'status', '--json'], check=False)
         if success:
             try:
                 data = json.loads(sb_out)
@@ -117,7 +117,7 @@ def get_stats(params):
                 pass
     else:
         # Fallback to mokutil
-        success, mok_out, _ = run_cmd(["/usr/bin/mokutil", "--sb-state"], check=False)
+        success, mok_out, stderr = run_cmd(["/usr/bin/mokutil", "--sb-state"], check=False)
         if success and "enabled" in mok_out:
             stats["secure_boot"] = True
         
@@ -131,7 +131,7 @@ def get_stats(params):
 
     # Поиск диска (LUKS)
     # Ищем раздел cryptlvm или первый попавшийся crypto_LUKS
-    success, lsblk_out, _ = run_cmd(["/usr/bin/lsblk", "-J", "-o", "NAME,TYPE,FSTYPE"], check=False)
+    success, lsblk_out, stderr = run_cmd(["/usr/bin/lsblk", "-J", "-o", "NAME,TYPE,FSTYPE"], check=False)
     if success:
         try:
             data = json.loads(lsblk_out)
@@ -158,7 +158,7 @@ def get_stats(params):
     stats["tpm_exists"] = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
     
     if stats["drive"]:
-        success, dump_out, _ = run_cmd(["/usr/bin/cryptsetup", "luksDump", stats["drive"], "--dump-json-metadata"], check=False)
+        success, dump_out, stderr = run_cmd(["/usr/bin/cryptsetup", "luksDump", stats["drive"], "--dump-json-metadata"], check=False)
         if success:
             try:
                 dump = json.loads(dump_out)
@@ -253,7 +253,7 @@ def delete_tpm(params):
     if not drive: return reply("error", message=_("Диск не выбран"))
 
     # Удаление через systemd
-    success, _, stderr = run_cmd(["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", drive], check=True)
+    success, stdout, stderr = run_cmd(["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", drive], check=True)
     if not success:
         return reply("error", message=stderr)
 
@@ -367,7 +367,7 @@ def delete_key(params):
         return reply("error", _("Необходимо чтоб остался запасной ключ для разблокировки"))
     
     kill_slot_cmd = ['/usr/bin/cryptsetup', 'luksKillSlot', drive, str(keyslot_id), '-q']
-    success, _, _ = run_cmd(kill_slot_cmd)
+    success, stdout, stderr = run_cmd(kill_slot_cmd)
     if not success:
         return reply("error", _("Ошибка удаления слота"))
     
