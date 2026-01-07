@@ -19,7 +19,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.0.6"
+VERSION = "0.0.7"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -73,8 +73,11 @@ def init_i18n(lang_code=None):
         os.environ["LANGUAGE"] = lang_code 
         os.environ["LANG"] = lang_code
         os.environ["LC_ALL"] = lang_code
+    elif os.environ.get("LANG"):
+        os.environ["LANG"] = os.environ.get("LANG")
+        os.environ["LANGUAGE"] = os.environ.get("LANG")
     elif os.environ.get("LANG") is None:
-        os.environ["LANG"] = "en_US.UTF-8"
+        os.environ["LANG"] = 'en_US.UTF-8'
         os.environ["LANGUAGE"] = "en_US.UTF-8"
 
     try:
@@ -811,8 +814,23 @@ class SecurityWindow(Adw.ApplicationWindow):
         self.lbl_version.set_label(_("Версия: ") + VERSION)
         
         self._connect_signals()
+        key_controller = Gtk.EventControllerKey.new()
+        key_controller.connect("key-pressed", self._on_key_pressed_easter_egg)
+        self.add_controller(key_controller)
         
         threading.Thread(target=self._init_backend_async, daemon=True).start()
+
+    def _on_key_pressed_easter_egg(self, a, keyval, b, c):
+        """Обрабатывает нажатие клавиш для котэка"""
+        
+        if keyval == Gdk.KEY_Cyrillic_io or keyval == Gdk.KEY_Cyrillic_IO:
+            self.status_page.set_icon_name("cat-sleeping-symbolic")            
+            self.status_page.set_title("ми-ми-ми")
+            
+            return True
+            
+        return False
+
 
     def _init_backend_async(self):
         """Запуск бэкенда и первая загрузка статистики"""
@@ -909,9 +927,12 @@ class SecurityWindow(Adw.ApplicationWindow):
 
     def _apply_stored_settings(self):
         """Заполняет виджеты значениями из конфига"""
-        config = load_config_data()
+        config = load_config_data()        
         
-        lang = config.get("language", "en_US.UTF-8")
+        lang = config.get("language", None)
+        if not lang:
+            lang = os.environ.get("LANG")
+            
         if "ru" in lang.lower():
             self.combo_language.set_selected(0)
         else:
@@ -1073,6 +1094,8 @@ class SecurityWindow(Adw.ApplicationWindow):
         
         if log_data:
             self._log_to_console(log_data)
+
+        self._reload_dbus_config()
         
         if resp.get("status") == "success":
             self._log_to_console(_("--> Операция успешно завершена."))
@@ -1081,6 +1104,20 @@ class SecurityWindow(Adw.ApplicationWindow):
             self._log_to_console(_("--> ОШИБКА."))
             self.show_dialog_ok(f"{_('Ошибка')}: {resp.get('message')}")
 
+    def _reload_dbus_config(self):
+        """Пинаем чертов DBus, чтобы он нашел новые .service файлы.
+        Я два вечера убил, чтобы узнать почему на свежей системе 
+        не запускается софт установленный через Security Manager.
+        НО запускается из консоли wtf"""
+        try:
+            subprocess.run([
+                "dbus-send", "--session", "--print-reply", 
+                "--dest=org.freedesktop.DBus", 
+                "/org/freedesktop/DBus", 
+                "org.freedesktop.DBus.ReloadConfig"
+            ], check=False)
+        except Exception as e:
+            print(e)
 
     def show_dialog_ok(self, message):
         dialog = Adw.AlertDialog(heading=_("Информация"), body=message)
@@ -1099,6 +1136,7 @@ class SecurityWindow(Adw.ApplicationWindow):
         apps = self._get_selected_apps()
         if not apps:
             return self.show_dialog_ok(_("Выберите хотя бы одно приложение"))
+        
         
         repo_path = self.entry_repo_path.get_text()
         if not repo_path:
@@ -1159,9 +1197,8 @@ class SecurityManager(Adw.Application):
 if __name__ == "__main__":
     cfg = load_config_data()
     preferred_lang = cfg.get("language")
-    
-    load_resources()
-    
+
+    load_resources()    
     init_i18n(preferred_lang)
     
     app = SecurityManager()

@@ -135,7 +135,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
               <object class="AdwViewStackPage">
                 <property name="name">utils</property>
                 <property name="title" translatable="yes">Утилиты</property>
-                <property name="icon-name">tools-check-spelling-symbolic</property>
+                <property name="icon-name">wrench-wide-symbolic</property>
                 <property name="child">
                   <object class="AdwPreferencesPage">
                     <child>
@@ -338,7 +338,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
               <object class="AdwViewStackPage">
                 <property name="name">flatpak</property>
                 <property name="title">Flatpak</property>
-                <property name="icon-name">package-x-generic-symbolic</property>
+                <property name="icon-name">flatpak-symbolic</property>
                 <property name="child">
                   <object class="AdwPreferencesPage">
                     <child>
@@ -371,37 +371,37 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                           <object class="AdwExpanderRow">
                             <property name="title" translatable="yes">Интернет и общение</property>
                             <property name="subtitle">Chromium, Telegram, Discord...</property>
-                            <property name="icon-name">network-workgroup-symbolic</property>
+                            <property name="icon-name">chat-bubbles-empty-inverted-symbolic</property>
                             <property name="expanded">false</property>
                             <child>
                               <object class="AdwSwitchRow" id="chk_chromium">
                                 <property name="title">Chromium</property>
-                                <property name="icon-name">web-browser-symbolic</property>
+                                <property name="icon-name">chrome-bold-symbolic</property>
                               </object>
                             </child>
                             <child>
                               <object class="AdwSwitchRow" id="chk_firefox">
                                 <property name="title">Firefox</property>
-                                <property name="icon-name">web-browser-symbolic</property>
+                                <property name="icon-name">browser-firefox-symbolic</property>
                               </object>
                             </child>
                             <child>
                               <object class="AdwSwitchRow" id="chk_librewolf">
                                 <property name="title">Librewolf</property>
-                                <property name="icon-name">web-browser-symbolic</property>
+                                <property name="icon-name">librewolf-logo-symbolic</property>
                               </object>
                             </child>
                             <child>
                               <object class="AdwSwitchRow" id="chk_telegram">
                                 <property name="title">Telegram</property>
-                                <property name="icon-name">send-to-symbolic</property>
+                                <property name="icon-name">telegram-logo-symbolic</property>
                               </object>
                             </child>
                             <child>
                               <object class="AdwSwitchRow" id="chk_discord">
                                 <property name="title">Discord</property>
                                 <property name="subtitle" translatable="yes">Внимание: использует старую оконную систему (X11)</property>
-                                <property name="icon-name">call-start-symbolic</property>
+                                <property name="icon-name">discord-logo-symbolic</property>
                               </object>
                             </child>
                           </object>
@@ -410,7 +410,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                           <object class="AdwExpanderRow">
                             <property name="title" translatable="yes">Мультимедиа</property>
                             <property name="subtitle" translatable="yes">Просмотр видео, OBS Studio</property>
-                            <property name="icon-name">applications-multimedia-symbolic</property>
+                            <property name="icon-name">video-reel-symbolic</property>
                             <child>
                               <object class="AdwSwitchRow" id="chk_videoplayer">
                                 <property name="title">Видеопроигрыватель</property>
@@ -420,7 +420,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                             <child>
                               <object class="AdwSwitchRow" id="chk_obs">
                                 <property name="title">OBS Studio</property>
-                                <property name="icon-name">camera-video-symbolic</property>
+                                <property name="icon-name">obs-logo-symbolic</property>
                               </object>
                             </child>
                           </object>
@@ -429,18 +429,18 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                           <object class="AdwExpanderRow">
                             <property name="title" translatable="yes">Офис и работа</property>
                             <property name="subtitle">LibreOffice, OnlyOffice</property>
-                            <property name="icon-name">x-office-document-symbolic</property>
+                            <property name="icon-name">x-office-presentation-symbolic</property>
                             <child>
                               <object class="AdwSwitchRow" id="chk_libreoffice">
                                 <property name="title">LibreOffice</property>
-                                <property name="icon-name">x-office-spreadsheet-symbolic</property>
+                                <property name="icon-name">rich-text-symbolic</property>
                               </object>
                             </child>
                             <child>
                               <object class="AdwSwitchRow" id="chk_onlyoffice">
                                 <property name="title">OnlyOffice</property>
                                 <property name="subtitle" translatable="yes">Внимание: использует старую оконную систему (X11)</property>
-                                <property name="icon-name">x-office-document-symbolic</property>
+                                <property name="icon-name">onlyoffice-icon-symbolic</property>
                               </object>
                             </child>
                           </object>
@@ -454,25 +454,25 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                               <object class="AdwSwitchRow" id="chk_flatseal">
                                 <property name="title">Flatseal</property>
                                 <property name="subtitle" translatable="yes">Управление правами Flatpak</property>
-                                <property name="icon-name">emblem-system-symbolic</property>
+                                <property name="icon-name">flatseal-logo-symbolic</property>
                               </object>
                             </child>
                             <child>
                               <object class="AdwSwitchRow" id="chk_keepassxc">
                                 <property name="title">KeePassXC</property>
-                                <property name="icon-name">dialog-password-symbolic</property>
+                                <property name="icon-name">keepassxc-logo-symbolic</property>
                               </object>
                             </child>
                             <child>
                               <object class="AdwSwitchRow" id="chk_bitwarden">
                                 <property name="title">BitWarden</property>
-                                <property name="icon-name">dialog-password-symbolic</property>
+                                <property name="icon-name">bitwarden-logo-symbolic</property>
                               </object>
                             </child>
                             <child>
                               <object class="AdwSwitchRow" id="chk_qbittorrent">
                                 <property name="title">qBitTorrent</property>
-                                <property name="icon-name">folder-download-symbolic</property>
+                                <property name="icon-name">qbittorrent-logo-symbolic</property>
                               </object>
                             </child>
                           </object>

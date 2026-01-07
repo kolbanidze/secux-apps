@@ -120,7 +120,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
       Adw.ViewStackPage {
         name: "utils";
         title: _("Утилиты");
-        icon-name: "tools-check-spelling-symbolic";
+        icon-name: "wrench-wide-symbolic";
 
         child: Adw.PreferencesPage {
           Adw.PreferencesGroup luks_configure_group {
@@ -302,7 +302,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
       Adw.ViewStackPage {
         name: "flatpak";
         title: "Flatpak";
-        icon-name: "package-x-generic-symbolic";
+        icon-name: "flatpak-symbolic";
 
         child: Adw.PreferencesPage {
           Adw.PreferencesGroup {
@@ -334,33 +334,33 @@ template $SecurityWindow: Adw.ApplicationWindow {
             Adw.ExpanderRow {
               title: _("Интернет и общение");
               subtitle: "Chromium, Telegram, Discord...";
-              icon-name: "network-workgroup-symbolic";
+              icon-name: "chat-bubbles-empty-inverted-symbolic";
               expanded: false;
 
               Adw.SwitchRow chk_chromium {
                 title: "Chromium";
-                icon-name: "web-browser-symbolic";
+                icon-name: "chrome-bold-symbolic";
               }
 
               Adw.SwitchRow chk_firefox {
                 title: "Firefox";
-                icon-name: "web-browser-symbolic";
+                icon-name: "browser-firefox-symbolic";
               }
 
               Adw.SwitchRow chk_librewolf {
                 title: "Librewolf";
-                icon-name: "web-browser-symbolic";
+                icon-name: "librewolf-logo-symbolic";
               }
 
               Adw.SwitchRow chk_telegram {
                 title: "Telegram";
-                icon-name: "send-to-symbolic";
+                icon-name: "telegram-logo-symbolic";
               }
 
               Adw.SwitchRow chk_discord {
                 title: "Discord";
                 subtitle: _("Внимание: использует старую оконную систему (X11)");
-                icon-name: "call-start-symbolic";
+                icon-name: "discord-logo-symbolic";
               }
             }
 
@@ -368,7 +368,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
             Adw.ExpanderRow {
               title: _("Мультимедиа");
               subtitle: _("Просмотр видео, OBS Studio");
-              icon-name: "applications-multimedia-symbolic";
+              icon-name: "video-reel-symbolic";
 
               Adw.SwitchRow chk_videoplayer {
                 title: "Видеопроигрыватель";
@@ -377,7 +377,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
 
               Adw.SwitchRow chk_obs {
                 title: "OBS Studio";
-                icon-name: "camera-video-symbolic";
+                icon-name: "obs-logo-symbolic";
               }
             }
 
@@ -385,17 +385,17 @@ template $SecurityWindow: Adw.ApplicationWindow {
             Adw.ExpanderRow {
               title: _("Офис и работа");
               subtitle: "LibreOffice, OnlyOffice";
-              icon-name: "x-office-document-symbolic";
+              icon-name: "x-office-presentation-symbolic";
 
               Adw.SwitchRow chk_libreoffice {
                 title: "LibreOffice";
-                icon-name: "x-office-spreadsheet-symbolic";
+                icon-name: "rich-text-symbolic";
               }
 
               Adw.SwitchRow chk_onlyoffice {
                 title: "OnlyOffice";
                 subtitle: _("Внимание: использует старую оконную систему (X11)");
-                icon-name: "x-office-document-symbolic";
+                icon-name: "onlyoffice-icon-symbolic";
               }
             }
 
@@ -408,22 +408,22 @@ template $SecurityWindow: Adw.ApplicationWindow {
               Adw.SwitchRow chk_flatseal {
                 title: "Flatseal";
                 subtitle: _("Управление правами Flatpak");
-                icon-name: "emblem-system-symbolic";
+                icon-name: "flatseal-logo-symbolic";
               }
 
               Adw.SwitchRow chk_keepassxc {
                 title: "KeePassXC";
-                icon-name: "dialog-password-symbolic";
+                icon-name: "keepassxc-logo-symbolic";
               }
 
               Adw.SwitchRow chk_bitwarden {
                 title: "BitWarden";
-                icon-name: "dialog-password-symbolic";
+                icon-name: "bitwarden-logo-symbolic";
               }
 
               Adw.SwitchRow chk_qbittorrent {
                 title: "qBitTorrent";
-                icon-name: "folder-download-symbolic";
+                icon-name: "qbittorrent-logo-symbolic";
               }
             }
           }
