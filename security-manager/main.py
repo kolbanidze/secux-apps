@@ -11,7 +11,7 @@ import json
 from json import loads as json_decode
 from json import dumps as json_encode
 import io
-import qrcode 
+import qrcode.image.svg
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -19,7 +19,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.0.8"
+VERSION = "0.1.0"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -680,32 +680,36 @@ class TwoFaWindow(Adw.Window):
             self.send_toast(f"{_('Ошибка')}: {resp.get('message')}")
 
     def _render_qr(self, uri):
-        # Генерируем QR через библиотеку qrcode -> PIL Image -> Bytes -> GdkTexture
         try:
+            factory = qrcode.image.svg.SvgImage
             qr = qrcode.QRCode(box_size=10, border=1)
             qr.add_data(uri)
             qr.make(fit=True)
-            img = qr.make_image(fill_color="black", back_color="white")
+            img = qr.make_image(image_factory=factory)
             
             buf = io.BytesIO()
-            img.save(buf, format="PNG")
+            img.save(buf)
             buf.seek(0)
             b_data = GLib.Bytes.new(buf.read())
             
             stream = Gio.MemoryInputStream.new_from_bytes(b_data)
-            pixbuf = GdkPixbuf.Pixbuf.new_from_stream(stream, None)
-            
-            width = pixbuf.get_width()
-            height = pixbuf.get_height()
-            stride = pixbuf.get_rowstride()
-            has_alpha = pixbuf.get_has_alpha()
-            
-            pixel_bytes = pixbuf.read_pixel_bytes()
-            
-            # Определяем формат
-            format = Gdk.MemoryFormat.R8G8B8A8 if has_alpha else Gdk.MemoryFormat.R8G8B8
-            
-            texture = Gdk.MemoryTexture.new(width, height, format, pixel_bytes, stride)
+            qr_pixbuf = GdkPixbuf.Pixbuf.new_from_stream_at_scale(stream, 1024, 1024, True, None)
+            w = qr_pixbuf.get_width()
+            h = qr_pixbuf.get_height()
+            bg_pixbuf = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, False, 8, w, h)
+            bg_pixbuf.fill(0xFFFFFFFF) # Заливаем белым цветом
+
+            qr_pixbuf.composite(
+                bg_pixbuf, 
+                0, 0, w, h, 
+                0, 0, 1, 1, 
+                GdkPixbuf.InterpType.NEAREST, 
+                255
+            )
+
+            stride = bg_pixbuf.get_rowstride()
+            bytes_data = bg_pixbuf.read_pixel_bytes()
+            texture = Gdk.MemoryTexture.new(w, h, Gdk.MemoryFormat.R8G8B8, bytes_data, stride)
             
             self.qr_image.set_paintable(texture)
         except Exception as e:
