@@ -3,6 +3,11 @@
 
 В этом репозитории находится Security Manager - приложение для управления безопасностью Secux Linux. 
 
+<p align="center">
+    <img src="https://raw.githubusercontent.com/kolbanidze/secux-apps/refs/heads/main/welcome.png" width=384>
+</p>
+
+
 ## Установка
 
 Устанавливается по умолчанию (соответствующая галочка в [Secux Linux Installer](https://github.com/kolbanidze/secux-installer))
