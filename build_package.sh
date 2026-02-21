@@ -12,4 +12,4 @@ tar --exclude='.git' \
     -czvf security-manager.tar.gz security-manager/
 updpkgsums
 
-makepkg -f --sign
+makepkg -f --sign --key 6299E92E77AC4B098BB2F172A48097D18B638500
