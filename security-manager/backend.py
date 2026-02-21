@@ -182,6 +182,8 @@ def enroll_unified(params):
     luks_pass = params.get('luks_password')
     pin = params.get('pin')
     use_idp = params.get('use_idp')
+    use_decoy = params.get('use_decoy')
+    decoy_pin = params.get('decoy_pin')
 
     if not drive or not luks_pass:
         return reply("error", message=_("Отсутствует диск или пароль"))
@@ -191,7 +193,7 @@ def enroll_unified(params):
         try:
             with suppress_stdout():
                 from idp_enroll import EnrollIDP 
-                EnrollIDP(drive, luks_password=luks_pass.encode(), pin_code=pin.encode())
+                EnrollIDP(drive, luks_password=luks_pass.encode(), pin_code=pin.encode(), use_decoy=use_decoy, decoy_pin=decoy_pin.encode())
             
             if os.path.isfile(IDP_FILE):
                 return reply("success", message=_("TPM + IDP успешно настроен"))

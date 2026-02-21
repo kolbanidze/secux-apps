@@ -65,6 +65,25 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                         </child>
                       </object>
                     </child>
+                    <child>
+                      <object class="AdwExpanderRow" id="decoy_chk">
+                        <property name="title" translatable="yes">Ложный PIN-код</property>
+                        <property name="subtitle" translatable="yes">Безвозвратно уничтожает ключи шифрования</property>
+                        <property name="icon-name">hand-fist-none-symbolic</property>
+                        <property name="show-enable-switch">true</property>
+                        <property name="enable-expansion">false</property>
+                        <child>
+                          <object class="AdwPasswordEntryRow" id="entry_decoy">
+                            <property name="title" translatable="yes">Новый PIN</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="AdwPasswordEntryRow" id="entry_decoy_repeat">
+                            <property name="title" translatable="yes">Повторите PIN</property>
+                          </object>
+                        </child>
+                      </object>
+                    </child>
                   </object>
                 </child>
                 <child>

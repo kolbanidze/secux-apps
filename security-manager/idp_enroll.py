@@ -27,6 +27,8 @@ class EnrollIDP:
                  drive: str,
                  luks_password: bytes,
                  pin_code: bytes,
+                 use_decoy: bool,
+                 decoy_pin: bytes = None, 
                  pcrs: list = [0, 7, 8, 14],
                  boot_altered_pcr: int = 8,
                  time_cost: int = 6,
@@ -37,6 +39,10 @@ class EnrollIDP:
 
         # Пароль LUKS от зашифрованного диска
         self.luks_password: bytes = luks_password
+
+        # Decoy (ложный пин код)
+        self.use_decoy: bool = use_decoy
+        self.decoy_pin: bytes = decoy_pin
 
         # Новый PIN код
         self.pin_code: bytes = pin_code
@@ -263,8 +269,16 @@ class EnrollIDP:
         
         salt_A = secrets.token_bytes(32)
         salt_B = secrets.token_bytes(32)
+        decoy_salt = secrets.token_bytes(32)
+
+        if self.use_decoy:
+            decoy_pin = self.decoy_pin
+        else:
+            decoy_pin = secrets.token_bytes(32)
+        
         A_key = self.argon2id_hash(self.pin_code, salt_A)
         B_key = self.argon2id_hash(A_key+self.pin_code, salt_B)
+        decoy_key = self.argon2id_hash(decoy_pin, decoy_salt)
         address = self.get_free_address()
         
         cipher = AES.new(B_key, AES.MODE_GCM)
@@ -330,6 +344,8 @@ class EnrollIDP:
         json = {
             "salt_A": str(salt_A.hex()),
             "salt_B": str(salt_B.hex()),
+            "decoy_salt": str(decoy_salt.hex()),
+            "decoy_key": str(decoy_key.hex()),
             "time_cost": self.time_cost,
             "parallelism": self.parallelism,
             "memory_cost": self.memory_cost,

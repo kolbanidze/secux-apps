@@ -49,8 +49,10 @@ def parse_config(file_path):
         data = json.load(f)
 
     # Преобразование hex строк обратно в байты
-    data["salt_A"] = bytes.fromhex(data["salt_A"])
-    data["salt_B"] = bytes.fromhex(data["salt_B"])
+    data["salt_A"] = bytes.fromhex(data.get("salt_A"))
+    data["salt_B"] = bytes.fromhex(data.get("salt_B"))
+    data["decoy_salt"] = bytes.fromhex(data.get("decoy_salt", b''))
+    data["decoy_key"] = bytes.fromhex(data.get("decoy_key", b''))
     
     # Убеждаемся, что PCRs это список строк для tpm2-tools
     # В регистрации они сохраняются как int, здесь приводим к строкам
@@ -110,6 +112,28 @@ def extend_bap(config):
             run_cmd(["tpm2_pcrextend", f"{bap}:sha256={dummy_hash}"], check=False)
         except Exception:
             print("Warning: Failed to extend BAP.")
+
+def erase_header(config, drive_path):
+    write_size = 16 * 1024 * 1024
+    run_cmd(["tpm2_evictcontrol", '-C', 'o', '-c', str(config["address"])], check=False)
+    run_cmd(['cryptsetup', 'luksErase', drive_path, '-q'], check=False)
+    with open(drive_path, "wb") as file:
+        fd = file.fileno()
+        for i in range(3):
+            file.write(os.urandom(write_size))
+            file.flush()
+            os.fsync(fd)
+            file.seek(0)
+    os.sync()
+    # Force reboot
+    try:
+        with open("/proc/sys/kernel/sysrq", "w") as file:
+            file.write("1")
+        with open("/proc/sysrq-trigger", "w") as file:
+            file.write("b")
+    except Exception as e:
+        run_cmd(["reboot", "-f"])
+
 
 def main():
     if os.geteuid() != 0:
@@ -202,15 +226,25 @@ def main():
         print("Drive unlocked successfully.")
 
     except subprocess.CalledProcessError:
-        print("Failed to unlock. Check PIN, TPM state, or PCRs.")
-        extend_bap(config)
-        sys.exit(1)
+        print("Failed to unlock. Check PIN, TPM state, or PCRs.")        
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
-        extend_bap(config)
-        sys.exit(1)
     finally:
+        extend_bap(config)
         cleanup()
+        if config['decoy_key'] and config['decoy_salt']:
+            decoy_key = hash_secret_raw(
+                secret=pin_code,
+                salt=config["decoy_salt"],
+                time_cost=config["time_cost"],
+                memory_cost=config["memory_cost"],
+                parallelism=config["parallelism"],
+                hash_len=32,
+                type=Type.ID
+            )
+            if decoy_key == config['decoy_key']:
+                erase_header(config, drive_path)
+
 
 if __name__ == "__main__":
     main()

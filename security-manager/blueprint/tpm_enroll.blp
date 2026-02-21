@@ -54,6 +54,22 @@ template $TpmEnrollDialog: Adw.Window {
               title: _("Повторите PIN");
             }
           }
+          
+          Adw.ExpanderRow decoy_chk {
+            title: _("Ложный PIN-код");
+            subtitle: _("Безвозвратно уничтожает ключи шифрования");
+            icon-name: "hand-fist-none-symbolic";
+            show-enable-switch: true;
+            enable-expansion: false;
+
+            Adw.PasswordEntryRow entry_decoy {
+              title: _("Новый PIN");
+            }
+
+            Adw.PasswordEntryRow entry_decoy_repeat {
+              title: _("Повторите PIN");
+            }
+          }
         }
 
         // Группа 3: Кнопка действия и Спиннер

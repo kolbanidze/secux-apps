@@ -43,5 +43,6 @@
     <file alias="scalable/actions/view-conceal-symbolic.svg">icons/view-conceal-symbolic.svg</file>
     <file alias="scalable/actions/pan-end-symbolic.svg">icons/pan-end-symbolic.svg</file>
     <file alias="scalable/actions/pan-down-symbolic.svg">icons/pan-down-symbolic.svg</file>
+    <file alias="scalable/actions/hand-fist-none-symbolic.svg">icons/hand-fist-none-symbolic.svg</file>
   </gresource>
 </gresources>

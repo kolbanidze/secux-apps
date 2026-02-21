@@ -19,7 +19,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.1.1"
+VERSION = "0.1.6"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -329,6 +329,9 @@ class TpmEnrollDialog(Adw.Window):
     entry_pin_repeat = Gtk.Template.Child()
     btn_enroll = Gtk.Template.Child()
     spinner = Gtk.Template.Child()
+    decoy_chk = Gtk.Template.Child()
+    entry_decoy = Gtk.Template.Child()
+    entry_decoy_repeat = Gtk.Template.Child()
 
     def __init__(self, backend, drive, **kwargs):
         super().__init__(**kwargs)
@@ -336,6 +339,7 @@ class TpmEnrollDialog(Adw.Window):
         self.drive = drive
         self.btn_enroll.connect("clicked", self._on_enroll_clicked)
         self.idp_chk.connect("notify::active", self._on_idp_toggled)
+        self.decoy_chk.connect("notify::expanded", self._on_decoy_toggled)
 
     def _find_internal_switch(self, parent):
         child = parent.get_first_child()
@@ -353,6 +357,9 @@ class TpmEnrollDialog(Adw.Window):
             if pin_switch: pin_switch.set_sensitive(False)
         else:
             if pin_switch: pin_switch.set_sensitive(True)
+    
+    def _on_decoy_toggled(self, a, b):
+        self.idp_chk.set_active(True)
 
     def _set_loading(self, is_loading):
         if is_loading:
@@ -378,6 +385,9 @@ class TpmEnrollDialog(Adw.Window):
         use_pin = self.pin_chk.get_enable_expansion()
         pin = self.entry_pin.get_text()
         pin_rpt = self.entry_pin_repeat.get_text()
+        use_decoy = self.decoy_chk.get_enable_expansion()
+        decoy_pin = self.entry_decoy.get_text()
+        decoy_pin_rpt = self.entry_decoy_repeat.get_text()
         
         if not luks_pass:
             self.send_toast(_("Введите пароль от диска"))
@@ -392,17 +402,27 @@ class TpmEnrollDialog(Adw.Window):
                 self.send_toast(_("PIN коды не сходятся"))
                 return
         
+        if use_decoy:
+            if not decoy_pin or not decoy_pin_rpt:
+                self.send_toast(_("Введите PIN код"))
+                return
+            if decoy_pin != decoy_pin_rpt:
+                self.send_toast(_("PIN коды не сходятся"))
+                return
+        
         self._set_loading(True)
         threading.Thread(target=self._run_backend, 
-                         args=(luks_pass, pin if require_pin else None, use_idp), 
+                         args=(luks_pass, pin if require_pin else None, use_idp, use_decoy, decoy_pin), 
                          daemon=True).start()
 
-    def _run_backend(self, luks_pass, pin, use_idp):
+    def _run_backend(self, luks_pass, pin, use_idp, use_decoy, decoy_pin):
         response = self.backend.send_command("enroll_unified", {
             "drive": self.drive,
             "luks_password": luks_pass,
             "pin": pin,
-            "use_idp": use_idp
+            "use_idp": use_idp,
+            "use_decoy": use_decoy,
+            "decoy_pin": decoy_pin
         })
         GLib.idle_add(self._handle_result, response)
 
