@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.0.6\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-04 22:00+0300\n"
+"POT-Creation-Date: 2026-01-04 22:01+0300\n"
 "PO-Revision-Date: 2026-01-04 21:54+0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: English\n"
@@ -574,7 +574,8 @@ msgstr "Boot and Keys"
 msgid "Рекомендуется к использованию"
 msgstr "Recommended for use"
 
-#: ui/window.ui:60 ui/window.ui:82 ui/window.ui:97
+#: ui/window.ui:60 ui/window.ui:71 ui/window.ui:82 ui/window.ui:97
+#: ui/window.ui:108 ui/window.ui:144
 msgid "Неизвестно"
 msgstr "Unknown"
 

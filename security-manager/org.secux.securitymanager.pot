@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-01-04 22:01+0300\n"
+"POT-Creation-Date: 2026-02-22 03:01+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -25,406 +25,406 @@ msgstr ""
 msgid "Ошибка сохранения конфига"
 msgstr ""
 
-#: main.py:151
+#: main.py:154
 msgid "Ошибка backend.py"
 msgstr ""
 
-#: main.py:180
+#: main.py:183
 msgid "Ошибка коммуникации"
 msgstr ""
 
-#: main.py:226
+#: main.py:229
 msgid "Заполните все поля"
 msgstr ""
 
-#: main.py:229
+#: main.py:232
 msgid "Пароли не совпадают"
 msgstr ""
 
-#: main.py:246
+#: main.py:249
 msgid "Пароль успешно изменен!"
 msgstr ""
 
-#: main.py:249 main.py:307 main.py:412 main.py:469 main.py:509 main.py:639
-#: main.py:677 main.py:709 main.py:729 main.py:882 main.py:1024 main.py:1044
-#: main.py:1082 backend.py:201 backend.py:248 backend.py:555 backend.py:607
-#: backend.py:730
+#: main.py:252 main.py:310 main.py:435 main.py:492 main.py:532 main.py:662
+#: main.py:700 main.py:736 main.py:756 main.py:924 main.py:1069 main.py:1089
+#: main.py:1129 backend.py:203 backend.py:250 backend.py:557 backend.py:609
+#: backend.py:732
 msgid "Ошибка"
 msgstr ""
 
-#: main.py:288
+#: main.py:291
 msgid "Введите пароль"
 msgstr ""
 
-#: main.py:312
+#: main.py:315
 msgid "Скопировано"
 msgstr ""
 
-#: main.py:380
+#: main.py:393
 msgid "Введите пароль от диска"
 msgstr ""
 
-#: main.py:386
+#: main.py:399 main.py:407
 msgid "Введите PIN код"
 msgstr ""
 
-#: main.py:389
+#: main.py:402 main.py:410
 msgid "PIN коды не сходятся"
 msgstr ""
 
-#: main.py:409
+#: main.py:432
 msgid "Успешно!"
 msgstr ""
 
-#: main.py:449
+#: main.py:472
 msgid "Введите пароль или ключ"
 msgstr ""
 
-#: main.py:465
+#: main.py:488
 msgid "Успешно! Слот удален."
 msgstr ""
 
-#: main.py:516
+#: main.py:539
 msgid "Нет активных слотов (странно...)"
 msgstr ""
 
-#: main.py:521
+#: main.py:544
 msgid "Слот"
 msgstr ""
 
-#: main.py:576
+#: main.py:599
 msgid "Ошибка получения данных"
 msgstr ""
 
-#: main.py:598
+#: main.py:621
 msgid "активно"
 msgstr ""
 
-#: main.py:623
+#: main.py:646
 msgid "Секрет скрыт. Пересоздайте для отображения."
 msgstr ""
 
-#: main.py:666
+#: main.py:689
 msgid "Секрет: "
 msgstr ""
 
-#: main.py:666
+#: main.py:689
 msgid "Ключи восстановления:\n"
 msgstr ""
 
-#: main.py:675
+#: main.py:698
 msgid "2FA настроена!"
 msgstr ""
 
-#: main.py:710
+#: main.py:737
 msgid "Ошибка генерации QR кода"
 msgstr ""
 
-#: main.py:726
+#: main.py:753
 msgid "2FA удалена"
 msgstr ""
 
-#: main.py:734
+#: main.py:761
 msgid "Скрыто"
 msgstr ""
 
-#: main.py:811
+#: main.py:838
 msgid "Версия: "
 msgstr ""
 
-#: main.py:828
+#: main.py:870
 msgid "Не удалось получить права root. Функционал будет ограничен."
 msgstr ""
 
-#: main.py:868 main.py:974 main.py:980 main.py:986 main.py:1003 main.py:1028
+#: main.py:910 main.py:1019 main.py:1025 main.py:1031 main.py:1048 main.py:1073
 msgid "Backend не работает."
 msgstr ""
 
-#: main.py:869
+#: main.py:911
 msgid "Диск не определен"
 msgstr ""
 
-#: main.py:901
+#: main.py:943
 msgid "Настройки успешно сохранены"
 msgstr ""
 
-#: main.py:903
+#: main.py:945
 msgid "Для смены языка перезапустите приложение."
 msgstr ""
 
-#: main.py:907
+#: main.py:949
 msgid "Ошибка при сохранении файла конфигурации"
 msgstr ""
 
-#: main.py:936
+#: main.py:981
 msgid "Раздел LUKS не найден"
 msgstr ""
 
-#: main.py:939
+#: main.py:984
 msgid "Включен"
 msgstr ""
 
-#: main.py:939
+#: main.py:984
 msgid "Выключен"
 msgstr ""
 
-#: main.py:943 main.py:944
+#: main.py:988 main.py:989
 msgid "Да"
 msgstr ""
 
-#: main.py:943 main.py:944
+#: main.py:988 main.py:989
 msgid "Нет"
 msgstr ""
 
-#: main.py:951
+#: main.py:996
 msgid "Пароль"
 msgstr ""
 
-#: main.py:959 ui/window.ui:38
+#: main.py:1004 ui/window.ui:38
 msgid "Система защищена"
 msgstr ""
 
-#: main.py:960
+#: main.py:1005
 msgid "Secure Boot активен, задействованы механизмы TPM."
 msgstr ""
 
-#: main.py:966
+#: main.py:1011
 msgid "Система под угрозой"
 msgstr ""
 
-#: main.py:967
+#: main.py:1012
 msgid "Устройство уязвимо. Рекомендуется включить Secure Boot и настроить TPM."
 msgstr ""
 
-#: main.py:993
+#: main.py:1038
 msgid "Удалить TPM?"
 msgstr ""
 
-#: main.py:994
+#: main.py:1039
 msgid "Это сбросит ключи шифрования. Вам понадобится пароль."
 msgstr ""
 
-#: main.py:1022
+#: main.py:1067
 msgid "Успешно"
 msgstr ""
 
-#: main.py:1048
+#: main.py:1093
 msgid "Отмена"
 msgstr ""
 
-#: main.py:1049
+#: main.py:1094
 msgid "Выполнить"
 msgstr ""
 
-#: main.py:1078
+#: main.py:1125
 msgid "--> Операция успешно завершена."
 msgstr ""
 
-#: main.py:1079
+#: main.py:1126
 msgid "Готово!"
 msgstr ""
 
-#: main.py:1081
+#: main.py:1128
 msgid "--> ОШИБКА."
 msgstr ""
 
-#: main.py:1086
+#: main.py:1147
 msgid "Информация"
 msgstr ""
 
-#: main.py:1094
+#: main.py:1155
 msgid "офлайн"
 msgstr ""
 
-#: main.py:1096
+#: main.py:1157
 msgid "онлайн"
 msgstr ""
 
-#: main.py:1101 main.py:1117
+#: main.py:1162 main.py:1179
 msgid "Выберите хотя бы одно приложение"
 msgstr ""
 
-#: main.py:1105
+#: main.py:1167
 msgid "Для скачивания выберите путь к репозиторию в настройках"
 msgstr ""
 
-#: main.py:1107
+#: main.py:1169
 msgid "--> Инициализация скачивания в локальный репозиторий..."
 msgstr ""
 
-#: main.py:1123
+#: main.py:1185
 msgid "Для офлайн установки укажите путь к репозиторию"
 msgstr ""
 
-#: main.py:1126
+#: main.py:1188
 msgid "Начало установки"
 msgstr ""
 
-#: backend.py:187 backend.py:300
+#: backend.py:189 backend.py:302
 msgid "Отсутствует диск или пароль"
 msgstr ""
 
-#: backend.py:197
+#: backend.py:199
 msgid "TPM + IDP успешно настроен"
 msgstr ""
 
-#: backend.py:199
+#: backend.py:201
 msgid "Установка IDP завершена, но файл не был создан"
 msgstr ""
 
-#: backend.py:222
+#: backend.py:224
 msgid "Превышено время ожидания диска"
 msgstr ""
 
-#: backend.py:229
+#: backend.py:231
 msgid "Неверный пароль LUKS"
 msgstr ""
 
-#: backend.py:230
+#: backend.py:232
 msgid "Превышено время ожидания запроса PIN"
 msgstr ""
 
-#: backend.py:239
+#: backend.py:241
 msgid "Неверный пароль или PIN код"
 msgstr ""
 
-#: backend.py:243
+#: backend.py:245
 msgid "TPM успешно зарегистрирован"
 msgstr ""
 
-#: backend.py:245
+#: backend.py:247
 msgid "systemd-cryptenroll завершил работу с ошибкой"
 msgstr ""
 
-#: backend.py:253 backend.py:543
+#: backend.py:255 backend.py:545
 msgid "Диск не выбран"
 msgstr ""
 
-#: backend.py:292
+#: backend.py:294
 msgid "Ошибка очистки"
 msgstr ""
 
-#: backend.py:294
+#: backend.py:296
 msgid "TPM очищен"
 msgstr ""
 
-#: backend.py:309
+#: backend.py:311
 msgid "Неверный пароль"
 msgstr ""
 
-#: backend.py:319 backend.py:388
+#: backend.py:321 backend.py:390
 msgid "Отсутствует диск или ключ"
 msgstr ""
 
-#: backend.py:327
+#: backend.py:329
 msgid "Отсутствуют слоты LUKS"
 msgstr ""
 
-#: backend.py:338
+#: backend.py:340
 msgid "Соответствующий ключ не найден"
 msgstr ""
 
-#: backend.py:343
+#: backend.py:345
 msgid "Нельзя удалить единственный метод доступа!"
 msgstr ""
 
-#: backend.py:367
+#: backend.py:369
 msgid "Необходимо чтоб остался запасной ключ для разблокировки"
 msgstr ""
 
-#: backend.py:372
+#: backend.py:374
 msgid "Ошибка удаления слота"
 msgstr ""
 
-#: backend.py:379
+#: backend.py:381
 msgid "Пароль успешно удален"
 msgstr ""
 
-#: backend.py:394
+#: backend.py:396
 msgid "Не удалось запустить systemd-cryptenroll"
 msgstr ""
 
-#: backend.py:398
+#: backend.py:400
 msgid "Неверный текущий пароль"
 msgstr ""
 
-#: backend.py:399
+#: backend.py:401
 msgid "Превышено время ожидания"
 msgstr ""
 
-#: backend.py:407
+#: backend.py:409
 msgid "Пароль изменен"
 msgstr ""
 
-#: backend.py:409
+#: backend.py:411
 msgid "Не удалось изменить пароль"
 msgstr ""
 
-#: backend.py:480 backend.py:528
+#: backend.py:482 backend.py:530
 msgid "Пользователь не выбран"
 msgstr ""
 
-#: backend.py:534
+#: backend.py:536
 msgid "2FA удалена для пользователя"
 msgstr ""
 
-#: backend.py:538
+#: backend.py:540
 msgid "Регистрация не найдена"
 msgstr ""
 
-#: backend.py:567
+#: backend.py:569
 msgid "Пользовательский пароль"
 msgstr ""
 
-#: backend.py:582 ui/recovery_enroll.ui:10
+#: backend.py:584 ui/recovery_enroll.ui:10
 msgid "Ключ восстановления"
 msgstr ""
 
-#: backend.py:585
+#: backend.py:587
 msgid "FIDO2 токен"
 msgstr ""
 
-#: backend.py:621
+#: backend.py:623
 msgid "Нет приложений для обработки"
 msgstr ""
 
-#: backend.py:626
+#: backend.py:628
 msgid "Не указан путь к репозиторию"
 msgstr ""
 
-#: backend.py:634
+#: backend.py:636
 msgid "Скачивание завершено"
 msgstr ""
 
-#: backend.py:636
+#: backend.py:638
 msgid "Произошла ошибка при скачивании"
 msgstr ""
 
-#: backend.py:653
+#: backend.py:655
 msgid "Приложения успешно установлены"
 msgstr ""
 
-#: backend.py:655
+#: backend.py:657
 msgid "Что-то пошло не так"
 msgstr ""
 
-#: backend.py:668
+#: backend.py:670
 msgid "SKIP: Файл override не найден"
 msgstr ""
 
-#: backend.py:678
+#: backend.py:680
 msgid "OVERRIDE: Конфигурация обновлена для"
 msgstr ""
 
-#: backend.py:680
+#: backend.py:682
 msgid "OVERRIDE ERROR: Не удалось скопировать override"
 msgstr ""
 
-#: backend.py:696
+#: backend.py:698
 msgid "Ошибка JSON"
 msgstr ""
 
-#: backend.py:727
+#: backend.py:729
 msgid "Unknown command"
 msgstr ""
 
@@ -542,15 +542,23 @@ msgstr ""
 msgid "Требовать код при каждой загрузке"
 msgstr ""
 
-#: ui/tpm_enroll.ui:58
+#: ui/tpm_enroll.ui:58 ui/tpm_enroll.ui:77
 msgid "Новый PIN"
 msgstr ""
 
-#: ui/tpm_enroll.ui:63
+#: ui/tpm_enroll.ui:63 ui/tpm_enroll.ui:82
 msgid "Повторите PIN"
 msgstr ""
 
-#: ui/tpm_enroll.ui:88
+#: ui/tpm_enroll.ui:70
+msgid "Ложный PIN-код"
+msgstr ""
+
+#: ui/tpm_enroll.ui:71
+msgid "Безвозвратно уничтожает ключи шифрования"
+msgstr ""
+
+#: ui/tpm_enroll.ui:107
 msgid "Зарегистрировать в TPM"
 msgstr ""
 

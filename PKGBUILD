@@ -8,7 +8,7 @@ license=('MIT')
 depends=(python3 python-gobject gtk4 libadwaita python-pexpect python-qrcode tpm2-tools libpam-google-authenticator)
 makedepends=()
 source=("security-manager.tar.gz")
-sha256sums=('f27c97a1587ba6cb37b947437701a5e7be9042f32d376d99d27010cb52196bcc')
+sha256sums=('4296dd132823a2a86fd01006b85dbadb01878311e8fb9de584fd060afbe93d8a')
 options=('!strip' '!debug')
 
 package() {
