@@ -176,10 +176,11 @@ def main():
         
         # Reading blob (encrypted)
         decoy_address = config['decoy_address']
-        decoy_proccess = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{potential_decoy_key.hex()}', '-S', 'enc.session', '-o', '-', decoy_address], check=False)
+        decoy_proccess = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{potential_decoy_key.hex()}', '-S', 'enc.session', '-o-', decoy_address], check=False)
         if decoy_proccess.returncode == 0:
             erase_header(config, drive_path)
             sys.exit(0)
+        run_cmd(['tpm2_flushcontext', 'pol.session'])
 
         full_key = hash_secret_raw(
             secret=pin_code,
@@ -195,7 +196,11 @@ def main():
 
         # Getting blob (encrypted)
         blob_address = config['blob_address']
-        blob_process = run_cmd(['tpm2_nvread', '-P', f"session:pol.session+hex:{A_key.hex()}", '-S', "enc.session", '-o', '-', blob_address])
+        run_cmd(['tpm2_startauthsession', '--policy-session', '-S', 'pol.session'])
+        run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', f"sha256:{pcr_list_str}"])
+        run_cmd(['tpm2_policyauthvalue', '-S', 'pol.session'])
+
+        blob_process = run_cmd(['tpm2_nvread', '-P', f"session:pol.session+hex:{A_key.hex()}", '-S', "enc.session", '-o-', blob_address])
         blob = blob_process.stdout
 
         # blob structure: nonce (16) + tag (16) + ciphertext (64)
@@ -213,7 +218,7 @@ def main():
         secret_a = plaintext[:32]
         decoy_key = plaintext[32:]
 
-        decoy_proccess = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{decoy_key.hex()}', '-S', 'enc.session', '-o', '-', decoy_address])
+        decoy_proccess = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{decoy_key.hex()}', '-S', 'enc.session', '-o-', decoy_address])
         secret_b = decoy_proccess.stdout
         
         luks_secret = secret_a + secret_b
