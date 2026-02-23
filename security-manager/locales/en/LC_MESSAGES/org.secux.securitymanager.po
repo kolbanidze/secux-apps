@@ -555,7 +555,6 @@ msgid "Повторите PIN"
 msgstr "Repeat PIN"
 
 #: ui/tpm_enroll.ui:70
-#, fuzzy
 msgid "Ложный PIN-код"
 msgstr "Decoy PIN code"
 

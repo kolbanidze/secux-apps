@@ -3,25 +3,12 @@ import os
 import sys
 import subprocess
 import json
-
+from base64 import b64decode
 from Crypto.Cipher import AES
 from argon2.low_level import hash_secret_raw, Type
 
 IDP_FILE = "/etc/idp.json"
-PCRS_FILE = "pcrs.bin"
-SESSION_CTX = "session.ctx"
 WORK_DIR = "/tmp"
-
-def cleanup():
-    """Удаляет временные файлы сессии."""
-    files = [PCRS_FILE, SESSION_CTX]
-    for f in files:
-        path = os.path.join(WORK_DIR, f)
-        if os.path.exists(path):
-            try:
-                os.remove(path)
-            except OSError:
-                pass
 
 def run_cmd(cmd_list, input_data=None, capture_output=True, check=True):
     """Обертка для запуска системных команд."""
@@ -47,12 +34,6 @@ def parse_config(file_path):
 
     with open(file_path, "r") as f:
         data = json.load(f)
-
-    # Преобразование hex строк обратно в байты
-    data["salt_A"] = bytes.fromhex(data.get("salt_A"))
-    data["salt_B"] = bytes.fromhex(data.get("salt_B"))
-    data["decoy_salt"] = bytes.fromhex(data.get("decoy_salt", b''))
-    data["decoy_key"] = bytes.fromhex(data.get("decoy_key", b''))
     
     # Убеждаемся, что PCRs это список строк для tpm2-tools
     # В регистрации они сохраняются как int, здесь приводим к строкам
@@ -103,7 +84,7 @@ def get_pin(mapper_name):
 def extend_bap(config):
     """
     Расширяет Boot Altered PCR (BAP) случайным значением, 
-    чтобы предотвратить повторное использование сессии (Anti-replay).
+    чтобы предотвратить повторное использование сессии.
     """
     bap = config.get("boot_altered_pcr")
     if bap:
@@ -115,8 +96,12 @@ def extend_bap(config):
 
 def erase_header(config, drive_path):
     write_size = 16 * 1024 * 1024
-    run_cmd(["tpm2_evictcontrol", '-C', 'o', '-c', str(config["address"])], check=False)
+    run_cmd(['tpm2_evictcontrol', '-C', 'o', '-c', config['srk_address']], check=False)
+    run_cmd(['tpm2_nvundefine', config['decoy_address']], check=False)
+    run_cmd(['tpm2_nvundefine', config['blob_address']], check=False)
+    
     run_cmd(['cryptsetup', 'luksErase', drive_path, '-q'], check=False)
+
     with open(drive_path, "wb") as file:
         fd = file.fileno()
         for i in range(3):
@@ -125,6 +110,7 @@ def erase_header(config, drive_path):
             os.fsync(fd)
             file.seek(0)
     os.sync()
+
     # Force reboot
     try:
         with open("/proc/sys/kernel/sysrq", "w") as file:
@@ -141,77 +127,96 @@ def main():
         sys.exit(1)
 
     os.chdir(WORK_DIR)
-    
-    config = parse_config(IDP_FILE)
-    
-    uuid, mapper_name = get_luks_target()
-    
-    if not uuid:
-        print("Could not detect LUKS target from cmdline.")
-        sys.exit(1)
-        
-    drive_path = f"/dev/disk/by-uuid/{uuid}"
-
-    pin_code = get_pin(mapper_name)
-    if not pin_code:
-        print("PIN not provided.")
-        sys.exit(1)
+    config = None
 
     try:
-        A_key = hash_secret_raw(
-            secret=pin_code,
-            salt=config["salt_A"],
-            time_cost=config["time_cost"],
-            memory_cost=config["memory_cost"],
-            parallelism=config["parallelism"],
-            hash_len=32,
-            type=Type.ID
-        )
-
+        config = parse_config(IDP_FILE)
         pcr_list_str = ",".join(config["pcrs"])
-        run_cmd(["tpm2_pcrread", "-o", PCRS_FILE, f"sha256:{pcr_list_str}"])
-
-        run_cmd(["tpm2_startauthsession", "--policy-session", "-S", SESSION_CTX])
         
-        run_cmd(["tpm2_policypcr", "-S", SESSION_CTX, "-l", f"sha256:{pcr_list_str}", "-f", PCRS_FILE])
+        uuid, mapper_name = get_luks_target()
         
-        run_cmd(["tpm2_policyauthvalue", "-S", SESSION_CTX])
+        if not uuid:
+            print("Could not detect LUKS target from cmdline.")
+            sys.exit(1)
+            
+        drive_path = f"/dev/disk/by-uuid/{uuid}"
 
-        # Формат auth value: session:CTX + hex:A_KEY
-        auth_str = f"session:{SESSION_CTX}+hex:{A_key.hex()}"
+        salt = b64decode(config['salt'])
+        decoy_salt = b64decode(config['decoy_salt'])
+
+        expected_name = config['srk_name']
+        srk_address = config['srk_address']
+        # Encrypted session
+        with open("srk.name", "wb") as file:
+            file.write(bytes.fromhex(expected_name))
+
+        pin_code = get_pin(mapper_name)
+        if not pin_code:
+            print("PIN not provided.")
+            sys.exit(1)
         
-        unseal_proc = run_cmd(
-            ["tpm2_unseal", "-c", config["address"], "-p", auth_str],
-            capture_output=True
-        )
-        
-        unsealed_data = unseal_proc.stdout
+        # Encrypted session
+        run_cmd(['tpm2_startauthsession', '--hmac-session', '-c', srk_address, '-n', "srk.name", '-S', 'enc.session'])
 
-        run_cmd(["tpm2_flushcontext", SESSION_CTX], check=False)
-        
-        extend_bap(config)
+        # Policy session
+        run_cmd(['tpm2_startauthsession', '--policy-session', '-S', 'pol.session'])
+        run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', f"sha256:{pcr_list_str}"])
+        run_cmd(['tpm2_policyauthvalue', '-S', 'pol.session'])
 
-        # blob structure: nonce (16) + tag (16) + ciphertext
-        nonce = unsealed_data[:16]
-        tag = unsealed_data[16:32]
-        ciphertext = unsealed_data[32:]
-
-        B_key = hash_secret_raw(
-            secret=A_key + pin_code,
-            salt=config["salt_B"],
+        # Checking decoy first (to prevent potential timing attack)
+        potential_decoy_key = hash_secret_raw(
+            secret=pin_code,
+            salt=decoy_salt,
             time_cost=config["time_cost"],
             memory_cost=config["memory_cost"],
             parallelism=config["parallelism"],
             hash_len=32,
             type=Type.ID
         )
+        
+        # Reading blob (encrypted)
+        decoy_address = config['decoy_address']
+        decoy_proccess = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{potential_decoy_key.hex()}', '-S', 'enc.session', '-o', '-', decoy_address], check=False)
+        if decoy_proccess.returncode == 0:
+            erase_header(config, drive_path)
+            sys.exit(0)
+
+        full_key = hash_secret_raw(
+            secret=pin_code,
+            salt=salt,
+            time_cost=config['time_cost'],
+            memory_cost=config['memory_cost'],
+            parallelism=config['parallelism'],
+            hash_len=64,
+            type=Type.ID
+        )
+        A_key = full_key[:32]
+        B_key = full_key[32:]
+
+        # Getting blob (encrypted)
+        blob_address = config['blob_address']
+        blob_process = run_cmd(['tpm2_nvread', '-P', f"session:pol.session+hex:{A_key.hex()}", '-S', "enc.session", '-o', '-', blob_address])
+        blob = blob_process.stdout
+
+        # blob structure: nonce (16) + tag (16) + ciphertext (64)
+        nonce = blob[:16]
+        tag = blob[16:32]
+        ciphertext = blob[32:]
 
         cipher = AES.new(B_key, AES.MODE_GCM, nonce=nonce)
         try:
-            luks_secret = cipher.decrypt_and_verify(ciphertext, tag)
+            plaintext = cipher.decrypt_and_verify(ciphertext, tag)
         except ValueError:
             print("Decryption failed. Data integrity check failed (MAC mismatch).")
             sys.exit(1)
+
+        secret_a = plaintext[:32]
+        decoy_key = plaintext[32:]
+
+        decoy_proccess = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{decoy_key.hex()}', '-S', 'enc.session', '-o', '-', decoy_address])
+        secret_b = decoy_proccess.stdout
+        
+        luks_secret = secret_a + secret_b
 
         print(f"Unlocking {drive_path} (mapper: {mapper_name})...")
         
@@ -223,27 +228,16 @@ def main():
         ]
         
         run_cmd(crypt_cmd, input_data=luks_secret)
-        print("Drive unlocked successfully.")
-
+        print("Drive unlocked successfully.")    
     except subprocess.CalledProcessError:
-        print("Failed to unlock. Check PIN, TPM state, or PCRs.")        
+        print("Failed to unlock. Check PIN, TPM state, or PCRs.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
     finally:
-        extend_bap(config)
-        cleanup()
-        if config['decoy_key'] and config['decoy_salt']:
-            decoy_key = hash_secret_raw(
-                secret=pin_code,
-                salt=config["decoy_salt"],
-                time_cost=config["time_cost"],
-                memory_cost=config["memory_cost"],
-                parallelism=config["parallelism"],
-                hash_len=32,
-                type=Type.ID
-            )
-            if decoy_key == config['decoy_key']:
-                erase_header(config, drive_path)
+        if config:
+            extend_bap(config)
+        run_cmd(['tpm2_flushcontext', 'pol.session'], check=False)
+        run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
 
 
 if __name__ == "__main__":

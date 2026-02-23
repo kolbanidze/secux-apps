@@ -8,18 +8,12 @@ from json import loads as json_decode
 from json import dumps as json_encode
 from getpass import getpass
 from argon2.low_level import hash_secret_raw, Type
+from base64 import b64encode
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCKOUT_KEY_PATH = "/etc/lockout.key"
 PCRS_FILE = "pcrs.bin"
-PRIMARY_CTX = "primary.ctx"
-SESSION_CTX = "session.ctx"
 POLICY_DIGEST = "policy.digest"
-SEALED_PUB = "sealed.pub"
-SEALED_PRIV = "sealed.priv"
-SEALED_CTX = "sealed.ctx"
-BLOB_FILE = "blob.bin"
-OBJ_ATTRIBUTES = "fixedtpm|fixedparent|adminwithpolicy|userwithauth"
 IDP_FILE = "/etc/idp.json"
 
 class EnrollIDP:
@@ -81,7 +75,8 @@ class EnrollIDP:
         try:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 self.tmp_dir = tmp_dir
-
+                os.chdir(self.tmp_dir)
+                
                 self.prepare_tpm()
                 if self.check_if_already_enrolled():
                     print("ERROR: IDP was already enrolled.")
@@ -112,7 +107,7 @@ class EnrollIDP:
                 file.write(lockout_key)
             os.chown(LOCKOUT_KEY_PATH, 0, 0)
             os.chmod(LOCKOUT_KEY_PATH, 0o400)
-            subprocess.run(["tpm2_dictionarylockout", "-s", '-n', '31', '-l', '86400', '-t', '600', '-p', lockout_key], capture_output=True, check=True)
+            subprocess.run(["tpm2_dictionarylockout", "-s", '-n', '10', '-l', '86400', '-t', '600', '-p', lockout_key], capture_output=True, check=True)
             print(f"TPM authorization value was stored to {LOCKOUT_KEY_PATH}")
 
     def check_if_already_enrolled(self):
@@ -163,7 +158,7 @@ class EnrollIDP:
         with open("/etc/mkinitcpio.conf", "w") as file:
             file.write("\n".join(cont))
 
-    def _add_luks_key(self, secret: bytes) -> bool:
+    def _add_luks_key(self, secret: bytes) -> int:
         cmd = [
             "cryptsetup", "luksAddKey",
             "--pbkdf", "pbkdf2",
@@ -198,23 +193,14 @@ class EnrollIDP:
                 return keyslot_id
         return -128
 
-    def get_free_address(self):
-        process = subprocess.run(["tpm2_getcap", "handles-persistent"], capture_output=True, check=True)
-        enrolled_addresses = process.stdout.split(b'\n')[:-1]
-        enrolled_addresses = [i[2:].decode() for i in enrolled_addresses]
-        
-        for address in range(0x81000000, 0x817FFFFF):
-            if str(hex(address)) not in enrolled_addresses:
-                return str(hex(address))
-        return str(hex(0x81000000))
 
-    def argon2id_hash(self, secret: bytes, salt) -> bytes:
+    def argon2id_hash(self, secret: bytes, salt: bytes, hash_len: int) -> bytes:
         return hash_secret_raw(secret,
                                 salt,
                                 time_cost=self.time_cost,
                                 memory_cost=self.memory_cost,
                                 parallelism=self.parallelism,
-                                hash_len=32,
+                                hash_len=hash_len,
                                 type=Type.ID)
 
     def read_pcrs(self) -> list:
@@ -238,24 +224,41 @@ class EnrollIDP:
                 binding_pcrs.append(system_pcrs[pcr])
         return binding_pcrs
 
-    def run_cmd(self, command_list: list, input_data: bytes = None, show_output: bool = False) -> int:
-        """Выполняет команду. Возвращает return code (int)"""
+    def run_cmd(self, command_list: list, input_data: bytes = None, show_output: bool = False, return_output: bool = False) -> int|bytes:
+        """Выполняет команду. Возвращает return code (int) или stdout (bytes, флаг return_output)"""
 
         if show_output:
             print(f"Executing: '{' '.join(command_list)}'")
         
-        process = subprocess.run(command_list, input=input_data, capture_output=True)
+        process = subprocess.run(command_list, input=input_data, capture_output=True, check=return_output)
         if show_output:
             print(process.stdout)
             print(process.stderr)
             print(f"Return code: {process.returncode}")
+        
+        if return_output:
+            return process.stdout
+        
         return process.returncode
 
     def update_initcpio(self):
         self.run_cmd(['mkinitcpio', '-P'])
 
+    def get_free_persistent_address(self):
+        process = subprocess.run(["tpm2_getcap", "handles-persistent"], capture_output=True, check=True)
+        enrolled_addresses = process.stdout.split(b'\n')[:-1]
+        enrolled_addresses = [i[2:].decode() for i in enrolled_addresses]
+        
+        for address in range(0x81000000, 0x817FFFFF):
+            if str(hex(address)) not in enrolled_addresses:
+                return str(hex(address))
+        return str(hex(0x81000000))
+
+
     def build_and_enroll(self):
-        secret = secrets.token_bytes(32)
+        secret = secrets.token_bytes(64)
+        secret_a = secret[:32]
+        secret_b = secret[32:]
 
         if self._add_luks_key(secret) != 0:
             print(f"Failed to add LUKS keyfile")
@@ -266,92 +269,121 @@ class EnrollIDP:
         keyslot = self._find_luks_keyslot(secret)
         if keyslot == -128:
             print(f"Failed to find LUKS keyslot.")
+            return
         
-        salt_A = secrets.token_bytes(32)
-        salt_B = secrets.token_bytes(32)
+        salt = secrets.token_bytes(32)
         decoy_salt = secrets.token_bytes(32)
 
         if self.use_decoy:
-            decoy_pin = self.decoy_pin
+            decoy_key = self.argon2id_hash(self.decoy_pin, decoy_salt, 32)
         else:
-            decoy_pin = secrets.token_bytes(32)
+            decoy_key = secrets.token_bytes(32)
         
-        A_key = self.argon2id_hash(self.pin_code, salt_A)
-        B_key = self.argon2id_hash(A_key+self.pin_code, salt_B)
-        decoy_key = self.argon2id_hash(decoy_pin, decoy_salt)
-        address = self.get_free_address()
+        argon2_key = self.argon2id_hash(self.pin_code, salt, 64)
+        A_key = argon2_key[:32] # Auth value
+        B_key = argon2_key[32:] # Encryption
         
         cipher = AES.new(B_key, AES.MODE_GCM)
-        ciphertext, tag = cipher.encrypt_and_digest(secret)
+        ciphertext, tag = cipher.encrypt_and_digest(secret_a+decoy_key)
         nonce = cipher.nonce
-        blob = nonce + tag + ciphertext # 16/16/32
-
-        with open(BLOB_FILE, 'wb') as file:
-            file.write(blob)
+        blob = nonce + tag + ciphertext # 16 + 16 + 64 = 96
         
         pcr_table = self.build_pcrs()
         with open(PCRS_FILE, 'wb') as file:
             file.write(b"".join(pcr_table))
+
+        # Encrypted session registration
+        srk_random_salt = secrets.token_bytes(32)
+        if self.run_cmd(["tpm2_createprimary", "-C", "o", "-G", "ecc256:aes128cfb", "-g", "sha256", "-c", "srk.ctx", '-u', '-'], input_data=srk_random_salt) != 0:
+            print("Ошибка. Не удалось создать SRK для зашифрованной сессии.")
+            return
         
-        if self.run_cmd(["tpm2_createprimary", "-C", "o", 
-                         "-G", "ecc", "-g", "sha256", 
-                         "-c", PRIMARY_CTX]) != 0:
-            print("Ошибка. Не удалось создать первичный ключ в иерархии владельца TPM.")
+        persistent_handle = self.get_free_persistent_address()
+        if self.run_cmd(['tpm2_evictcontrol', '-C', 'o', '-c', "srk.ctx", persistent_handle]) != 0:
+            print("Ошибка. Не удалось сохранить SRK в nvram tpm.")
+            return
         
-        if self.run_cmd(["tpm2_startauthsession", "-S", SESSION_CTX]) != 0:
+        if self.run_cmd(["tpm2_readpublic", "-c", persistent_handle, "-n", "srk.name"]) != 0:
+            print("Ошибка. Не удалось прочитать SRK Name")
+            return
+
+        with open("srk.name", "rb") as f:
+            srk_name_hex = f.read().hex()
+        
+        # Trial session for sealing:
+        # Policy (PCR + auth value)        
+        if self.run_cmd(["tpm2_startauthsession", "-S", "trial.session"]) != 0:
             print("Ошибка. Не удалось запустить сессию.")
             return
         
-        if self.run_cmd(["tpm2_policypcr", "-S", SESSION_CTX, "-l", f"sha256:{','.join([str(i) for i in self.pcrs])}", "-f", PCRS_FILE]) != 0:
+        if self.run_cmd(["tpm2_policypcr", "-S", "trial.session", "-l", f"sha256:{','.join([str(i) for i in self.pcrs])}", "-f", PCRS_FILE]) != 0:
             print("Ошибка. Не удалось настроить политику PCR.")
-            self.run_cmd(["tpm2_flushcontext", SESSION_CTX])
+            self.run_cmd(["tpm2_flushcontext", "trial.session"])
             return
         
-        if self.run_cmd(["tpm2_policyauthvalue", '-S', SESSION_CTX]) != 0:
+        if self.run_cmd(["tpm2_policyauthvalue", '-S', "trial.session"]) != 0:
             print("Ошибка. Не удалось установить значение авторизации политики.")
-            self.run_cmd(["tpm2_flushcontext", SESSION_CTX])
+            self.run_cmd(["tpm2_flushcontext", "trial.session"])
             return
-            
-        if self.run_cmd(["tpm2_getpolicydigest", "-S", SESSION_CTX, "-o", POLICY_DIGEST]) != 0:
+                    
+        if self.run_cmd(["tpm2_getpolicydigest", "-S", "trial.session", "-o", "digest.policy"]) != 0:
             print("Ошибка. Не удалось получить дайджест политики.")
-            self.run_cmd(["tpm2_flushcontext", SESSION_CTX])
+            self.run_cmd(["tpm2_flushcontext", "trial.session"])
+            return
+        
+        self.run_cmd(["tpm2_flushcontext", "trial.session"])
+
+        # Creating nvindex for blob (allocating 96 bytes)
+        blob_nvindex = self.run_cmd(['tpm2_nvdefine', '-C', 'o', '-s', '96', 
+                                     '-a', 'policyread|authwrite', '-L', "digest.policy", '-p', f"hex:{A_key.hex()}"],
+                                     return_output=True)
+        if not blob_nvindex:
+            print("Ошибка записи в NVRAM TPM.")
+            return
+        blob_nvindex = blob_nvindex.decode().split(" ")[-1].strip()
+
+        # Creating nvindex for decoy secret (allocating 32 bytes)
+        decoy_nvindex = self.run_cmd(['tpm2_nvdefine', '-C', 'o', '-s', '32', 
+                                     '-a', 'policyread|authwrite', '-L', "digest.policy", '-p', f"hex:{decoy_key.hex()}"],
+                                     return_output=True)
+        if not decoy_nvindex:
+            print("Ошибка записи в NVRAM TPM.")
+            self.run_cmd(["tpm2_nvundefine", decoy_nvindex])
+            return
+        decoy_nvindex = decoy_nvindex.decode().split(" ")[-1].strip()
+
+        # Creating encrypted session
+        if self.run_cmd(["tpm2_startauthsession", "--hmac-session", "-S", "enc.session", 
+                         "-c", persistent_handle, "-n", "srk.name"]) != 0:
+            print("Ошибка. Не удалось запустить зашифрованную сессию.")
             return
 
-        if self.run_cmd(["tpm2_flushcontext", SESSION_CTX]) != 0:
-            print("Внимание. Не удалось очистить контекст сессии")
-
-        if self.run_cmd(["tpm2_create", "-C", PRIMARY_CTX,
-                        "-i", BLOB_FILE,
-                        "-L", POLICY_DIGEST,
-                        '-a', OBJ_ATTRIBUTES,
-                        '-p', 'file:-',
-                        '-u', SEALED_PUB,
-                        '-r', SEALED_PRIV], input_data=A_key) != 0:
-            print("Ошибка. Не удалось создать объект tpm.")
+        # Writing blob and decoy via encrypted session
+        if self.run_cmd(['tpm2_nvwrite', blob_nvindex, '-i-', '-S', "enc.session", '-P', f"hex:{A_key.hex()}"], input_data=blob) != 0:
+            print("Ошибка записи.")
+            self.run_cmd(['tpm2_nvundefine', blob_nvindex])
+            return
+        
+        if self.run_cmd(['tpm2_nvwrite', decoy_nvindex, '-i-', '-S', "enc.session", '-P', f"hex:{decoy_key.hex()}"], input_data=secret_b) != 0:
+            self.run_cmd(["tpm2_nvundefine", blob_nvindex])
+            self.run_cmd(["tpm2_nvundefine", decoy_nvindex])
+            print("Ошибка записи.")
             return
 
-        if self.run_cmd(["tpm2_load", "-C", PRIMARY_CTX,
-                        "-u", SEALED_PUB, "-r", SEALED_PRIV,
-                        "-c", SEALED_CTX]) != 0:
-            print("Ошибка. Не удалось загрузить объект в TPM.")
-            return
-
-        if self.run_cmd(["tpm2_evictcontrol", "-C", "o",
-                         "-c", SEALED_CTX, address]) != 0:
-            print("Ошибка. Не удалось сохранить объект в TPM.")
-            return
+        self.run_cmd(['tpm2_flushcontext', "enc.session"])
         
         json = {
-            "salt_A": str(salt_A.hex()),
-            "salt_B": str(salt_B.hex()),
-            "decoy_salt": str(decoy_salt.hex()),
-            "decoy_key": str(decoy_key.hex()),
             "time_cost": self.time_cost,
             "parallelism": self.parallelism,
             "memory_cost": self.memory_cost,
             "pcrs": self.pcrs,
             "boot_altered_pcr": self.boot_altered_pcr,
-            "address": address,
+            "srk_name": srk_name_hex,
+            "srk_address": persistent_handle,
+            "decoy_address": decoy_nvindex,
+            "blob_address": blob_nvindex,
+            "salt": b64encode(salt).decode(),
+            "decoy_salt": b64encode(decoy_salt).decode(),
             "key_slot": str(keyslot)
         }
         
@@ -372,4 +404,12 @@ if __name__ == "__main__":
     drive = input("Drive: ")
     luks_password = getpass("LUKS password: ").encode()
     pin = getpass("PIN: ").encode()
-    EnrollIDP(drive, luks_password=luks_password, pin_code=pin)
+    use_decoy = input("Do you want to use decoy pin? (y/n): ")
+    if use_decoy.lower().strip() == "y":
+        use_decoy = True
+    else:
+        use_decoy = False
+    decoy_pin = None
+    if use_decoy:
+        decoy_pin = getpass("Decoy PIN:").encode()    
+    EnrollIDP(drive, luks_password=luks_password, pin_code=pin, use_decoy=use_decoy, decoy_pin=decoy_pin)

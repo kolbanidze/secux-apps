@@ -1,5 +1,5 @@
 pkgname=secux-security-manager
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc="Security Manager"
 arch=('x86_64')
