@@ -1,5 +1,5 @@
 pkgname=secux-security-manager
-pkgver=0.3.2
+pkgver=0.3.3
 pkgrel=1
 pkgdesc="Security Manager"
 arch=('x86_64')
@@ -8,7 +8,7 @@ license=('MIT')
 depends=(python3 python-gobject gtk4 libadwaita python-pexpect python-qrcode tpm2-tools libpam-google-authenticator)
 makedepends=()
 source=("security-manager.tar.gz")
-sha256sums=('434af60bdbe5ccdf9744cfab33ebea95b9175c0667d3fada7891fd41112b2d20')
+sha256sums=('25020aa02c8a37ee0d51eb2c7e433c1c53a418ad076b90a609b012654822d36c')
 options=('!strip' '!debug')
 
 package() {

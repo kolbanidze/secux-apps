@@ -120,6 +120,15 @@ def erase_header(config, drive_path):
     except Exception as e:
         run_cmd(["reboot", "-f"])
 
+def create_session(srk_address, pcr_list_str):
+    # Encrypted session
+    run_cmd(['tpm2_startauthsession', '--hmac-session', '-c', srk_address, '-n', "srk.name", '-S', 'enc.session'])
+
+    # Policy session
+    run_cmd(['tpm2_startauthsession', '--policy-session', '-S', 'pol.session'])
+    run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', f"sha256:{pcr_list_str}"])
+    run_cmd(['tpm2_policyauthvalue', '-S', 'pol.session'])
+
 
 def main():
     if os.geteuid() != 0:
@@ -155,13 +164,7 @@ def main():
             print("PIN not provided.")
             sys.exit(1)
         
-        # Encrypted session
-        run_cmd(['tpm2_startauthsession', '--hmac-session', '-c', srk_address, '-n', "srk.name", '-S', 'enc.session'])
-
-        # Policy session
-        run_cmd(['tpm2_startauthsession', '--policy-session', '-S', 'pol.session'])
-        run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', f"sha256:{pcr_list_str}"])
-        run_cmd(['tpm2_policyauthvalue', '-S', 'pol.session'])
+        create_session(srk_address, pcr_list_str)
 
         # Checking decoy first (to prevent potential timing attack)
         potential_decoy_key = hash_secret_raw(
@@ -181,6 +184,7 @@ def main():
             erase_header(config, drive_path)
             sys.exit(0)
         run_cmd(['tpm2_flushcontext', 'pol.session'], check=False)
+        run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
 
         full_key = hash_secret_raw(
             secret=pin_code,
@@ -198,13 +202,7 @@ def main():
         blob_address = config['blob_address']
 
         # once again
-        # Encrypted session
-        run_cmd(['tpm2_startauthsession', '--hmac-session', '-c', srk_address, '-n', "srk.name", '-S', 'enc.session'])
-
-        # Policy session
-        run_cmd(['tpm2_startauthsession', '--policy-session', '-S', 'pol.session'])
-        run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', f"sha256:{pcr_list_str}"])
-        run_cmd(['tpm2_policyauthvalue', '-S', 'pol.session'])
+        create_session(srk_address, pcr_list_str)
 
         blob_process = run_cmd(['tpm2_nvread', '-P', f"session:pol.session+hex:{A_key.hex()}", '-S', "enc.session", blob_address])
         blob = blob_process.stdout
@@ -226,6 +224,10 @@ def main():
 
         secret_a = plaintext[:32]
         decoy_key = plaintext[32:]
+
+        run_cmd(['tpm2_flushcontext', 'pol.session'], check=False)
+        run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
+        create_session(srk_address, pcr_list_str)
 
         decoy_proccess = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{decoy_key.hex()}', '-S', 'enc.session', decoy_address])
         secret_b = decoy_proccess.stdout

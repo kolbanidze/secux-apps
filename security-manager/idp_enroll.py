@@ -107,7 +107,7 @@ class EnrollIDP:
                 file.write(lockout_key)
             os.chown(LOCKOUT_KEY_PATH, 0, 0)
             os.chmod(LOCKOUT_KEY_PATH, 0o400)
-            subprocess.run(["tpm2_dictionarylockout", "-s", '-n', '10', '-l', '86400', '-t', '600', '-p', lockout_key], capture_output=True, check=True)
+            subprocess.run(["tpm2_dictionarylockout", "-s", '-n', '31', '-l', '86400', '-t', '600', '-p', lockout_key], capture_output=True, check=True)
             print(f"TPM authorization value was stored to {LOCKOUT_KEY_PATH}")
 
     def check_if_already_enrolled(self):
