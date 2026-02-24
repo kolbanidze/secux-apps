@@ -19,7 +19,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.3.3"
+VERSION = "0.3.5"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -374,10 +374,14 @@ class TpmEnrollDialog(Adw.Window):
             self.sensitive_widgets(True)
 
     def sensitive_widgets(self, sensitive):
+        decoy_pin_switch = self._find_internal_switch(self.decoy_chk)
+        decoy_pin_switch.set_sensitive(sensitive)
         self.luks_password.set_sensitive(sensitive)
         self.entry_pin.set_sensitive(sensitive)
         self.entry_pin_repeat.set_sensitive(sensitive)
         self.idp_chk.set_sensitive(sensitive)
+        self.entry_decoy.set_sensitive(sensitive)
+        self.entry_decoy_repeat.set_sensitive(sensitive)
 
     def _on_enroll_clicked(self, button):
         luks_pass = self.luks_password.get_text()
@@ -409,6 +413,8 @@ class TpmEnrollDialog(Adw.Window):
             if decoy_pin != decoy_pin_rpt:
                 self.send_toast(_("PIN коды не сходятся"))
                 return
+            if decoy_pin == pin:
+                self.send_toast(_("Ложный PIN идентичен настоящему"))
         
         self._set_loading(True)
         threading.Thread(target=self._run_backend, 

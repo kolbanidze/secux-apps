@@ -266,12 +266,19 @@ def delete_tpm(params):
                 idp = json.load(f)
             
             key_slot = idp.get('key_slot')
-            addr = idp.get('address')
+            srk_address = idp.get('srk_address')
+            decoy_address = idp.get('decoy_address')
+            blob_address = idp.get('blob_address')
 
             if key_slot: 
                 run_cmd(["cryptsetup", 'luksKillSlot', drive, str(key_slot), '-q'], check=True)
-            if addr: 
-                run_cmd(["tpm2_evictcontrol", '-C', 'o', '-c', str(addr)], check=True)
+            if srk_address: 
+                run_cmd(["tpm2_evictcontrol", '-C', 'o', '-c', str(srk_address)], check=True)
+            if decoy_address:
+                run_cmd(['tpm2_nvundefine', str(decoy_address)], check=False)
+            if blob_address:
+                run_cmd(['tpm2_nvundefine', str(blob_address)], check=False)
+            
             os.remove(IDP_FILE)
 
             with open("/etc/mkinitcpio.conf", "r") as file:
