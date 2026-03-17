@@ -8,7 +8,7 @@ from Crypto.Cipher import AES
 from argon2.low_level import hash_secret_raw, Type
 
 IDP_FILE = "/etc/idp.json"
-WORK_DIR = "/tmp"
+WORK_DIR = "/run/idp-tpm-session"
 
 def run_cmd(cmd_list, input_data=None, capture_output=True, check=True):
     """Обертка для запуска системных команд."""
@@ -155,6 +155,8 @@ def main():
         print("This script must be run as root.")
         sys.exit(1)
 
+    os.makedirs(WORK_DIR, exist_ok=True)
+    run_cmd(["mount", "-t", "tmpfs", "-o", "size=1M,mode=0700", "tmpfs", WORK_DIR], check=False)
     os.chdir(WORK_DIR)
     config = None
 
