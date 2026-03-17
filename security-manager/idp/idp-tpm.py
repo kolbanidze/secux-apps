@@ -130,6 +130,26 @@ def create_session(srk_address, pcr_list_str):
     run_cmd(['tpm2_policyauthvalue', '-S', 'pol.session'])
 
 
+def warmup_ima():
+    """Функция 'прогрева' IMA, чтобы хеши исполняемых программ записались в PCR 10
+    и этот регистр больше не обнолвлялся в процессе распечатывания (unsealing).
+    Без 'прогрева' PCR 10 изменится и TPM откажет в выдаче ключей"""
+    executables = ['tpm2_nvread', 'tpm2_flushcontext', 'tpm2_startauthsession', 'tpm2_policypcr', 'tpm2_policyauthvalue']
+    
+    # Trying to execute argon2 for argon2.so
+    hash_secret_raw(
+        secret=b"ima_warmup",
+        salt=b"saltsaltsaltsalt",
+        time_cost=1,
+        memory_cost=8,
+        parallelism=1,
+        hash_len=16,
+        type=Type.ID
+    )
+
+    for app in executables:
+        subprocess.run([app, '-v'], check=False, capture_output=True)
+
 def main():
     if os.geteuid() != 0:
         print("This script must be run as root.")
@@ -137,6 +157,8 @@ def main():
 
     os.chdir(WORK_DIR)
     config = None
+
+    warmup_ima()
 
     try:
         config = parse_config(IDP_FILE)
