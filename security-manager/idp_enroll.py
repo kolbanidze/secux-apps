@@ -12,7 +12,6 @@ from base64 import b64encode
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCKOUT_KEY_PATH = "/etc/lockout.key"
-PCRS_FILE = "pcrs.bin"
 POLICY_DIGEST = "policy.digest"
 IDP_FILE = "/etc/idp.json"
 
@@ -23,8 +22,7 @@ class EnrollIDP:
                  pin_code: bytes,
                  use_decoy: bool,
                  decoy_pin: bytes = None, 
-                 pcrs: list = [0, 7, 8, 14],
-                 boot_altered_pcr: int = 8,
+                 pcrs: list = [0, 2, 7, 14],
                  time_cost: int = 6,
                  memory_cost: int = 1048576,
                  parallelism: int = 4) -> None:
@@ -42,12 +40,7 @@ class EnrollIDP:
         self.pin_code: bytes = pin_code
 
         # PCR, к которым будет привязана разблокировка диска
-        self.pcrs: list = pcrs
-        
-        # PCR, который будет расширен после загрузки IDP.
-        # Нужен в целях безопасности, чтобы нельзя было unseal после загрузки системы
-        # По умолчанию - 8. Пустой PCR в Secux Linux
-        self.boot_altered_pcr: int = boot_altered_pcr
+        self.pcrs: list = sorted(pcrs)
 
         # Параметры KDF Argon2id
         self.time_cost: int = time_cost
@@ -55,12 +48,6 @@ class EnrollIDP:
         self.parallelism: int = parallelism
 
         self.tmp_dir = None
-
-        # Если BAP (boot altered pcr) не был указан в PCRs, но он добавит его
-        # в порядке возрастания
-        if self.boot_altered_pcr not in self.pcrs:
-            self.pcrs.append(self.boot_altered_pcr)
-            self.pcrs.sort()
         
         self.enrollment_process()
 
@@ -210,20 +197,6 @@ class EnrollIDP:
         values = [bytes.fromhex(i[-64:].decode()) for i in values]
         return values
 
-
-    def build_pcrs(self) -> list:
-        """Создает список значений PCR для последующей привязки. 
-        Предполагается, что значения списка self.pcrs - отсортированы"""
-
-        system_pcrs = self.read_pcrs()
-        binding_pcrs = []
-        for pcr in self.pcrs:
-            if pcr == self.boot_altered_pcr:
-                binding_pcrs.append(b"\x00"*32)
-            else:
-                binding_pcrs.append(system_pcrs[pcr])
-        return binding_pcrs
-
     def run_cmd(self, command_list: list, input_data: bytes = None, show_output: bool = False, return_output: bool = False) -> int|bytes:
         """Выполняет команду. Возвращает return code (int) или stdout (bytes, флаг return_output)"""
 
@@ -288,10 +261,6 @@ class EnrollIDP:
         nonce = cipher.nonce
         blob = nonce + tag + ciphertext # 16 + 16 + 64 = 96
         
-        pcr_table = self.build_pcrs()
-        with open(PCRS_FILE, 'wb') as file:
-            file.write(b"".join(pcr_table))
-
         # Encrypted session registration
         srk_random_salt = secrets.token_bytes(32)
         if self.run_cmd(["tpm2_createprimary", "-C", "o", "-G", "ecc256:aes128cfb", "-g", "sha256", "-c", "srk.ctx", '-u', '-'], input_data=srk_random_salt) != 0:
@@ -311,27 +280,35 @@ class EnrollIDP:
             srk_name_hex = f.read().hex()
         
         # Trial session for sealing:
-        # Policy (PCR + auth value)        
-        if self.run_cmd(["tpm2_startauthsession", "-S", "trial.session"]) != 0:
+        # Policy (PCR + auth value)
+        if self.run_cmd(['tpm2_loadexternal', '-G', 'rsa', '-C', 'o', '-u', '/etc/kernel/pcr-initrd.pub.pem', '-c', 'pub.ctx', '-n', 'pub.name']) != 0:
+            print("Не удалось загрузить публичный ключ для политики подписи PRC")
+            return
+    
+        if self.run_cmd(["tpm2_startauthsession", "-S", "pol.session"]) != 0:
             print("Ошибка. Не удалось запустить сессию.")
             return
         
-        if self.run_cmd(["tpm2_policypcr", "-S", "trial.session", "-l", f"sha256:{','.join([str(i) for i in self.pcrs])}", "-f", PCRS_FILE]) != 0:
+        if self.run_cmd(['tpm2_policyauthorize', '-S', 'pol.session', '-n', 'pub.name']) != 0:
+            print("Ошибка. Не удалось настроить политику подписи.")
+            return
+
+        if self.run_cmd(["tpm2_policypcr", "-S", "pol.session", "-l", f"sha256:{','.join([str(i) for i in self.pcrs])}"]) != 0:
             print("Ошибка. Не удалось настроить политику PCR.")
-            self.run_cmd(["tpm2_flushcontext", "trial.session"])
+            self.run_cmd(["tpm2_flushcontext", "pol.session"])
             return
         
-        if self.run_cmd(["tpm2_policyauthvalue", '-S', "trial.session"]) != 0:
+        if self.run_cmd(["tpm2_policyauthvalue", '-S', "pol.session"]) != 0:
             print("Ошибка. Не удалось установить значение авторизации политики.")
-            self.run_cmd(["tpm2_flushcontext", "trial.session"])
+            self.run_cmd(["tpm2_flushcontext", "pol.session"])
             return
                     
-        if self.run_cmd(["tpm2_getpolicydigest", "-S", "trial.session", "-o", "digest.policy"]) != 0:
+        if self.run_cmd(["tpm2_getpolicydigest", "-S", "pol.session", "-o", "digest.policy"]) != 0:
             print("Ошибка. Не удалось получить дайджест политики.")
-            self.run_cmd(["tpm2_flushcontext", "trial.session"])
+            self.run_cmd(["tpm2_flushcontext", "pol.session"])
             return
         
-        self.run_cmd(["tpm2_flushcontext", "trial.session"])
+        self.run_cmd(["tpm2_flushcontext", "pol.session"])
 
         # Creating nvindex for blob (allocating 96 bytes)
         blob_nvindex = self.run_cmd(['tpm2_nvdefine', '-C', 'o', '-s', '96', 
@@ -377,7 +354,6 @@ class EnrollIDP:
             "parallelism": self.parallelism,
             "memory_cost": self.memory_cost,
             "pcrs": self.pcrs,
-            "boot_altered_pcr": self.boot_altered_pcr,
             "srk_name": srk_name_hex,
             "srk_address": persistent_handle,
             "decoy_address": decoy_nvindex,

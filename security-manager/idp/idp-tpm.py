@@ -6,6 +6,7 @@ import json
 from base64 import b64decode
 from Crypto.Cipher import AES
 from argon2.low_level import hash_secret_raw, Type
+from hashlib import sha256
 
 IDP_FILE = "/etc/idp.json"
 WORK_DIR = "/run/idp-tpm-session"
@@ -81,18 +82,42 @@ def get_pin(mapper_name):
     import getpass
     return getpass.getpass(f"{prompt} ").encode()
 
-def extend_bap(config):
-    """
-    Расширяет Boot Altered PCR (BAP) случайным значением, 
-    чтобы предотвратить повторное использование сессии.
-    """
-    bap = config.get("boot_altered_pcr")
-    if bap:
-        dummy_hash = "F5EA5AD9715B57E215DC9082F836A87AF74BAB13BDED5A9915EE0CDFA9101743"
-        try:
-            run_cmd(["tpm2_pcrextend", f"{bap}:sha256={dummy_hash}"], check=False)
-        except Exception:
-            print("Warning: Failed to extend BAP.")
+def extract_systemd_signature():
+    sig_file = "/run/systemd/tpm2-pcr-signature.json"
+    if not os.path.exists(sig_file):
+        print(f"Signature file {sig_file} not found! Is systemd-pcrphase enabled?")
+        sys.exit(1)
+        
+    with open(sig_file, "r") as f:  
+        data = json.load(f)
+    
+    try:
+        sha256_sigs = data.get("sha256", [])
+        if not sha256_sigs:
+            print("No sha256 signatures found in systemd JSON")
+            sys.exit(1)
+            
+        target = sha256_sigs[0]
+        
+        raw_sig = b64decode(target["sig"])
+        with open("sig.bin", "wb") as f:
+            f.write(raw_sig)
+            
+        raw_pol = bytes.fromhex(target["pol"])
+        with open("pcr11.policy", "wb") as f:
+            f.write(raw_pol)
+        with open("pcr11.digest", "wb") as f:
+            f.write(sha256(raw_pol).digest())
+            
+        # озвращаем список подписанных PCR (по умолчанию только PCR 11)
+        return ",".join(str(p) for p in target["pcrs"])
+    except KeyError as e:
+        print(f"Missing expected key in systemd signature JSON: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Failed to parse systemd PCR signature: {e}")
+        sys.exit(1)
+
 
 def erase_header(config, drive_path):
     write_size = 16 * 1024 * 1024
@@ -120,13 +145,21 @@ def erase_header(config, drive_path):
     except Exception as e:
         run_cmd(["reboot", "-f"])
 
-def create_session(srk_address, pcr_list_str):
+def create_session(srk_address, signed_pcrs, static_pcrs):
     # Encrypted session
     run_cmd(['tpm2_startauthsession', '--hmac-session', '-c', srk_address, '-n', "srk.name", '-S', 'enc.session'])
 
     # Policy session
     run_cmd(['tpm2_startauthsession', '--policy-session', '-S', 'pol.session'])
-    run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', f"sha256:{pcr_list_str}"])
+
+    # PCR Sign policy (PCR11)
+    run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', f"sha256:{signed_pcrs}"])
+    run_cmd(['tpm2_policyauthorize', '-S', 'pol.session', '-i', 'pcr11.policy', '-n', 'pub.name', '-t', 'ticket.bin'])
+    
+    # Static PCRs: 0, 2, 7, 14
+    run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', f"sha256:{static_pcrs}"])
+    
+    # Require PIN
     run_cmd(['tpm2_policyauthvalue', '-S', 'pol.session'])
 
 
@@ -134,7 +167,8 @@ def warmup_ima():
     """Функция 'прогрева' IMA, чтобы хеши исполняемых программ записались в PCR 10
     и этот регистр больше не обнолвлялся в процессе распечатывания (unsealing).
     Без 'прогрева' PCR 10 изменится и TPM откажет в выдаче ключей"""
-    executables = ['tpm2_nvread', 'tpm2_flushcontext', 'tpm2_startauthsession', 'tpm2_policypcr', 'tpm2_policyauthvalue']
+    executables = ['tpm2_nvread', 'tpm2_flushcontext', 'tpm2_startauthsession', 'tpm2_policypcr', 'tpm2_policyauthvalue', 'tpm2_loadexternal',
+                   'tpm2_verifysignature', 'tpm2_policyauthorize']
     
     # Trying to execute argon2 for argon2.so
     hash_secret_raw(
@@ -154,10 +188,19 @@ def main():
     if os.geteuid() != 0:
         print("This script must be run as root.")
         sys.exit(1)
-
+    
     os.makedirs(WORK_DIR, exist_ok=True)
     run_cmd(["mount", "-t", "tmpfs", "-o", "size=1M,mode=0700", "tmpfs", WORK_DIR], check=False)
     os.chdir(WORK_DIR)
+
+    signed_pcrs = extract_systemd_signature()
+    pubkey_path = "/run/systemd/tpm2-pcr-public-key.pem"
+    # Загружаем публичный ключ для подписи в контекст TPM
+    run_cmd(['tpm2_loadexternal', '-G', 'rsa2048', '-C', 'o', '-u', pubkey_path, '-c', 'pub.ctx', '-n', 'pub.name'])
+    
+    # Проверяем подпись и генерируем тикет
+    run_cmd(['tpm2_verifysignature', '-c', 'pub.ctx', '-d', 'pcr11.digest', '-f', 'rsassa', '-s', 'sig.bin', '-t', 'ticket.bin'])
+
     config = None
 
     warmup_ima()
@@ -188,7 +231,7 @@ def main():
             print("PIN not provided.")
             sys.exit(1)
         
-        create_session(srk_address, pcr_list_str)
+        create_session(srk_address, signed_pcrs, pcr_list_str)
 
         # Checking decoy first (to prevent potential timing attack)
         potential_decoy_key = hash_secret_raw(
@@ -226,7 +269,7 @@ def main():
         blob_address = config['blob_address']
 
         # once again
-        create_session(srk_address, pcr_list_str)
+        create_session(srk_address, signed_pcrs, pcr_list_str)
 
         blob_process = run_cmd(['tpm2_nvread', '-P', f"session:pol.session+hex:{A_key.hex()}", '-S', "enc.session", blob_address])
         blob = blob_process.stdout
@@ -251,7 +294,7 @@ def main():
 
         run_cmd(['tpm2_flushcontext', 'pol.session'], check=False)
         run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
-        create_session(srk_address, pcr_list_str)
+        create_session(srk_address, signed_pcrs, pcr_list_str)
 
         decoy_proccess = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{decoy_key.hex()}', '-S', 'enc.session', decoy_address])
         secret_b = decoy_proccess.stdout
@@ -277,8 +320,6 @@ def main():
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
     finally:
-        if config:
-            extend_bap(config)
         run_cmd(['tpm2_flushcontext', 'pol.session'], check=False)
         run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
 

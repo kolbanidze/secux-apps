@@ -15,6 +15,9 @@ build() {
     add_binary /usr/bin/tpm2_evictcontrol
     add_binary /usr/bin/tpm2_nvundefine
     add_binary /usr/bin/tpm2_nvread
+    add_binary /usr/bin/tpm2_loadexternal
+    add_binary /usr/bin/tpm2_verifysignature
+    add_binary /usr/bin/tpm2_policyauthorize
     add_binary /usr/lib/libargon2.so
     add_binary /usr/lib/libargon2.so.1
     add_binary /usr/bin/systemd-ask-password
