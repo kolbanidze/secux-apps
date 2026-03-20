@@ -12,6 +12,7 @@ from base64 import b64encode
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCKOUT_KEY_PATH = "/etc/lockout.key"
+ARB_KEY_PATH = "/etc/arb.key"
 POLICY_DIGEST = "policy.digest"
 IDP_FILE = "/etc/idp.json"
 
@@ -246,6 +247,11 @@ class EnrollIDP:
         
         salt = secrets.token_bytes(32)
         decoy_salt = secrets.token_bytes(32)
+        arb_key = secrets.token_bytes(32)
+        with open(ARB_KEY_PATH, "wb") as file:
+            file.write(arb_key)
+        os.chown(ARB_KEY_PATH, 0, 0)
+        os.chmod(ARB_KEY_PATH, 0o400)
 
         if self.use_decoy:
             decoy_key = self.argon2id_hash(self.decoy_pin, decoy_salt, 32)
@@ -310,6 +316,19 @@ class EnrollIDP:
         
         self.run_cmd(["tpm2_flushcontext", "pol.session"])
 
+        arb_nvindex = self.run_cmd(['tpm2_nvdefine', '-C', 'o', '-s', '8', 
+                                     '-a', 'nt=counter|ownerread|authwrite', '-p', f"hex:{arb_key.hex()}"],
+                                     return_output=True)
+        if not arb_nvindex:
+            print("Ошибка создания счетчика в NVRAM TPM.")
+            return
+        arb_nvindex = arb_nvindex.decode().split(" ")[-1].strip()
+        increment_status = self.run_cmd(['tpm2_nvincrement', arb_nvindex, '-P', f"hex:{arb_key.hex()}"])
+        if increment_status != 0:
+            print("Не удалось инициализировать счетчик ARB.")
+            return
+        arb_counter_value = self.run_cmd(['tpm2_nvread', arb_nvindex, '-C', 'o', '--size', '8'], return_output=True).hex()
+
         # Creating nvindex for blob (allocating 96 bytes)
         blob_nvindex = self.run_cmd(['tpm2_nvdefine', '-C', 'o', '-s', '96', 
                                      '-a', 'policyread|authwrite', '-L', "digest.policy", '-p', f"hex:{A_key.hex()}"],
@@ -354,6 +373,8 @@ class EnrollIDP:
             "parallelism": self.parallelism,
             "memory_cost": self.memory_cost,
             "pcrs": self.pcrs,
+            "arb_index": arb_nvindex,
+            "arb_counter": arb_counter_value,
             "srk_name": srk_name_hex,
             "srk_address": persistent_handle,
             "decoy_address": decoy_nvindex,

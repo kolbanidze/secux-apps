@@ -10,6 +10,7 @@ from hashlib import sha256
 
 IDP_FILE = "/etc/idp.json"
 WORK_DIR = "/run/idp-tpm-session"
+plymouth_available = False
 
 def run_cmd(cmd_list, input_data=None, capture_output=True, check=True):
     """Обертка для запуска системных команд."""
@@ -23,14 +24,14 @@ def run_cmd(cmd_list, input_data=None, capture_output=True, check=True):
         return process
     except subprocess.CalledProcessError as e:
         if capture_output and e.stderr:
-            print(f"Error executing command: {cmd_list[0]}...")
-            print("STDERR:", e.stderr.decode())
+            display_error_message(f"Error executing command: {cmd_list[0]}...")
+            display_error_message("STDERR:", e.stderr.decode())
         raise e
 
 def parse_config(file_path):
     """Читает и валидирует конфигурационный файл."""
     if not os.path.exists(file_path):
-        print(f"Config file {file_path} not found.")
+        display_error_message(f"Config file {file_path} not found.")
         sys.exit(1)
 
     with open(file_path, "r") as f:
@@ -60,7 +61,7 @@ def get_luks_target():
                     map_name = parts[2]
                     return luks_uuid, map_name
     except Exception as e:
-        print(f"Warning: Could not parse /proc/cmdline: {e}")
+        display_error_message(f"Warning: Could not parse /proc/cmdline: {e}")
 
     return None, None
 
@@ -82,10 +83,26 @@ def get_pin(mapper_name):
     import getpass
     return getpass.getpass(f"{prompt} ").encode()
 
+def get_plymouth_status():
+    try:
+        result = subprocess.run(["plymouth", "--ping"], capture_output=True, timeout=2)
+        return result.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+def display_error_message(msg):
+    print(msg, file=sys.stderr)
+    if plymouth_available:
+        subprocess.run(["plymouth", "display-message", "--text", msg], check=False)
+
+def hide_message(msg):
+    if plymouth_available:
+        subprocess.run(["plymouth", "hide-message", "--text", msg], check=False)
+
 def extract_systemd_signature():
     sig_file = "/run/systemd/tpm2-pcr-signature.json"
     if not os.path.exists(sig_file):
-        print(f"Signature file {sig_file} not found! Is systemd-pcrphase enabled?")
+        display_error_message(f"Signature file {sig_file} not found! Is systemd-pcrphase enabled?")
         sys.exit(1)
         
     with open(sig_file, "r") as f:  
@@ -94,7 +111,7 @@ def extract_systemd_signature():
     try:
         sha256_sigs = data.get("sha256", [])
         if not sha256_sigs:
-            print("No sha256 signatures found in systemd JSON")
+            display_error_message("No sha256 signatures found in systemd JSON")
             sys.exit(1)
             
         target = sha256_sigs[0]
@@ -109,21 +126,24 @@ def extract_systemd_signature():
         with open("pcr11.digest", "wb") as f:
             f.write(sha256(raw_pol).digest())
             
-        # озвращаем список подписанных PCR (по умолчанию только PCR 11)
+        # возвращаем список подписанных PCR (по умолчанию только PCR 11)
         return ",".join(str(p) for p in target["pcrs"])
     except KeyError as e:
-        print(f"Missing expected key in systemd signature JSON: {e}")
+        display_error_message(f"Missing expected key in systemd signature JSON: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"Failed to parse systemd PCR signature: {e}")
+        display_error_message(f"Failed to parse systemd PCR signature: {e}")
         sys.exit(1)
 
 
 def erase_header(config, drive_path):
     write_size = 16 * 1024 * 1024
-    run_cmd(['tpm2_evictcontrol', '-C', 'o', '-c', config['srk_address']], check=False)
-    run_cmd(['tpm2_nvundefine', config['decoy_address']], check=False)
-    run_cmd(['tpm2_nvundefine', config['blob_address']], check=False)
+    if config.get('srk_address'):
+        run_cmd(['tpm2_evictcontrol', '-C', 'o', '-c', config["srk_address"]], check=False)
+    if config.get('decoy_address'):
+        run_cmd(['tpm2_nvundefine', config['decoy_address']], check=False)
+    if config.get('blob_address'):
+        run_cmd(['tpm2_nvundefine', config['blob_address']], check=False)
     
     run_cmd(['cryptsetup', 'luksErase', drive_path, '-q'], check=False)
 
@@ -147,6 +167,13 @@ def erase_header(config, drive_path):
 
 def create_session(srk_address, signed_pcrs, static_pcrs):
     # Encrypted session
+    # from man tpm2_startauthsession:
+    #  * **-c**, **\--key-context**=_OBJECT_:
+    # Set the tpmkey and bind objects to be the same.
+    # Session parameter encryption is turned on.
+    # Session parameter decryption is turned on.
+    # Parameter encryption/decryption symmetric-key set to AES-CFB.
+
     run_cmd(['tpm2_startauthsession', '--hmac-session', '-c', srk_address, '-n', "srk.name", '-S', 'enc.session'])
 
     # Policy session
@@ -168,7 +195,7 @@ def warmup_ima():
     и этот регистр больше не обнолвлялся в процессе распечатывания (unsealing).
     Без 'прогрева' PCR 10 изменится и TPM откажет в выдаче ключей"""
     executables = ['tpm2_nvread', 'tpm2_flushcontext', 'tpm2_startauthsession', 'tpm2_policypcr', 'tpm2_policyauthvalue', 'tpm2_loadexternal',
-                   'tpm2_verifysignature', 'tpm2_policyauthorize']
+                   'tpm2_verifysignature', 'tpm2_policyauthorize', 'systemd-ask-password', 'plymouth']
     
     # Trying to execute argon2 for argon2.so
     hash_secret_raw(
@@ -185,34 +212,40 @@ def warmup_ima():
         subprocess.run([app, '-v'], check=False, capture_output=True)
 
 def main():
+    global plymouth_available
+    plymouth_available = get_plymouth_status()
+
     if os.geteuid() != 0:
-        print("This script must be run as root.")
+        display_error_message("This script must be run as root.")
         sys.exit(1)
     
     os.makedirs(WORK_DIR, exist_ok=True)
-    run_cmd(["mount", "-t", "tmpfs", "-o", "size=1M,mode=0700", "tmpfs", WORK_DIR], check=False)
+    result = run_cmd(["mount", "-t", "tmpfs", "-o", "size=1M,mode=0700", "tmpfs", WORK_DIR], check=False)
+    if result.returncode != 0:
+        display_error_message("Failed to mount tmpfs.")
+        sys.exit(1)
     os.chdir(WORK_DIR)
 
-    signed_pcrs = extract_systemd_signature()
-    pubkey_path = "/run/systemd/tpm2-pcr-public-key.pem"
-    # Загружаем публичный ключ для подписи в контекст TPM
-    run_cmd(['tpm2_loadexternal', '-G', 'rsa2048', '-C', 'o', '-u', pubkey_path, '-c', 'pub.ctx', '-n', 'pub.name'])
-    
-    # Проверяем подпись и генерируем тикет
-    run_cmd(['tpm2_verifysignature', '-c', 'pub.ctx', '-d', 'pcr11.digest', '-f', 'rsassa', '-s', 'sig.bin', '-t', 'ticket.bin'])
-
-    config = None
-
-    warmup_ima()
-
     try:
+        signed_pcrs = extract_systemd_signature()
+        pubkey_path = "/run/systemd/tpm2-pcr-public-key.pem"
+        # Загружаем публичный ключ для подписи в контекст TPM
+        run_cmd(['tpm2_loadexternal', '-G', 'rsa2048', '-C', 'o', '-u', pubkey_path, '-c', 'pub.ctx', '-n', 'pub.name'])
+        
+        # Проверяем подпись и генерируем тикет
+        run_cmd(['tpm2_verifysignature', '-c', 'pub.ctx', '-d', 'pcr11.digest', '-f', 'rsassa', '-s', 'sig.bin', '-t', 'ticket.bin'])
+
+        config = None
+
+        warmup_ima()
+
         config = parse_config(IDP_FILE)
         pcr_list_str = ",".join(config["pcrs"])
         
         uuid, mapper_name = get_luks_target()
         
         if not uuid:
-            print("Could not detect LUKS target from cmdline.")
+            display_error_message("Could not detect LUKS target from cmdline.")
             sys.exit(1)
             
         drive_path = f"/dev/disk/by-uuid/{uuid}"
@@ -225,12 +258,36 @@ def main():
         # Encrypted session
         with open("srk.name", "wb") as file:
             file.write(bytes.fromhex(expected_name))
+        
+        arb_index = config.get('arb_index', None)
+        if not arb_index:
+            display_error_message("No ARB index.")
+            sys.exit(1)
+        arb_counter = config.get('arb_counter', None)
+        if not arb_counter:
+            display_error_message("No ARB counter.")
+            sys.exit(1)
+        arb_counter = int(arb_counter, 16)
+
+        run_cmd(['tpm2_startauthsession', '--hmac-session', '-c', srk_address, '-n', "srk.name", '-S', 'enc.session'])
+        counter_read_process = run_cmd(['tpm2_nvread', arb_index, '-C', 'o', '--size', '8', '-S', 'enc.session'], check=False)
+        if counter_read_process.returncode == 0:
+            current_arb_counter = int.from_bytes(counter_read_process.stdout, byteorder='big')
+        else:
+            display_error_message("Failed to read ARB counter from TPM.")
+            run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
+            sys.exit(1)
+        run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
+
+        if current_arb_counter != arb_counter:
+            display_error_message(f"Anti Rollback Protection violation!\n")
+            sys.exit(1)
 
         pin_code = get_pin(mapper_name)
         if not pin_code:
-            print("PIN not provided.")
+            display_error_message("PIN not provided.")
             sys.exit(1)
-        
+
         create_session(srk_address, signed_pcrs, pcr_list_str)
 
         # Checking decoy first (to prevent potential timing attack)
@@ -246,8 +303,8 @@ def main():
         
         # Reading blob (encrypted)
         decoy_address = config['decoy_address']
-        decoy_proccess = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{potential_decoy_key.hex()}', '-S', 'enc.session', decoy_address], check=False)
-        if decoy_proccess.returncode == 0:
+        decoy_process = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{potential_decoy_key.hex()}', '-S', 'enc.session', decoy_address], check=False)
+        if decoy_process.returncode == 0:
             erase_header(config, drive_path)
             sys.exit(0)
         run_cmd(['tpm2_flushcontext', 'pol.session'], check=False)
@@ -275,7 +332,7 @@ def main():
         blob = blob_process.stdout
 
         if len(blob) != 96:
-            print(f"Blob size: {len(blob)}")
+            display_error_message(f"Blob size: {len(blob)}")
 
         # blob structure: nonce (16) + tag (16) + ciphertext (64)
         nonce = blob[:16]
@@ -286,7 +343,7 @@ def main():
         try:
             plaintext = cipher.decrypt_and_verify(ciphertext, tag)
         except ValueError:
-            print("Decryption failed. Data integrity check failed (MAC mismatch).")
+            display_error_message("Decryption failed. Data integrity check failed (MAC mismatch).")
             sys.exit(1)
 
         secret_a = plaintext[:32]
@@ -296,11 +353,11 @@ def main():
         run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
         create_session(srk_address, signed_pcrs, pcr_list_str)
 
-        decoy_proccess = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{decoy_key.hex()}', '-S', 'enc.session', decoy_address])
-        secret_b = decoy_proccess.stdout
+        decoy_process = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{decoy_key.hex()}', '-S', 'enc.session', decoy_address])
+        secret_b = decoy_process.stdout
 
         if len(secret_b) != 32:
-            print(f"Secret B size: {len(secret_b)}")
+            display_error_message(f"Secret B size: {len(secret_b)}")
         
         luks_secret = secret_a + secret_b
 
@@ -316,12 +373,13 @@ def main():
         run_cmd(crypt_cmd, input_data=luks_secret)
         print("Drive unlocked successfully.")    
     except subprocess.CalledProcessError:
-        print("Failed to unlock. Check PIN, TPM state, or PCRs.")
+        display_error_message("Failed to unlock. Check PIN, TPM state, or PCRs.")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        display_error_message(f"An unexpected error occurred: {e}")
     finally:
         run_cmd(['tpm2_flushcontext', 'pol.session'], check=False)
         run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
+        run_cmd(['umount', WORK_DIR], check=False)
 
 
 if __name__ == "__main__":
