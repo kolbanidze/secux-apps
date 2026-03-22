@@ -184,16 +184,19 @@ def enroll_unified(params):
     use_idp = params.get('use_idp')
     use_decoy = params.get('use_decoy')
     decoy_pin = params.get('decoy_pin')
+    pcrs_values = params.get('pcrs_values')
 
     if not drive or not luks_pass:
         return reply("error", message=_("Отсутствует диск или пароль"))
 
-    # 1. Если нужен IDP
+    # Если нужен IDP
     if use_idp:
         try:
             with suppress_stdout():
                 from idp_enroll import EnrollIDP 
-                EnrollIDP(drive, luks_password=luks_pass.encode(), pin_code=pin.encode(), use_decoy=use_decoy, decoy_pin=decoy_pin.encode())
+                EnrollIDP(drive, luks_password=luks_pass.encode(),
+                          pin_code=pin.encode(), use_decoy=use_decoy,
+                          decoy_pin=decoy_pin.encode(), pcrs=pcrs_values)
             
             if os.path.isfile(IDP_FILE):
                 return reply("success", message=_("TPM + IDP успешно настроен"))
@@ -202,8 +205,8 @@ def enroll_unified(params):
         except Exception as e:
             return reply("error", message=f"IDP {_("Ошибка")}: {str(e)}")
 
-    # 2. Обычный TPM enrollment через cryptenroll
-    pcrs = "+".join(map(str, DEFAULT_PCRS))
+    # Обычный TPM enrollment через cryptenroll
+    pcrs = "+".join(pcrs_values)
     cmd = [
         "/usr/bin/systemd-cryptenroll",
         "--wipe-slot=tpm2",

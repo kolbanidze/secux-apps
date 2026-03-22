@@ -18,7 +18,6 @@ template $TpmEnrollDialog: Adw.Window {
       }
 
       content: Adw.PreferencesPage {
-        // Группа 1: Авторизация
         Adw.PreferencesGroup {
           title: _("Авторизация");
           description: _("Введите текущий пароль или ключ восстановления от диска");
@@ -28,7 +27,6 @@ template $TpmEnrollDialog: Adw.Window {
           }
         }
 
-        // Группа 2: Настройки защиты
         Adw.PreferencesGroup {
           title: _("Конфигурация защиты");
 
@@ -54,7 +52,7 @@ template $TpmEnrollDialog: Adw.Window {
               title: _("Повторите PIN");
             }
           }
-          
+
           Adw.ExpanderRow decoy_chk {
             title: _("Ложный PIN-код");
             subtitle: _("Безвозвратно уничтожает ключи шифрования");
@@ -70,9 +68,60 @@ template $TpmEnrollDialog: Adw.Window {
               title: _("Повторите PIN");
             }
           }
+
+          Adw.ExpanderRow pcr_bind_expander {
+            title: _("Расширенные настройки PCR");
+            subtitle: _("Если знаете, что делаете");
+            icon-name: "settings-symbolic";
+            show-enable-switch: true;
+            enable-expansion: false;
+
+            Adw.SwitchRow pcr0_sw {
+              title: "PCR 0";
+              subtitle: _("Прошивка системы (UEFI)");
+              active: true;
+            }
+
+            Adw.SwitchRow pcr1_sw {
+              title: "PCR 1";
+              subtitle: _("Настройки прошивки (серийные номера)");
+            }
+
+            Adw.SwitchRow pcr2_sw {
+              title: "PCR 2";
+              subtitle: _("Дополнительные модули (Option ROM)");
+              active: true;
+            }
+
+            Adw.SwitchRow pcr3_sw {
+              title: "PCR 3";
+              subtitle: _("Настройки дополнительных модулей");
+            }
+
+            Adw.SwitchRow pcr4_sw {
+              title: "PCR 4";
+              subtitle: _("Загрузчик, драйвера и EFI приложения");
+            }
+
+            Adw.SwitchRow pcr5_sw {
+              title: "PCR 5";
+              subtitle: _("Таблица разделов диска (GPT)");
+            }
+
+            Adw.SwitchRow pcr7_sw {
+              title: "PCR 7";
+              subtitle: _("Состояние Secure Boot");
+              active: true;
+            }
+
+            Adw.SwitchRow pcr14_sw {
+              title: "PCR 14";
+              subtitle: _("Сертификаты MOK (shim)");
+              active: true;
+            }
+          }
         }
 
-        // Группа 3: Кнопка действия и Спиннер
         Adw.PreferencesGroup {
           margin-top: 12;
 
@@ -80,9 +129,7 @@ template $TpmEnrollDialog: Adw.Window {
             orientation: vertical;
             spacing: 12;
             halign: center;
-
-            // Спиннер скрыт по умолчанию (visible: false)
-            // Он будет показан через Python код при начале процесса
+            // Спиннер скрыт по умолчанию
             Gtk.Spinner spinner {
               spinning: false;
               visible: false;
@@ -92,9 +139,13 @@ template $TpmEnrollDialog: Adw.Window {
 
             Gtk.Button btn_enroll {
               label: _("Зарегистрировать в TPM");
-              height-request: 36; // Чуть увеличил для красоты, стандарт ~34-36
+              height-request: 36;
               width-request: 200;
-              styles ["suggested-action", "pill"]
+
+              styles [
+                "suggested-action",
+                "pill",
+              ]
             }
           }
         }

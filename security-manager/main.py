@@ -19,7 +19,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -332,6 +332,15 @@ class TpmEnrollDialog(Adw.Window):
     decoy_chk = Gtk.Template.Child()
     entry_decoy = Gtk.Template.Child()
     entry_decoy_repeat = Gtk.Template.Child()
+    pcr_bind_expander = Gtk.Template.Child()
+    pcr0_sw = Gtk.Template.Child()
+    pcr1_sw = Gtk.Template.Child()
+    pcr2_sw = Gtk.Template.Child()
+    pcr3_sw = Gtk.Template.Child()
+    pcr4_sw = Gtk.Template.Child()
+    pcr5_sw = Gtk.Template.Child()
+    pcr7_sw = Gtk.Template.Child()
+    pcr14_sw = Gtk.Template.Child()
 
     def __init__(self, backend, drive, **kwargs):
         super().__init__(**kwargs)
@@ -376,6 +385,8 @@ class TpmEnrollDialog(Adw.Window):
     def sensitive_widgets(self, sensitive):
         decoy_pin_switch = self._find_internal_switch(self.decoy_chk)
         decoy_pin_switch.set_sensitive(sensitive)
+        idp_pin_switch = self._find_internal_switch(self.idp_chk)
+        idp_pin_switch.set_sensitive(sensitive)
         self.luks_password.set_sensitive(sensitive)
         self.entry_pin.set_sensitive(sensitive)
         self.entry_pin_repeat.set_sensitive(sensitive)
@@ -392,6 +403,14 @@ class TpmEnrollDialog(Adw.Window):
         use_decoy = self.decoy_chk.get_enable_expansion()
         decoy_pin = self.entry_decoy.get_text()
         decoy_pin_rpt = self.entry_decoy_repeat.get_text()
+        
+        pcrs = [self.pcr0_sw, self.pcr1_sw, self.pcr2_sw, self.pcr3_sw, self.pcr4_sw,
+                self.pcr5_sw, self.pcr7_sw, self.pcr14_sw]
+        pcrs_active = []
+        for pcr_check in pcrs:
+            index = pcr_check.get_title().split(" ")[-1] # '0' / '1' / '2'...
+            if pcr_check.get_active():
+                pcrs_active.append(index)
         
         if not luks_pass:
             self.send_toast(_("Введите пароль от диска"))
@@ -418,17 +437,18 @@ class TpmEnrollDialog(Adw.Window):
         
         self._set_loading(True)
         threading.Thread(target=self._run_backend, 
-                         args=(luks_pass, pin if require_pin else None, use_idp, use_decoy, decoy_pin), 
+                         args=(luks_pass, pin if require_pin else None, use_idp, use_decoy, decoy_pin, pcrs_active), 
                          daemon=True).start()
 
-    def _run_backend(self, luks_pass, pin, use_idp, use_decoy, decoy_pin):
+    def _run_backend(self, luks_pass, pin, use_idp, use_decoy, decoy_pin, pcrs):
         response = self.backend.send_command("enroll_unified", {
             "drive": self.drive,
             "luks_password": luks_pass,
             "pin": pin,
             "use_idp": use_idp,
             "use_decoy": use_decoy,
-            "decoy_pin": decoy_pin
+            "decoy_pin": decoy_pin,
+            "pcrs_values": pcrs
         })
         GLib.idle_add(self._handle_result, response)
 
