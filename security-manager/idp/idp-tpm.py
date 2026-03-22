@@ -228,7 +228,7 @@ def main():
 
     try:
         signed_pcrs = extract_systemd_signature()
-        pubkey_path = "/run/systemd/tpm2-pcr-public-key.pem"
+        pubkey_path = "/etc/kernel/pcr-initrd.pub.pem"
         # Загружаем публичный ключ для подписи в контекст TPM
         run_cmd(['tpm2_loadexternal', '-G', 'rsa2048', '-C', 'o', '-u', pubkey_path, '-c', 'pub.ctx', '-n', 'pub.name'])
         

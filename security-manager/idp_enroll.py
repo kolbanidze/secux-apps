@@ -41,6 +41,7 @@ class EnrollIDP:
         self.pin_code: bytes = pin_code
 
         # PCR, к которым будет привязана разблокировка диска
+        self.pcrs = [int(pcr) for pcr in self.pcrs]
         self.pcrs: list = sorted(pcrs)
 
         # Параметры KDF Argon2id
