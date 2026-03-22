@@ -19,7 +19,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.4.2"
+VERSION = "0.4.3"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -359,16 +359,25 @@ class TpmEnrollDialog(Adw.Window):
             child = child.get_next_sibling()
         return None
     
-    def _on_idp_toggled(self, a, b):
+    def _on_idp_toggled(self, *args):
+        is_idp_active = self.idp_chk.get_active()
         pin_switch = self._find_internal_switch(self.pin_chk)
-        if self.idp_chk.get_active():
+        
+        if is_idp_active:
+            # IDP требует PIN. Включаем PIN и блокируем его переключатель
             self.pin_chk.set_enable_expansion(True)
             if pin_switch: pin_switch.set_sensitive(False)
         else:
             if pin_switch: pin_switch.set_sensitive(True)
+            
+            # Если выключается IDP, то и decoy должен выключиться (он зависит от IDP)
+            if self.decoy_chk.get_enable_expansion():
+                self.decoy_chk.set_enable_expansion(False)
     
-    def _on_decoy_toggled(self, a, b):
-        self.idp_chk.set_active(True)
+    def _on_decoy_toggled(self, *args):
+        # Если включили decoy, принудительно включаем IDP
+        if self.decoy_chk.get_enable_expansion():
+            self.idp_chk.set_active(True)
 
     def _set_loading(self, is_loading):
         if is_loading:
@@ -383,16 +392,21 @@ class TpmEnrollDialog(Adw.Window):
             self.sensitive_widgets(True)
 
     def sensitive_widgets(self, sensitive):
-        decoy_pin_switch = self._find_internal_switch(self.decoy_chk)
-        decoy_pin_switch.set_sensitive(sensitive)
-        idp_pin_switch = self._find_internal_switch(self.idp_chk)
-        idp_pin_switch.set_sensitive(sensitive)
         self.luks_password.set_sensitive(sensitive)
+        self.idp_chk.set_sensitive(sensitive)
+        self.pin_chk.set_sensitive(sensitive)
+        self.decoy_chk.set_sensitive(sensitive)
+        self.pcr_bind_expander.set_sensitive(sensitive)
+        
         self.entry_pin.set_sensitive(sensitive)
         self.entry_pin_repeat.set_sensitive(sensitive)
-        self.idp_chk.set_sensitive(sensitive)
         self.entry_decoy.set_sensitive(sensitive)
         self.entry_decoy_repeat.set_sensitive(sensitive)
+
+        if sensitive:
+            pin_switch = self._find_internal_switch(self.pin_chk)
+            if pin_switch and self.idp_chk.get_active():
+                pin_switch.set_sensitive(False)
 
     def _on_enroll_clicked(self, button):
         luks_pass = self.luks_password.get_text()
@@ -404,14 +418,21 @@ class TpmEnrollDialog(Adw.Window):
         decoy_pin = self.entry_decoy.get_text()
         decoy_pin_rpt = self.entry_decoy_repeat.get_text()
         
-        pcrs = [self.pcr0_sw, self.pcr1_sw, self.pcr2_sw, self.pcr3_sw, self.pcr4_sw,
-                self.pcr5_sw, self.pcr7_sw, self.pcr14_sw]
-        pcrs_active = []
-        for pcr_check in pcrs:
-            index = pcr_check.get_title().split(" ")[-1] # '0' / '1' / '2'...
-            if pcr_check.get_active():
-                pcrs_active.append(index)
+        if self.pcr_bind_expander.get_enable_expansion():
+            pcrs = [self.pcr0_sw, self.pcr1_sw, self.pcr2_sw, self.pcr3_sw, self.pcr4_sw,
+                    self.pcr5_sw, self.pcr7_sw, self.pcr14_sw]
+            pcrs_active = []
+            for pcr_check in pcrs:
+                index = pcr_check.get_title().split(" ")[-1] # '0' / '1' / '2'...
+                if pcr_check.get_active():
+                    pcrs_active.append(index)
+        else:
+            pcrs_active = ['0', '2', '7', '14']
         
+        if len(pcrs_active) == 0:
+            self.send_toast(_("Выберите хотя бы один PCR для привязки"))
+            return
+
         if not luks_pass:
             self.send_toast(_("Введите пароль от диска"))
             return

@@ -41,8 +41,8 @@ class EnrollIDP:
         self.pin_code: bytes = pin_code
 
         # PCR, к которым будет привязана разблокировка диска
-        self.pcrs = [int(pcr) for pcr in self.pcrs]
-        self.pcrs: list = sorted(pcrs)
+        self.pcrs = [int(pcr) for pcr in pcrs]
+        self.pcrs: list = sorted(self.pcrs)
 
         # Параметры KDF Argon2id
         self.time_cost: int = time_cost
@@ -378,12 +378,12 @@ class EnrollIDP:
             "parallelism": self.parallelism,
             "memory_cost": self.memory_cost,
             "pcrs": self.pcrs,
-            "arb_index": arb_nvindex,
-            "arb_counter": arb_counter_value,
             "srk_name": srk_name_hex,
             "srk_address": persistent_handle,
-            "decoy_address": decoy_nvindex,
+            "arb_index": arb_nvindex,
+            "arb_counter": arb_counter_value,
             "blob_address": blob_nvindex,
+            "decoy_address": decoy_nvindex,
             "salt": b64encode(salt).decode(),
             "decoy_salt": b64encode(decoy_salt).decode(),
             "key_slot": str(keyslot)

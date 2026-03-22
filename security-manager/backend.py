@@ -272,6 +272,7 @@ def delete_tpm(params):
             srk_address = idp.get('srk_address')
             decoy_address = idp.get('decoy_address')
             blob_address = idp.get('blob_address')
+            arb_index = idp.get('arb_index')
 
             if key_slot: 
                 run_cmd(["cryptsetup", 'luksKillSlot', drive, str(key_slot), '-q'], check=True)
@@ -281,11 +282,15 @@ def delete_tpm(params):
                 run_cmd(['tpm2_nvundefine', str(decoy_address)], check=False)
             if blob_address:
                 run_cmd(['tpm2_nvundefine', str(blob_address)], check=False)
+            if arb_index:
+                run_cmd(['tpm2_nvundefine', str(arb_index)], check=False)
             
             os.remove(IDP_FILE)
 
             with open("/etc/mkinitcpio.conf", "r") as file:
                 lines = file.readlines()
+            
+            os.remove("/usr/share/libalpm/hooks/99-idp-sync.hook")
             
             modified = False
             new_lines = []
