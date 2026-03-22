@@ -25,7 +25,7 @@ def run_cmd(cmd_list, input_data=None, capture_output=True, check=True):
     except subprocess.CalledProcessError as e:
         if capture_output and e.stderr:
             display_error_message(f"Error executing command: {cmd_list[0]}...")
-            display_error_message("STDERR:", e.stderr.decode())
+            display_error_message(f"STDERR: {e.stderr.decode()}")
         raise e
 
 def parse_config(file_path):

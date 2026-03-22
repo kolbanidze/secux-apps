@@ -108,6 +108,10 @@ class EnrollIDP:
         if os.path.isfile("/etc/initcpio/hooks/idp-tpm"):
             os.remove("/etc/initcpio/hooks/idp-tpm")
         shutil.copy(f"{BASE_DIR}/idp/idp-tpm-hook", "/etc/initcpio/hooks/idp-tpm")
+
+        if os.path.isfile("/etc/initcpio/hooks/99-idp-sync.hook"):
+            os.remove("/etc/initcpio/hooks/99-idp-sync.hook")
+        shutil.copy(f"{BASE_DIR}/idp/99-idp-sync.hook", "/usr/share/libalpm/hooks/99-idp-sync.hook")
         
         if os.path.isfile("/etc/initcpio/install/idp-tpm"):
             os.remove("/etc/initcpio/install/idp-tpm")

@@ -2,9 +2,7 @@
 
 build() {
     add_runscript
-
-    add_file "/etc/idp.json"
-    
+    add_file "/etc/idp.json"    
     add_binary /usr/bin/tpm2_pcrread
     add_binary /usr/bin/tpm2_startauthsession
     add_binary /usr/bin/tpm2_policypcr
