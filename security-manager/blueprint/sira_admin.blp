@@ -1,0 +1,112 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $SiraAdminWindow: Adw.Window {
+  title: _("Управление кластером SIRA");
+  default-width: 800;
+  default-height: 600;
+  modal: true;
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.ToolbarView {
+      [top]
+      Adw.HeaderBar {
+        [end]
+        Gtk.Spinner spinner {
+          spinning: false;
+          visible: false;
+          margin-end: 12;
+        }
+      }
+      
+      content: Adw.ViewStack view_stack {
+        
+        // Вкладка 1: Список узлов
+        Adw.ViewStackPage {
+          name: "hosts"; 
+          title: _("Узлы"); 
+          icon-name: "network-server-symbolic";
+          child: Adw.PreferencesPage {
+            Adw.PreferencesGroup {[header-suffix] 
+              Gtk.Box {
+                spacing: 6;
+                Gtk.Button btn_provision { 
+                  label: _("Добавить узел"); 
+                  styles ["suggested-action"] 
+                }
+                Gtk.Button btn_refresh_hosts { 
+                  icon-name: "view-refresh-symbolic"; 
+                }
+              }
+              // Сюда скрипт будет динамически добавлять Adw.ActionRow для каждого узла
+              Gtk.Box box_hosts { orientation: vertical; spacing: 6; }
+            }
+          };
+        }
+
+        // Вкладка 2: Инциденты безопасности
+        Adw.ViewStackPage {
+          name: "incidents"; 
+          title: _("Инциденты"); 
+          icon-name: "dialog-warning-symbolic";
+          child: Adw.PreferencesPage {
+            Adw.PreferencesGroup {
+              [header-suffix] 
+              Gtk.Button btn_refresh_incidents { icon-name: "view-refresh-symbolic"; }
+              
+              Gtk.Box box_incidents { orientation: vertical; spacing: 6; }
+            }
+          };
+        }
+
+        // Вкладка 3: Управление Baseline (Хэши файлов)
+        Adw.ViewStackPage {
+          name: "hashes"; 
+          title: _("Baseline"); 
+          icon-name: "security-high-symbolic";
+          child: Adw.PreferencesPage {
+            Adw.PreferencesGroup {
+              title: _("Управление доверенными хэшами");
+              
+              Adw.ActionRow {
+                title: _("Проверить или удалить");
+                [suffix] 
+                Gtk.Box {
+                  spacing: 6;
+                  margin-top: 6;
+                  margin-bottom: 6;
+                  valign: center;
+                  // salt: b366928ebc99446d
+                  Gtk.Entry entry_hash { placeholder-text: "864240ed8eed385fa1209cbc23a9d35ecc9558d480c3231fa59dcc81378bcb2a"; valign: center; styles ['pill']}
+                  Gtk.Button btn_check_hash { label: _("Проверить"); valign: center; }
+                  Gtk.Button btn_delete_hash { icon-name: "user-trash-symbolic"; valign: center; styles["destructive-action"] }
+                }
+              }
+              
+              Adw.ActionRow {
+                title: _("Сбросить все");
+                subtitle: _("Полностью очистить таблицу доверенных хэшей");
+                [suffix] 
+                Gtk.Button btn_clear_hashes { label: _("Очистить"); valign: center; styles["destructive-action"] }
+              }
+            }
+            
+            Adw.PreferencesGroup {
+              title: _("Последние загруженные");
+              [header-suffix] 
+              Gtk.Button btn_refresh_hashes { icon-name: "view-refresh-symbolic"; }
+              
+              Gtk.Box box_hashes { orientation: vertical; spacing: 6; }
+            }
+          };
+        }
+      };
+
+      [bottom] 
+      Adw.ViewSwitcherBar { 
+        stack: view_stack; 
+        reveal: true; 
+      }
+    };
+  };
+}

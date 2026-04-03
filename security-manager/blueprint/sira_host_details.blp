@@ -1,0 +1,89 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $SiraHostDetailsDialog: Adw.Window {
+  title: _("Детали узла");
+  modal: true;
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.ToolbarView {
+      [top]
+      Adw.HeaderBar {
+        [end]
+        Gtk.Spinner spinner {
+          visible: false;
+          margin-end: 12;
+        }
+      }
+
+      content: Adw.PreferencesPage {
+        Adw.PreferencesGroup {
+          title: _("Информация");
+
+          Adw.ActionRow lbl_hwid {
+            title: _("Hardware ID");
+          }
+
+          Adw.ActionRow lbl_status {
+            title: _("Статус");
+          }
+        }
+
+        Adw.PreferencesGroup {
+          title: _("Действия");
+
+          Gtk.Box {
+            orientation: horizontal;
+            spacing: 12;
+            homogeneous: true;
+            margin-top: 6;
+
+            Gtk.Button btn_revoke {
+              label: _("Отозвать");
+              valign: center;
+
+              styles [
+                "warning",
+                "compact",
+              ]
+            }
+
+            Gtk.Button btn_reset {
+              label: _("Сбросить PCR");
+              valign: center;
+
+              styles [
+                "compact",
+              ]
+            }
+
+            Gtk.Button btn_delete {
+              label: _("Удалить");
+
+              styles [
+                "destructive-action",
+                "compact",
+              ]
+
+              valign: center;
+            }
+          }
+        }
+
+        Adw.PreferencesGroup {
+          title: _("История аттестации");
+
+          [header-suffix]
+          Gtk.Button btn_refresh_logs {
+            icon-name: "view-refresh-symbolic";
+          }
+
+          Gtk.Box box_logs {
+            orientation: vertical;
+            spacing: 6;
+          }
+        }
+      };
+    };
+  };
+}

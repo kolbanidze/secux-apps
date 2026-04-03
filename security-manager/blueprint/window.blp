@@ -116,7 +116,6 @@ template $SecurityWindow: Adw.ApplicationWindow {
         };
       }
 
-      // --- Вкладка 2: Утилиты ---
       Adw.ViewStackPage {
         name: "utils";
         title: _("Утилиты");
@@ -132,7 +131,10 @@ template $SecurityWindow: Adw.ApplicationWindow {
               icon-name: "view-list-symbolic";
               tooltip-text: _("Просмотреть активные слоты");
               valign: center;
-              styles ["flat"]
+
+              styles [
+                "flat",
+              ]
             }
 
             Adw.ActionRow {
@@ -272,7 +274,6 @@ template $SecurityWindow: Adw.ApplicationWindow {
                 spacing: 6;
 
                 Gtk.Entry entry_repo_path {
-                  placeholder-text: _("/путь/до/репозитория");
                   editable: false;
                   width-request: 250;
                   valign: center;
@@ -484,6 +485,83 @@ template $SecurityWindow: Adw.ApplicationWindow {
               }
             }
           }
+        };
+      }
+
+      Adw.ViewStackPage {
+        name: "sira";
+        title: _("Аттестация");
+        icon-name: "network-server-symbolic";
+
+        child: Adw.StatusPage sira_status_page {
+          title: _("Не привязано к серверу");
+          description: _("Запросите OTP-код у администратора безопасности.");
+          icon-name: "security-low-symbolic";
+
+          child: Adw.ToastOverlay toast_overlay {
+            child: Adw.Clamp {
+              maximum-size: 500;
+
+              child: Gtk.Box {
+                orientation: vertical;
+                spacing: 16;
+                // --- Блок регистрации (Виден только если не зарегистрирован) ---
+                Adw.PreferencesGroup sira_enroll_group {
+                  title: _("Привязка устройства");
+                  description: _("Для интеграции узла укажите сервер и одноразовый код.");
+
+                  Adw.EntryRow sira_client_url {
+                    title: _("Адрес сервера");
+                  }
+
+                  Adw.PasswordEntryRow sira_enroll_secret {
+                    title: _("Код приглашения (OTP)");
+                  }
+                }
+
+                Gtk.Button btn_sira_enroll {
+                  label: _("Присоединиться к кластеру");
+                  height-request: 45;
+
+                  styles [
+                    "suggested-action",
+                    "pill",
+                  ]
+                }
+
+                // Блок состояния и ручной проверки (Виден, когда зарегистрирован)
+                Gtk.Box sira_attest_box {
+                  orientation: vertical;
+                  spacing: 16;
+                  visible: false;
+
+                  Gtk.Button btn_sira_attest_now {
+                    label: _("Выполнить проверку сейчас");
+                    height-request: 45;
+
+                    styles [
+                      "pill",
+                    ]
+                  }
+
+                  // Список скомпрометированных файлов (Появляется при угрозе)
+                  Adw.PreferencesGroup sira_untrusted_group {
+                    title: _("Заблокированные приложения");
+                    description: _("Следующие файлы не прошли проверку и были заблокированы.");
+                    visible: false;
+
+                    Gtk.ListBox sira_untrusted_list {
+                      selection-mode: none;
+
+                      styles [
+                        "boxed-list",
+                      ]
+                    }
+                  }
+                }
+              };
+            };
+          };
         };
       }
     };

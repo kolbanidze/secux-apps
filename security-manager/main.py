@@ -12,6 +12,11 @@ from json import loads as json_decode
 from json import dumps as json_encode
 import io
 import qrcode.image.svg
+try:
+    import requests
+except ImportError:
+    requests = None
+
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -19,7 +24,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.4.3"
+VERSION = "0.5.0"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -106,13 +111,63 @@ def init_i18n(lang_code=None):
         import builtins
         builtins._ = lambda x: x
 
+def sira_api_call(base_url, token, method, endpoint,
+                  json_payload=None, timeout=15):
+    """
+    Выполняет HTTP-запрос к SIRA API.
+    ⚠ Вызывать ТОЛЬКО из фонового потока (threading.Thread).
+    Возвращает dict {"status": "success"|"error", "data": ..., "message": ...}.
+    """
+    if requests is None:
+        return {"status": "error",
+                "message": _("Библиотека requests не установлена")}
+
+    url = f"{base_url.rstrip('/')}{endpoint}"
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+
+    try:
+        r = requests.request(
+            method, url,
+            json=json_payload if method in ("POST", "PATCH", "PUT") else None,
+            headers=headers,
+            timeout=timeout,
+        )
+
+        try:
+            body = r.json()
+        except ValueError:
+            body = {}
+
+        if r.status_code >= 400:
+            if isinstance(body, dict):
+                detail = body.get("detail",
+                                  body.get("message", r.reason))
+            else:
+                detail = r.reason or r.text
+            return {"status": "error", "message": str(detail),
+                    "http_code": r.status_code}
+
+        return {"status": "success", "data": body,
+                "http_code": r.status_code}
+
+    except requests.exceptions.ConnectionError:
+        return {"status": "error",
+                "message": _("Нет соединения с сервером")}
+    except requests.exceptions.Timeout:
+        return {"status": "error",
+                "message": _("Таймаут соединения")}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 class RootBackendService:
     """
-    Класс-обертка для общения с backend.py, запущенным от root.
+    Класс для работы с backend.py. Разделение необходимо для изоляции GUI от root.
+    Негоже запускать GUI приложения с root. 
     """
     def __init__(self):
         self.process = None
-        self.lock = threading.Lock() # Для синхронизации потоков
+        self.lock = threading.Lock()
         self.pid = None
 
     def start(self):
@@ -138,17 +193,17 @@ class RootBackendService:
             
             first_line = self.process.stdout.readline()
             if not first_line:
-                print("Backend failed to start (Empty stdout). Auth cancelled?")
+                print("Backend failed to start (empty stdout). Auth cancelled?")
                 return False
             
             try:
                 resp = json_decode(first_line)
                 if resp.get("status") == "ready":
                     self.pid = resp.get("data", {}).get("pid")
-                    print(f"Backend started. PID: {self.pid}")
+                    print(f"{_('Backend запущен. PID:')} {self.pid}")
                     return True
                 else:
-                    print(f"Backend returned unexpected status: {first_line}")
+                    print(f"{_('Неожиданный ответ backend.py:')}: {first_line}")
                     return False
             except json.JSONDecodeError:
                 print(f"{_("Ошибка backend.py")}: {first_line}")
@@ -162,7 +217,7 @@ class RootBackendService:
         """Отправляет команду и ждет ответ."""
 
         if not self.process:
-            return {"status": "error", "message": "Backend is not running"}
+            return {"status": "error", "message": _("Backend не запущен")}
 
         payload = json_encode({"command": command, "params": params or {}})
         
@@ -176,7 +231,7 @@ class RootBackendService:
                 response_line = self.process.stdout.readline()
                 if not response_line:
                     self.process = None
-                    return {"status": "error", "message": "Backend connection lost"}
+                    return {"status": "error", "message": _("Потеряно соединение с backend")}
                 
                 return json_decode(response_line)
             except Exception as e:
@@ -810,6 +865,510 @@ class TwoFaWindow(Adw.Window):
     def send_toast(self, message):
         self.toast_overlay.add_toast(Adw.Toast.new(message))
 
+@Gtk.Template(filename=get_ui_path("sira_provision.ui"))
+class SiraProvisionDialog(Adw.Window):
+    __gtype_name__ = "SiraProvisionDialog"
+
+    toast_overlay    = Gtk.Template.Child()
+    stack_prov       = Gtk.Template.Child()
+    entry_hostname   = Gtk.Template.Child()
+    sw_ek            = Gtk.Template.Child()
+    sw_bootchain     = Gtk.Template.Child()
+    sw_ima           = Gtk.Template.Child()
+    entry_ima_policy = Gtk.Template.Child()
+    pcr_expander     = Gtk.Template.Child()
+    pcr0  = Gtk.Template.Child()
+    pcr1  = Gtk.Template.Child()
+    pcr2  = Gtk.Template.Child()
+    pcr3  = Gtk.Template.Child()
+    pcr4  = Gtk.Template.Child()
+    pcr5  = Gtk.Template.Child()
+    pcr7  = Gtk.Template.Child()
+    pcr8  = Gtk.Template.Child()
+    pcr9  = Gtk.Template.Child()
+    pcr10 = Gtk.Template.Child()
+    pcr11 = Gtk.Template.Child()
+    pcr12 = Gtk.Template.Child()
+    pcr13 = Gtk.Template.Child()
+    pcr14 = Gtk.Template.Child()
+    btn_submit       = Gtk.Template.Child()
+    lbl_otp          = Gtk.Template.Child()
+    btn_close        = Gtk.Template.Child()
+
+    # Имя виджета → индекс PCR
+    _PCR_MAP = {
+        "pcr0": 0, "pcr1": 1, "pcr2": 2,  "pcr3": 3,
+        "pcr4": 4, "pcr5": 5, "pcr7": 7,  "pcr8": 8,
+        "pcr9": 9, "pcr10": 10, "pcr11": 11, "pcr12": 12,
+        "pcr13": 13, "pcr14": 14,
+    }
+
+    def __init__(self, url, token, **kwargs):
+        super().__init__(**kwargs)
+        self.url   = url
+        self.token = token
+        self.btn_submit.connect("clicked", self._on_submit)
+        self.btn_close.connect("clicked", lambda yo: self.close())
+
+    def _selected_pcrs(self):
+        out = []
+        for name, idx in self._PCR_MAP.items():
+            w = getattr(self, name, None)
+            if w and w.get_active():
+                out.append(idx)
+        return sorted(out)
+
+    def _on_submit(self, btn):
+        hostname = self.entry_hostname.get_text().strip()
+        if not hostname:
+            return self._toast(_("Введите имя узла"))
+
+        pcrs = self._selected_pcrs()
+        if not pcrs:
+            return self._toast(_("Выберите хотя бы один PCR"))
+
+        policy = {
+            "pcrs":               pcrs,
+            "validate_pcrs":      True,
+            "validate_bootchain": self.sw_bootchain.get_active(),
+            "ima":                self.sw_ima.get_active(),
+            "ima_policy":         self.entry_ima_policy.get_text().strip()
+                                  or "secuxlinux",
+        }
+        payload = {
+            "hostname":           hostname,
+            "policy":             policy,
+            "attest_ek_on_enroll": self.sw_ek.get_active(),
+        }
+
+        btn.set_sensitive(False)
+        btn.set_label(_("Генерация…"))
+
+        def worker():
+            resp = sira_api_call(self.url, self.token,
+                                 "POST", "/api/v1/admin/provision",
+                                 payload)
+            GLib.idle_add(self._on_result, resp, btn)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_result(self, resp, btn):
+        btn.set_sensitive(True)
+        btn.set_label(_("Сгенерировать OTP"))
+
+        if resp.get("status") == "success":
+            data = resp.get("data", {})
+            otp  = data.get("enrollment_secret",
+                            _("Ошибка получения кода"))
+            self.lbl_otp.set_label(otp)
+            self.stack_prov.set_visible_child_name("result")
+        else:
+            self._toast(resp.get("message", _("Ошибка")))
+
+    def _toast(self, msg):
+        self.toast_overlay.add_toast(Adw.Toast.new(str(msg)))
+
+
+@Gtk.Template(filename=get_ui_path("sira_host_details.ui"))
+class SiraHostDetailsDialog(Adw.Window):
+    __gtype_name__ = "SiraHostDetailsDialog"
+
+    toast_overlay    = Gtk.Template.Child()
+    spinner          = Gtk.Template.Child()
+    lbl_hwid         = Gtk.Template.Child()
+    lbl_status       = Gtk.Template.Child()
+    btn_revoke       = Gtk.Template.Child()
+    btn_reset        = Gtk.Template.Child()
+    btn_delete       = Gtk.Template.Child()
+    btn_refresh_logs = Gtk.Template.Child()
+    box_logs         = Gtk.Template.Child()
+
+    def __init__(self, url, token, hw_id, host_status, **kwargs):
+        super().__init__(**kwargs)
+        self.url   = url
+        self.token = token
+        self.hw_id = hw_id
+
+        self.lbl_hwid.set_subtitle(hw_id)
+        self.lbl_status.set_subtitle(str(host_status).upper())
+
+        self.btn_revoke.connect("clicked", lambda yo: self._confirm(
+            _("Отозвать узел?"),
+            _("Узел потеряет статус доверия до следующей аттестации."),
+            "POST", f"/api/v1/admin/hosts/{self.hw_id}/revoke"))
+        self.btn_reset.connect("clicked", lambda yo: self._confirm(
+            _("Сбросить baseline PCR?"),
+            _("Следующая аттестация станет новым эталоном."),
+            "POST", f"/api/v1/admin/hosts/{self.hw_id}/reset-baseline"))
+        self.btn_delete.connect("clicked", lambda yo: self._confirm(
+            _("Удалить узел?"),
+            _("Узел и все его логи будут безвозвратно удалены."),
+            "DELETE", f"/api/v1/admin/hosts/{self.hw_id}"))
+        self.btn_refresh_logs.connect("clicked", lambda yo: self._fetch_logs())
+
+        self._fetch_logs()
+
+    # ── Подтверждение деструктивных действий ──
+
+    def _confirm(self, heading, body, method, endpoint):
+        dlg = Adw.AlertDialog(heading=heading, body=body)
+        dlg.add_response("cancel", _("Отмена"))
+        dlg.add_response("ok", _("Подтвердить"))
+        dlg.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE)
+        dlg.connect("response",
+                     lambda d, r: self._exec(method, endpoint) if r == "ok" else None)
+        dlg.present(self)
+
+    def _exec(self, method, endpoint):
+        self._set_busy(True)
+
+        def worker():
+            resp = sira_api_call(self.url, self.token, method, endpoint)
+            GLib.idle_add(self._on_exec_done, resp, method)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_exec_done(self, resp, method):
+        self._set_busy(False)
+        if resp.get("status") == "success":
+            self._toast(_("Операция выполнена"))
+            if method == "DELETE":
+                GLib.timeout_add(800, self.close)
+            else:
+                new_st = resp.get("data", {}).get("status")
+                if new_st:
+                    self.lbl_status.set_subtitle(str(new_st).upper())
+                self._fetch_logs()
+        else:
+            self._toast(resp.get("message", _("Ошибка")))
+
+    # ── Журнал аттестаций ──
+
+    def _fetch_logs(self):
+        self._set_busy(True)
+
+        def worker():
+            resp = sira_api_call(
+                self.url, self.token, "GET",
+                f"/api/v1/admin/hosts/{self.hw_id}/logs?limit=20")
+            GLib.idle_add(self._render_logs, resp)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _render_logs(self, resp):
+        self._set_busy(False)
+        self._clear_box(self.box_logs)
+
+        if resp.get("status") != "success":
+            self.box_logs.append(
+                Gtk.Label(label=resp.get("message", _("Ошибка загрузки"))))
+            return
+
+        logs = resp.get("data", [])
+        if not logs:
+            self.box_logs.append(Gtk.Label(label=_("Записей пока нет")))
+            return
+
+        for entry in logs:
+            result = entry.get("result", "unknown").upper()
+            created = entry.get("created_at", "")
+            if created and "T" in created:
+                created = created.replace("T", " ")[:19]
+
+            details = entry.get("details") or {}
+            reason  = details.get("reason", "") if isinstance(details, dict) else ""
+
+            row = Adw.ActionRow(title=result, subtitle=created)
+            if reason:
+                row.set_tooltip_text(reason)
+
+            icon_map = {
+                "TRUSTED":     "security-high-symbolic",
+                "COMPROMISED": "dialog-error-symbolic",
+                "PENDING":     "emblem-synchronizing-symbolic",
+            }
+            icon = Gtk.Image.new_from_icon_name(
+                icon_map.get(result, "dialog-question-symbolic"))
+            if result == "COMPROMISED":
+                icon.add_css_class("error")
+            row.add_prefix(icon)
+            self.box_logs.append(row)
+
+    # ── Утилиты ──
+
+    def _set_busy(self, busy):
+        self.spinner.set_visible(busy)
+        self.spinner.set_spinning(busy)
+
+    @staticmethod
+    def _clear_box(box):
+        while child := box.get_first_child():
+            box.remove(child)
+
+    def _toast(self, msg):
+        self.toast_overlay.add_toast(Adw.Toast.new(str(msg)))
+
+
+@Gtk.Template(filename=get_ui_path("sira_admin.ui"))
+class SiraAdminWindow(Adw.Window):
+    __gtype_name__ = "SiraAdminWindow"
+
+    toast_overlay = Gtk.Template.Child()
+    spinner       = Gtk.Template.Child()
+
+    # Hosts
+    btn_provision     = Gtk.Template.Child()
+    btn_refresh_hosts = Gtk.Template.Child()
+    box_hosts         = Gtk.Template.Child()
+
+    # Incidents
+    btn_refresh_incidents = Gtk.Template.Child()
+    box_incidents         = Gtk.Template.Child()
+
+    # Baseline
+    entry_hash         = Gtk.Template.Child()
+    btn_check_hash     = Gtk.Template.Child()
+    btn_delete_hash    = Gtk.Template.Child()
+    btn_clear_hashes   = Gtk.Template.Child()
+    btn_refresh_hashes = Gtk.Template.Child()
+    box_hashes         = Gtk.Template.Child()
+
+    def __init__(self, url, token, **kwargs):
+        super().__init__(**kwargs)
+        self.url   = url
+        self.token = token
+
+        self.btn_provision.connect("clicked", self._on_provision)
+        self.btn_refresh_hosts.connect("clicked",
+            lambda yo: self._fetch("/api/v1/admin/hosts", self._render_hosts))
+
+        self.btn_refresh_incidents.connect("clicked",
+            lambda yo: self._fetch("/api/v1/admin/logs/failed?limit=25",
+                                  self._render_incidents))
+
+        self.btn_check_hash.connect("clicked",  lambda yo: self._hash_op("GET"))
+        self.btn_delete_hash.connect("clicked", lambda yo: self._hash_op("DELETE"))
+        self.btn_clear_hashes.connect("clicked", self._on_clear_all)
+        self.btn_refresh_hashes.connect("clicked",
+            lambda yo: self._fetch("/api/v1/admin/trusted-hashes",
+                                  self._render_hashes))
+
+        # Первоначальная загрузка
+        self._fetch("/api/v1/admin/hosts", self._render_hosts)
+
+    # ── Общие утилиты ──
+
+    def _set_busy(self, busy):
+        self.spinner.set_visible(busy)
+        self.spinner.set_spinning(busy)
+
+    def _toast(self, msg):
+        self.toast_overlay.add_toast(Adw.Toast.new(str(msg)))
+
+    @staticmethod
+    def _clear_box(box):
+        while child := box.get_first_child():
+            box.remove(child)
+
+    def _fetch(self, endpoint, callback):
+        self._set_busy(True)
+
+        def worker():
+            resp = sira_api_call(self.url, self.token, "GET", endpoint)
+            GLib.idle_add(callback, resp)
+        threading.Thread(target=worker, daemon=True).start()
+
+    # ── Узлы ──
+
+    def _on_provision(self, _btn):
+        dlg = SiraProvisionDialog(self.url, self.token)
+        dlg.set_transient_for(self)
+        dlg.present()
+
+    def _render_hosts(self, resp):
+        self._set_busy(False)
+        self._clear_box(self.box_hosts)
+
+        if resp.get("status") != "success":
+            return self._toast(resp.get("message", _("Ошибка")))
+
+        hosts = resp.get("data", [])
+        if not hosts:
+            self.box_hosts.append(Gtk.Label(label=_("Узлов нет")))
+            return
+
+        for host in hosts:
+            hw_id    = host.get("hardware_id", "")
+            hostname = host.get("hostname", _("Без имени"))
+            status   = host.get("status", "unknown")
+
+            row = Adw.ActionRow(title=hostname, subtitle=hw_id)
+
+            is_ok = status == "trusted"
+            icon  = Gtk.Image.new_from_icon_name(
+                "security-high-symbolic" if is_ok else "dialog-warning-symbolic")
+            if not is_ok:
+                icon.add_css_class("error")
+            row.add_prefix(icon)
+
+            btn = Gtk.Button(icon_name="settings-symbolic",
+                             valign=Gtk.Align.CENTER)
+            btn.add_css_class("flat")
+            btn.connect("clicked",
+                        lambda yo, h=hw_id, s=status: self._open_details(h, s))
+            row.add_suffix(btn)
+
+            self.box_hosts.append(row)
+
+    def _open_details(self, hw_id, status):
+        dlg = SiraHostDetailsDialog(self.url, self.token, hw_id, status)
+        dlg.set_transient_for(self)
+        dlg.present()
+
+    # ── Инциденты ──
+
+    def _render_incidents(self, resp):
+        self._set_busy(False)
+        self._clear_box(self.box_incidents)
+
+        if resp.get("status") != "success":
+            return self._toast(resp.get("message", _("Ошибка")))
+
+        logs = resp.get("data", [])
+        if not logs:
+            self.box_incidents.append(Gtk.Label(label=_("Инцидентов нет")))
+            return
+
+        for entry in logs:
+            details = entry.get("details") or {}
+            reason  = (details.get("reason", entry.get("result", ""))
+                       if isinstance(details, dict) else str(details))
+
+            created = entry.get("created_at", "")
+            if created and "T" in created:
+                created = created.replace("T", " ")[:19]
+
+            row = Adw.ActionRow(
+                title=entry.get("hardware_id", _("Неизвестно")),
+                subtitle=f"{reason}  •  {created}" if created else reason)
+            icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
+            icon.add_css_class("error")
+            row.add_prefix(icon)
+            self.box_incidents.append(row)
+
+    # ── Baseline (доверенные хэши) ──
+
+    def _render_hashes(self, resp):
+        self._set_busy(False)
+        self._clear_box(self.box_hashes)
+
+        if resp.get("status") != "success":
+            return self._toast(resp.get("message", _("Ошибка")))
+
+        data = resp.get("data", [])
+        if not data:
+            self.box_hashes.append(Gtk.Label(label=_("Список пуст")))
+            return
+
+        for item in data:
+            title = item if isinstance(item, str) else str(item)
+            self.box_hashes.append(Adw.ActionRow(title=title))
+
+    def _hash_op(self, method):
+        h = self.entry_hash.get_text().strip()
+        if not h:
+            return self._toast(_("Введите SHA256 хэш"))
+
+        self._set_busy(True)
+
+        def worker():
+            resp = sira_api_call(self.url, self.token, method,
+                                 f"/api/v1/admin/trusted-hashes/{h}")
+            GLib.idle_add(self._on_hash_done, resp, method)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_hash_done(self, resp, method):
+        self._set_busy(False)
+        if resp.get("status") == "success":
+            self._toast(_("Хэш найден в белом списке") if method == "GET"
+                        else _("Хэш удалён"))
+        else:
+            self._toast(resp.get("message", _("Хэш не найден")))
+
+    def _on_clear_all(self, _btn):
+        dlg = Adw.AlertDialog(
+            heading=_("Очистить все хэши?"),
+            body=_("Весь baseline будет удалён. Операция необратима."))
+        dlg.add_response("cancel", _("Отмена"))
+        dlg.add_response("clear", _("Очистить"))
+        dlg.set_response_appearance("clear", Adw.ResponseAppearance.DESTRUCTIVE)
+
+        def on_resp(d, r):
+            if r != "clear":
+                return
+            self._set_busy(True)
+
+            def worker():
+                resp = sira_api_call(self.url, self.token, "DELETE",
+                                     "/api/v1/admin/trusted-hashes")
+                GLib.idle_add(self._on_clear_done, resp)
+            threading.Thread(target=worker, daemon=True).start()
+
+        dlg.connect("response", on_resp)
+        dlg.present(self)
+
+    def _on_clear_done(self, resp):
+        self._set_busy(False)
+        if resp.get("status") == "success":
+            self._toast(_("Baseline очищен"))
+            self._clear_box(self.box_hashes)
+        else:
+            self._toast(resp.get("message", _("Ошибка")))
+
+@Gtk.Template(filename=get_ui_path("sira_admin_login.ui"))
+class SiraAdminLoginDialog(Adw.Window):
+    __gtype_name__ = "SiraAdminLoginDialog"
+
+    toast_overlay        = Gtk.Template.Child()
+    sira_admin_url       = Gtk.Template.Child()
+    sira_admin_key       = Gtk.Template.Child()
+    btn_sira_admin_login = Gtk.Template.Child()
+
+    def __init__(self, parent_window, **kwargs):
+        super().__init__(**kwargs)
+        self.parent_window = parent_window
+        self.btn_sira_admin_login.connect("clicked", self._on_login)
+
+    def _on_login(self, btn):
+        url   = self.sira_admin_url.get_text().strip()
+        token = self.sira_admin_key.get_text().strip()
+
+        if not url:
+            return self._toast(_("Введите URL сервера SIRA"))
+        if not token:
+            return self._toast(_("Введите Admin API Key"))
+
+        btn.set_sensitive(False)
+        btn.set_label(_("Подключение…"))
+
+        def worker():
+            resp = sira_api_call(url, token, "GET", "/api/v1/admin/hosts")
+            GLib.idle_add(self._on_done, resp, btn, url, token)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_done(self, resp, btn, url, token):
+        btn.set_sensitive(True)
+        btn.set_label(_("Войти"))
+
+        if resp.get("status") == "success":
+            win = SiraAdminWindow(url, token)
+            win.set_transient_for(self.parent_window)
+            self.close()
+            win.present()
+        else:
+            self._toast(resp.get("message", _("Не удалось подключиться")))
+
+    def _toast(self, msg):
+        self.toast_overlay.add_toast(Adw.Toast.new(str(msg)))
+
 
 @Gtk.Template(filename=get_ui_path("window.ui"))
 class SecurityWindow(Adw.ApplicationWindow):
@@ -877,7 +1436,17 @@ class SecurityWindow(Adw.ApplicationWindow):
         'chk_bitwarden': 'com.bitwarden.desktop',
         'chk_qbittorrent': 'org.qbittorrent.qBittorrent'
     }
-    
+    sira_status_page     = Gtk.Template.Child()
+    sira_enroll_group    = Gtk.Template.Child()
+    sira_client_url      = Gtk.Template.Child()
+    sira_enroll_secret   = Gtk.Template.Child()
+    btn_sira_enroll      = Gtk.Template.Child()
+    sira_attest_box      = Gtk.Template.Child()
+    btn_sira_attest_now  = Gtk.Template.Child()
+    sira_untrusted_group = Gtk.Template.Child()
+    sira_untrusted_list  = Gtk.Template.Child()
+    toast_overlay        = Gtk.Template.Child()
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.drive = None
@@ -899,6 +1468,11 @@ class SecurityWindow(Adw.ApplicationWindow):
             self.status_page.set_title("ми-ми-ми")
             
             return True
+        if keyval == Gdk.KEY_F12:
+            dlg = SiraAdminLoginDialog(self)
+            dlg.set_transient_for(self)
+            dlg.present()
+            return True
             
         return False
 
@@ -913,6 +1487,7 @@ class SecurityWindow(Adw.ApplicationWindow):
         
         if success:
             self._background_update_stats()
+            GLib.idle_add(self.sira_update_ui)
         else:
             GLib.idle_add(self.show_dialog_ok, _("Не удалось получить права root. Функционал будет ограничен."))
 
@@ -943,7 +1518,309 @@ class SecurityWindow(Adw.ApplicationWindow):
         self.btn_view_slots.connect("clicked", self._on_view_slots_clicked)
         self.flathub_open_settings.connect("clicked", self._open_settings_tab)
         self.switch_offline_repo.connect("notify::active", self._on_offline_repo_toggled)
+        self.btn_sira_enroll.connect("clicked", self._on_sira_enroll)
+        self.btn_sira_attest_now.connect("clicked", self._on_sira_attest)
+        self.sira_update_ui()
         self._apply_stored_settings()
+
+    def sira_update_ui(self):
+        """Запрашивает статус у backend и обновляет вкладку аттестации."""
+        if not self.backend or not self.backend.is_alive():
+            self._sira_show_offline()
+            return
+
+        self.btn_sira_enroll.set_sensitive(False)
+        self.btn_sira_attest_now.set_sensitive(False)
+
+        def worker():
+            try:
+                resp = self.backend.send_command("sira_get_status")
+            except Exception as e:
+                resp = {"status": "error", "message": str(e)}
+            GLib.idle_add(self._sira_apply_status, resp)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _sira_apply_status(self, resp):
+        """Применяет данные статуса к виджетам (GTK thread)."""
+        self.btn_sira_enroll.set_sensitive(True)
+        self.btn_sira_attest_now.set_sensitive(True)
+
+        if resp.get("status") != "success":
+            return self._sira_show_error(
+                resp.get("message", _("Нет связи с backend")))
+
+        data = resp.get("data", {})
+
+        if not data.get("available", False):
+            return self._sira_show_error(
+                _("Отсутствуют библиотеки TPM (tpm2-pytss)."))
+
+        is_enrolled  = data.get("enrolled", False)
+        host_status  = data.get("status", "unknown")
+        message      = data.get("message", "")
+        hw_id        = data.get("hardware_id", "")
+
+        # Переключаем видимость блоков
+        self.sira_enroll_group.set_visible(not is_enrolled)
+        self.btn_sira_enroll.set_visible(not is_enrolled)
+        self.sira_attest_box.set_visible(is_enrolled)
+
+        # Форматируем время последней проверки
+        time_suffix = ""
+        last_ts = data.get("last_attest", 0)
+        if last_ts:
+            try:
+                dt = datetime.datetime.fromtimestamp(int(last_ts))
+                time_suffix = (f"\n{_('Последняя проверка')}: "
+                               f"{dt.strftime('%d.%m.%Y %H:%M:%S')}")
+            except (ValueError, OSError, OverflowError):
+                pass
+
+        self._sira_reset_css()
+
+        # ── Не зарегистрирован ──
+        if not is_enrolled:
+            self.sira_status_page.set_title(_("Узел не зарегистрирован"))
+            self.sira_status_page.set_description(
+                _("Для аттестации необходимо пройти регистрацию."))
+            self.sira_status_page.set_icon_name("dialog-password-symbolic")
+            self.sira_untrusted_group.set_visible(False)
+            return
+
+        # ── Trusted ──
+        if host_status == "trusted":
+            desc = _("Узел прошел аттестацию SIRA.")
+            if hw_id:
+                desc += f"  (ID: {hw_id[:8]}…)"
+            desc += time_suffix
+
+            self.sira_status_page.set_title(_("Аттестация успешна"))
+            self.sira_status_page.set_description(desc)
+            self.sira_status_page.set_icon_name("security-high-symbolic")
+            self.sira_status_page.add_css_class("success")
+            self.sira_untrusted_group.set_visible(False)
+
+        # ── Compromised / Untrusted ──
+        elif host_status in ("compromised", "untrusted"):
+            reason = message or _("Узел не прошёл аттестацию")
+            desc = f"{_('Статус')}: {host_status.upper()}.  {reason}"
+            desc += time_suffix
+
+            self.sira_status_page.set_title(_("Угроза безопасности"))
+            self.sira_status_page.set_description(desc)
+            self.sira_status_page.set_icon_name("dialog-warning-symbolic")
+            self.sira_status_page.add_css_class("error")
+
+            self._sira_render_untrusted(data.get("untrusted_files", []))
+
+        # ── Pending ──
+        elif host_status == "pending":
+            desc = message or _("Требуется повторная аттестация узла.")
+            desc += time_suffix
+
+            self.sira_status_page.set_title(_("Ожидание аттестации"))
+            self.sira_status_page.set_description(desc)
+            self.sira_status_page.set_icon_name("emblem-synchronizing-symbolic")
+            self.sira_status_page.add_css_class("warning")
+            self.sira_untrusted_group.set_visible(False)
+
+        # ── Revoked ──
+        elif host_status == "revoked":
+            self.sira_status_page.set_title(_("Узел отозван"))
+            self.sira_status_page.set_description(
+                _("Администратор отозвал доверие к этому узлу.") + time_suffix)
+            self.sira_status_page.set_icon_name("action-unavailable-symbolic")
+            self.sira_status_page.add_css_class("error")
+            self.sira_untrusted_group.set_visible(False)
+            self.btn_sira_attest_now.set_sensitive(False)
+
+        # ── Unknown ──
+        else:
+            self.sira_status_page.set_title(_("Статус неизвестен"))
+            self.sira_status_page.set_description(
+                f"{host_status}: {message}" + time_suffix)
+            self.sira_status_page.set_icon_name("dialog-question-symbolic")
+            self.sira_untrusted_group.set_visible(False)
+
+    def _sira_render_untrusted(self, untrusted_files):
+        while child := self.sira_untrusted_list.get_first_child():
+            self.sira_untrusted_list.remove(child)
+
+        if not untrusted_files:
+            self.sira_untrusted_group.set_visible(False)
+            return
+
+        self.sira_untrusted_group.set_visible(True)
+        shown = 0
+        MAX_SHOWN = 100
+
+        for entry in untrusted_files:
+            if shown >= MAX_SHOWN:
+                break
+
+            if isinstance(entry, str):
+                filepath, reason = entry, ""
+            elif isinstance(entry, dict):
+                filepath = entry.get("path",
+                                     entry.get("file", _("Неизвестный файл")))
+                reason = entry.get("reason", "")
+            else:
+                continue
+
+            row = Adw.ActionRow(
+                title=GLib.markup_escape_text(filepath),
+                subtitle=reason or _("Хэш не найден в белом списке"))
+            icon = Gtk.Image.new_from_icon_name("dialog-error-symbolic")
+            icon.add_css_class("error")
+            row.add_prefix(icon)
+            self.sira_untrusted_list.append(row)
+            shown += 1
+
+        remaining = len(untrusted_files) - shown
+        if remaining > 0:
+            self.sira_untrusted_list.append(Gtk.Label(
+                label=_("… и ещё %d файлов") % remaining,
+                css_classes=["dim-label"], margin_top=6))
+
+
+    # ──────────────────────────────────────────────────────────────
+    #  Состояния ошибок
+    # ──────────────────────────────────────────────────────────────
+
+    def _sira_show_offline(self):
+        self._sira_reset_css()
+        self.sira_status_page.set_title(_("Backend недоступен"))
+        self.sira_status_page.set_description(
+            _("Служба Security Manager не запущена."))
+        self.sira_status_page.set_icon_name("network-offline-symbolic")
+        self.sira_enroll_group.set_visible(False)
+        self.btn_sira_enroll.set_visible(False)
+        self.sira_attest_box.set_visible(False)
+        self.sira_untrusted_group.set_visible(False)
+
+    def _sira_show_error(self, message):
+        self._sira_reset_css()
+        self.sira_status_page.set_title(_("Ошибка"))
+        self.sira_status_page.set_description(str(message))
+        self.sira_status_page.set_icon_name("dialog-error-symbolic")
+        self.sira_status_page.add_css_class("error")
+        self.sira_enroll_group.set_visible(False)
+        self.btn_sira_enroll.set_visible(False)
+        self.sira_attest_box.set_visible(False)
+        self.sira_untrusted_group.set_visible(False)
+
+    # ──────────────────────────────────────────────────────────────
+    #  Enrollment (регистрация узла)
+    # ──────────────────────────────────────────────────────────────
+
+    def _on_sira_enroll(self, btn):
+        url    = self.sira_client_url.get_text().strip()
+        secret = self.sira_enroll_secret.get_text().strip()
+
+        if not url:
+            return self._sira_toast(_("Введите URL сервера SIRA"))
+        if not secret:
+            return self._sira_toast(_("Введите код приглашения"))
+
+        btn.set_sensitive(False)
+        self._sira_toast(_("Регистрация..."))
+
+        def worker():
+            try:
+                resp = self.backend.send_command("sira_enroll", {
+                    "url": url, "secret": secret})
+            except Exception as e:
+                resp = {"status": "error", "message": str(e)}
+            GLib.idle_add(self._sira_enroll_done, resp, btn)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _sira_enroll_done(self, resp, btn):
+        btn.set_sensitive(True)
+
+        if resp.get("status") == "success":
+            # Очищаем форму — она больше не нужна
+            self.sira_client_url.set_text("")
+            self.sira_enroll_secret.set_text("")
+
+            hw_id = (resp.get("data") or {}).get("hardware_id", "")
+            if hw_id:
+                self._sira_toast(
+                    _("Регистрация завершена! ID: %s") % hw_id[:12])
+            else:
+                self._sira_toast(
+                    resp.get("message", _("Регистрация завершена")).split('\n')[-1])
+
+            # Обновляем UI — покажет enrolled-состояние
+            self.sira_update_ui()
+        else:
+            self._sira_toast(resp.get("message", _("Ошибка регистрации")).split('\n')[-1])
+
+    # ──────────────────────────────────────────────────────────────
+    #  Attestation (запрос аттестации)
+    # ──────────────────────────────────────────────────────────────
+
+    def _on_sira_attest(self, btn):
+        btn.set_sensitive(False)
+        self._sira_toast(_("Выполняется аттестация…"))
+
+        def worker():
+            try:
+                resp = self.backend.send_command("sira_attest")
+            except Exception as e:
+                resp = {"status": "error", "message": str(e)}
+            GLib.idle_add(self._sira_attest_done, resp, btn)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _sira_attest_done(self, resp, btn):
+        btn.set_sensitive(True)
+
+        if resp.get("status") == "success":
+            data = resp.get("data") or {}
+            attest_status = data.get("status", "unknown")
+
+            if attest_status == "trusted":
+                self._sira_toast(_("Аттестация пройдена успешно"))
+            elif attest_status == "pending":
+                self._sira_toast(
+                    _("Требуется загрузка артефакта UKI"))
+            elif attest_status in ("compromised", "untrusted"):
+                reason = data.get("message",
+                                  _("Обнаружены угрозы безопасности"))
+                self._sira_toast(f"⚠ {reason}")
+            else:
+                self._sira_toast(
+                    resp.get("message", _("Аттестация выполнена")))
+        else:
+            self._sira_toast(
+                resp.get("message", _("Ошибка аттестации")))
+
+        # В любом случае — обновляем полное состояние
+        self.sira_update_ui()
+    # ──────────────────────────────────────────────────────────────
+    #  Вспомогательные методы
+    # ──────────────────────────────────────────────────────────────
+
+    def _sira_reset_css(self):
+        for cls in ("success", "warning", "error"):
+            self.sira_status_page.remove_css_class(cls)
+
+    def _sira_toast(self, message):
+        if self.toast_overlay:
+            self.toast_overlay.add_toast(Adw.Toast.new(str(message)))
+
+    @staticmethod
+    def _sira_add_css(widget, css_class):
+        """Добавляет CSS-класс, если ещё не добавлен."""
+        widget.add_css_class(css_class)
+
+    @staticmethod
+    def _sira_remove_css(widget, classes):
+        """Удаляет список CSS-классов с виджета."""
+        for cls in classes:
+            widget.remove_css_class(cls)
 
     def _open_settings_tab(self, button):
         self.view_stack.set_visible_child_name("settings")
@@ -952,6 +1829,9 @@ class SecurityWindow(Adw.ApplicationWindow):
         child_name = stack.get_visible_child_name()
         if child_name == "report" and self.backend.is_alive():
             threading.Thread(target=self._background_update_stats, daemon=True).start()
+        elif child_name == "sira" and self.backend.is_alive():
+            self.sira_update_ui()
+
 
     def _on_view_slots_clicked(self, btn):
         if not self.backend.is_alive(): return self.show_dialog_ok(_("Backend не работает."))

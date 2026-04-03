@@ -13,10 +13,23 @@ from base64 import b32encode
 from contextlib import contextmanager
 import gettext
 import locale
+import base64
+import requests
+import hashlib
+import time
+try:
+    from tpm2_pytss import ESAPI, ESYS_TR, TPM2B_PUBLIC, TPMT_SYM_DEF, TPM2_ALG, TPM2B_NONCE, TPM2B_DIGEST, TPM2_SE, TPM2B_PRIVATE, TPM2B_ID_OBJECT, TPM2B_ENCRYPTED_SECRET, TPML_PCR_SELECTION, TPMT_SIG_SCHEME
+    from tpm2_pytss.utils import create_ek_template, NVReadEK
+    import pefile
+    SIRA_AVAILABLE = True
+except ImportError:
+    SIRA_AVAILABLE = False
 
+SIRA_STATE_FILE = "/etc/secux/agent.json"
+SIRA_STATUS_FILE = "/etc/secux/attest_status.json"
 IDP_FILE = "/etc/idp.json"
 PCR_PUB_KEY = "/etc/kernel/pcr-initrd.pub.pem"
-DEFAULT_PCRS = [0, 7, 14]
+DEFAULT_PCRS = [0, 2, 7, 14]
 STORAGE_2FA_PATH = "/etc/securitymanager-2fa"
 PAM_FILES = ["/etc/pam.d/login", "/etc/pam.d/gdm-password"]
 PAM_LINE = f"auth required pam_google_authenticator.so nullok debug user=root secret={STORAGE_2FA_PATH}/${{USER}}\n"
@@ -26,6 +39,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 APP_ID = "org.secux.securitymanager"
 _ = lambda x: x 
+AGENT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sira-agent.py")
+
 
 def init_i18n(lang_code):
     """Настройка перевода для процесса backend"""
@@ -41,10 +56,23 @@ def init_i18n(lang_code):
         pass
 
     try:
-        t = gettext.translation(APP_ID, localedir=LOCALES_DIR, languages=[lang_code], fallback=True)
+        t = gettext.translation(APP_ID, localedir=LOCALES_DIR, languages= [lang_code], fallback=True)
         _ = t.gettext
     except Exception as e:
         sys.stderr.write(f"Translation init failed: {e}\n")
+
+@contextmanager
+def suppress_stderr():
+    """Подавляет stderr от tpm2-pytss, чтобы не ломать JSON-протокол"""
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    old_stderr = os.dup(2)
+    os.dup2(devnull, 2)
+    os.close(devnull)
+    try:
+        yield
+    finally:
+        os.dup2(old_stderr, 2)
+        os.close(old_stderr)
 
 
 @contextmanager
@@ -71,19 +99,29 @@ def reply(status, data=None, message=None):
 
 def run_cmd(cmd, check=True, input_text=None):
     try:
+        env = os.environ.copy()
+        env["LC_ALL"] = "C"
+        env["LANG"] = "C"
+        env["LANGUAGE"] = "C"
+
         kwargs = {
-            "check": check,
             "capture_output": True,
-            "text": True
+            "text": True,
+            "env": env
         }
         
-        # КРИТИЧНО ВАЖНО: Если ввода нет, перенаправляем stdin в DEVNULL,
-        # чтобы процесс не пытался читать из канала управления JSON.
         if input_text is not None:
             kwargs["input"] = input_text
         else:
             kwargs["stdin"] = subprocess.DEVNULL
+            
         res = subprocess.run(cmd, **kwargs)
+        
+        # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+        # Если процесс завершился с ошибкой, возвращаем False
+        if res.returncode != 0:
+            return False, res.stdout.strip(), res.stderr.strip()
+            
         return True, res.stdout.strip(), res.stderr.strip()
     except subprocess.CalledProcessError as e:
         return False, e.stdout.strip(), e.stderr.strip()
@@ -111,7 +149,7 @@ def get_stats(params):
                 data = json.loads(sb_out)
                 stats["secure_boot"] = bool(data.get('secure_boot'))
                 stats["setup_mode"] = bool(data.get('setup_mode'))
-                if 'microsoft' in data.get('vendors', []):
+                if 'microsoft' in data.get('vendors',[]):
                     stats["microsoft_keys"] = True
             except:
                 pass
@@ -141,8 +179,7 @@ def get_stats(params):
                         if part.get('fstype') == 'crypto_LUKS':
                             # Если нашли LUKS, запоминаем его как кандидата
                             stats["drive"] = "/dev/" + part['name']
-                            # Если внутри есть cryptlvm, то это точно наш клиент 😈
-                            # Простите за эмодзи, я зумерок
+                            # Если внутри есть cryptlvm, то это точно наш клиент
                             if 'children' in part:
                                 for sub in part['children']:
                                     if sub['name'] == 'cryptlvm':
@@ -174,6 +211,110 @@ def get_stats(params):
         stats["tpm_with_pin"] = True
 
     reply("success", stats)
+
+
+def sira_enroll(params):
+    url = params.get("server_url", params.get("url", "")).rstrip("/")
+    secret = params.get("secret")
+    
+    if not url or not secret:
+        return reply("error", message=_("Заполните все поля"))
+    if not SIRA_AVAILABLE:
+        return reply("error", message=_("Агент SIRA не найден (sira-agent)"))
+
+    cmd = [sys.executable, AGENT_PATH, "--server", url, "enroll"]
+    success, stdout, stderr = run_cmd(cmd, check=False, input_text=secret)
+    
+    if not success:
+        # stderr содержит ошибки, stdout — прогресс (не показываем)
+        error_text = stderr.strip() if stderr else stdout.strip()
+        return reply("error", message=error_text or _("Ошибка регистрации узла"))
+    
+    # Читаем state-файл, который записал агент
+    hw_id = ""
+    if os.path.exists(SIRA_STATE_FILE):
+        try:
+            with open(SIRA_STATE_FILE) as f:
+                state = json.load(f)
+            hw_id = state.get("hardware_id", "")
+        except Exception:
+            pass
+
+    return reply("success",
+                 data={"hardware_id": hw_id},
+                 message=_("Узел успешно привязан к кластеру SIRA"))
+
+
+def sira_attest(params):
+    if not SIRA_AVAILABLE:
+        return reply("error", message=_("Агент SIRA не найден"))
+    if not os.path.exists(SIRA_STATE_FILE):
+        return reply("error", message=_("Узел не зарегистрирован"))
+
+    cmd = [sys.executable, AGENT_PATH, "attest"]
+    success, stdout, stderr = run_cmd(cmd, check=False)
+
+    # Читаем status-файл, который содержит финальный результат
+    status_data = {}
+    if os.path.exists(SIRA_STATUS_FILE):
+        try:
+            with open(SIRA_STATUS_FILE) as f:
+                status_data = json.load(f)
+        except Exception:
+            pass
+
+    if status_data:
+        attest_status = status_data.get("status", "unknown")
+        msg = status_data.get("message", "")
+        
+        if attest_status == "trusted":
+            return reply("success", data=status_data,
+                         message=msg or _("Аттестация пройдена"))
+        elif attest_status == "pending":
+            return reply("success", data=status_data,
+                         message=msg or _("Требуется загрузка артефакта"))
+        else:
+            # compromised / untrusted
+            return reply("success", data=status_data,
+                         message=msg or _("Узел не прошёл аттестацию"))
+    else:
+        # Агент упал без записи статуса — показываем stderr
+        error_msg = stderr.strip() if stderr else stdout.strip()
+        return reply("error",
+                     message=error_msg or _("Аттестация не выполнена"))
+
+def sira_get_status(params):
+    """Чтение локального состояния SIRA (без сетевых запросов)"""
+    if not SIRA_AVAILABLE:
+        return reply("success", {"available": False})
+
+    state = {}
+    status_data = {}
+
+    if os.path.exists(SIRA_STATE_FILE):
+        try:
+            with open(SIRA_STATE_FILE) as f:
+                state = json.load(f)
+        except Exception:
+            pass
+
+    if os.path.exists(SIRA_STATUS_FILE):
+        try:
+            with open(SIRA_STATUS_FILE) as f:
+                status_data = json.load(f)
+        except Exception:
+            pass
+
+    return reply("success", {
+        "available":       True,
+        "enrolled":        bool(state.get("hardware_id")),
+        "hardware_id":     state.get("hardware_id", ""),
+        "server_url":      state.get("api_url", ""),
+        "status":          status_data.get("status", "unknown"),
+        "last_attest":     status_data.get("timestamp", 0),
+        "untrusted_files": status_data.get("untrusted_files", []),
+        "message":         status_data.get("message", "")
+    })
 
 
 def enroll_unified(params):
@@ -218,8 +359,13 @@ def enroll_unified(params):
     if pin:
         cmd.insert(-1, "--tpm2-with-pin=yes")
 
+    env = os.environ.copy()
+    env["LC_ALL"] = "C"
+    env["LANG"] = "C"
+    env["LANGUAGE"] = "C"
+
     try:
-        child = pexpect.spawn(cmd[0], args=cmd[1:], encoding='utf-8', timeout=60)
+        child = pexpect.spawn(cmd[0], args=cmd[1:], encoding='utf-8', timeout=60, env=env)
         
         # Ждем запрос пароля диска
         idx = child.expect([r"Please enter current passphrase", pexpect.EOF, pexpect.TIMEOUT])
@@ -389,7 +535,7 @@ def delete_key(params):
         return reply("error", _("Ошибка удаления слота"))
     
     for token_id, token_info in tokens.items():
-        if str(keyslot_id) in token_info.get('keyslots', []):
+        if str(keyslot_id) in token_info.get('keyslots',[]):
             kill_token_cmd = ['/usr/bin/cryptsetup', 'token', 'remove', drive, '--token-id', str(token_id)]
             run_cmd(kill_token_cmd, check=False)
 
@@ -404,8 +550,13 @@ def enroll_password(params):
     if not all([drive, current_pass, new_pass]):
         return reply("error", message=_("Отсутствует диск или ключ"))
 
+    env = os.environ.copy()
+    env["LC_ALL"] = "C"
+    env["LANG"] = "C"
+    env["LANGUAGE"] = "C"
+
     try:
-        child = pexpect.spawn("/usr/bin/systemd-cryptenroll", ["--password", drive], encoding='utf-8', timeout=60)
+        child = pexpect.spawn("/usr/bin/systemd-cryptenroll",["--password", drive], encoding='utf-8', timeout=60, env=env)
         
         idx = child.expect([r"Please enter current passphrase", pexpect.EOF])
         if idx != 0: return reply("error", message=_("Не удалось запустить systemd-cryptenroll"))
@@ -429,7 +580,6 @@ def enroll_password(params):
 
 def get_2fa_state(params):
     """Возвращает список пользователей, статус их 2FA и глобальный статус системы"""
-    # 1. Проверка системного статуса (проверяем /etc/pam.d/login)
     system_enabled = False
     try:
         with open("/etc/pam.d/login", "r") as f:
@@ -438,22 +588,18 @@ def get_2fa_state(params):
     except FileNotFoundError:
         pass
 
-    # 2. Сбор пользователей
     users = []
     min_uid = 1000
     
-    # Добавляем root
     try:
         root_pwd = pwd.getpwuid(0)
         users.append({"name": root_pwd.pw_name, "uid": 0, "enrolled": False})
     except: pass
 
-    # Обычные пользователи
     for p in pwd.getpwall():
         if p.pw_uid >= min_uid and p.pw_name != "nobody":
             users.append({"name": p.pw_name, "uid": p.pw_uid, "enrolled": False})
 
-    # 3. Проверка enrollment (наличие файла конфига)
     if os.path.isdir(STORAGE_2FA_PATH):
         for user in users:
             user_config = os.path.join(STORAGE_2FA_PATH, user["name"])
@@ -473,7 +619,6 @@ def toggle_system_2fa(params):
         for file_path in PAM_FILES:
             if not os.path.exists(file_path): continue
             
-            lines = []
             with open(file_path, "r") as f:
                 lines = f.readlines()
             
@@ -481,7 +626,12 @@ def toggle_system_2fa(params):
             lines = [line for line in lines if "pam_google_authenticator.so" not in line]
             
             if enable:
-                lines.append(PAM_LINE)
+                insert_idx = len(lines)
+                for i, line in enumerate(lines):
+                    if line.strip().startswith("auth"):
+                        insert_idx = i
+                        break
+                lines.insert(insert_idx, PAM_LINE)
             
             with open(file_path, "w") as f:
                 f.writelines(lines)
@@ -528,7 +678,6 @@ def enroll_2fa_user(params):
         os.chmod(user_path, 0o600) # Только рут может читать секреты
         
         # Генерируем URI для QR кода
-        # otpauth://totp/user@host?secret=KEY&issuer=Secux
         uri = f"otpauth://totp/{user}@{hostname}?secret={secret_key}&issuer=secux"
         
         return reply("success", {
@@ -740,6 +889,12 @@ def run_daemon():
                 get_luks_slots(params)
             elif command == "flatpak_manager":
                 flatpak_manager(params)
+            elif command == "sira_enroll":
+                sira_enroll(params)
+            elif command == "sira_attest":
+                sira_attest(params)
+            elif command == "sira_get_status":
+                sira_get_status(params)
             else:
                 reply("error", message=f"{_("Unknown command")}: {command}")
 
@@ -754,8 +909,6 @@ if __name__ == "__main__":
     init_i18n(target_lang)
 
     if len(sys.argv) > 1 and sys.argv[1] == 'debug':
-        # Debug без запуска демона
-        flatpak_manager({'action': 'install', 'apps': ['org.chromium.Chromium'], 'repo_path': '/home/user/offline-usb', 'offline_mode': False})
+        flatpak_manager({'action': 'install', 'apps':['org.chromium.Chromium'], 'repo_path': '/home/user/offline-usb', 'offline_mode': False})
     else:
-        # По умолчанию запускаем режим демона
         run_daemon()

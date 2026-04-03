@@ -1,0 +1,182 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $SiraProvisionDialog: Adw.Window {
+  title: _("Создание заявки (Provision)");
+  default-width: 450;
+  modal: true;
+  resizable: false;
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.ToolbarView {
+      [top]
+      Adw.HeaderBar {}
+
+      content: Adw.ViewStack stack_prov {
+        // Страница 1: Форма настройки
+        Adw.ViewStackPage {
+          name: "form";
+
+          child: Adw.PreferencesPage {
+            Adw.PreferencesGroup {
+              Adw.EntryRow entry_hostname {
+                title: _("Имя узла (Hostname)");
+              }
+
+              Adw.SwitchRow sw_ek {
+                title: _("Проверять EK сертификат TPM");
+                active: true;
+              }
+            }
+
+            Adw.PreferencesGroup {
+              title: _("Политика безопасности");
+
+              Adw.SwitchRow sw_bootchain {
+                title: _("Проверять цепочку загрузки (TCG)");
+                active: true;
+              }
+
+              Adw.SwitchRow sw_ima {
+                title: _("Анализировать IMA лог");
+                active: true;
+              }
+
+              Adw.EntryRow entry_ima_policy {
+                title: _("Политика IMA (cmdline)");
+                text: "secuxlinux";
+              }
+
+              Adw.ExpanderRow pcr_expander {
+                title: _("Контролируемые PCR");
+
+                Adw.SwitchRow pcr0 {
+                  title: "PCR 0";
+                  active: true;
+                }
+
+                Adw.SwitchRow pcr1 {
+                  title: "PCR 1";
+                  active: false;
+                }
+
+                Adw.SwitchRow pcr2 {
+                  title: "PCR 2";
+                  active: true;
+                }
+
+                Adw.SwitchRow pcr3 {
+                  title: "PCR 3";
+                  active: false;
+                }
+
+                Adw.SwitchRow pcr4 {
+                  title: "PCR 4";
+                  active: true;
+                }
+
+                Adw.SwitchRow pcr5 {
+                  title: "PCR 5";
+                  active: false;
+                }
+
+                Adw.SwitchRow pcr7 {
+                  title: "PCR 7";
+                  active: true;
+                }
+
+                Adw.SwitchRow pcr8 {
+                  title: "PCR 8";
+                  active: false;
+                }
+
+                Adw.SwitchRow pcr9 {
+                  title: "PCR 9";
+                  active: false;
+                }
+
+                Adw.SwitchRow pcr10 {
+                  title: "PCR 10";
+                  active: true;
+                }
+
+                Adw.SwitchRow pcr11 {
+                  title: "PCR 10";
+                  active: false;
+                }
+
+                Adw.SwitchRow pcr12 {
+                  title: "PCR 14";
+                  active: false;
+                }
+
+                Adw.SwitchRow pcr13 {
+                  title: "PCR 10";
+                  active: false;
+                }
+
+                Adw.SwitchRow pcr14 {
+                  title: "PCR 14";
+                  active: true;
+                }
+              }
+            }
+
+            Adw.PreferencesGroup {
+              Gtk.Button btn_submit {
+                label: _("Сгенерировать OTP");
+
+                styles [
+                  "suggested-action",
+                  "pill",
+                ]
+
+                margin-top: 12;
+                height-request: 40;
+              }
+            }
+          };
+        }
+
+        // Страница 2: Результат (OTP)
+        Adw.ViewStackPage {
+          name: "result";
+
+          child: Adw.StatusPage {
+            title: _("Заявка сформирована");
+            icon-name: "check-round-outline2-symbolic";
+
+            child: Gtk.Box {
+              orientation: vertical;
+              spacing: 12;
+
+              Gtk.Label lbl_otp {
+                styles [
+                  "title-2",
+                  "monospace",
+                ]
+
+                selectable: true;
+                margin-bottom: 12;
+              }
+
+              Gtk.Label {
+                label: _("Передайте этот код на целевой узел для привязки.");
+                justify: center;
+                wrap: true;
+              }
+
+              Gtk.Button btn_close {
+                label: _("Закрыть");
+
+                styles [
+                  "pill",
+                ]
+              }
+            };
+          };
+        }
+      };
+    };
+  };
+}

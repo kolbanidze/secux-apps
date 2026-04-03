@@ -1,0 +1,45 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $SiraAdminLoginDialog: Adw.Window {
+  title: _("Панель управления SIRA");
+  default-width: 400;
+  modal: true;
+  resizable: false;
+
+  content: Adw.ToastOverlay toast_overlay {
+    child: Adw.ToolbarView {
+      [top]
+      Adw.HeaderBar {}
+
+      content: Adw.PreferencesPage {
+        Adw.PreferencesGroup {
+          title: _("Доступ для администратора");
+          description: _("Введите данные сервера SIRA для управления кластером.");
+
+          Adw.EntryRow sira_admin_url {
+            title: _("URL Сервера");
+          }
+
+          Adw.PasswordEntryRow sira_admin_key {
+            title: _("API Ключ");
+          }
+        }
+
+        Adw.PreferencesGroup {
+          margin-top: 12;
+
+          Gtk.Button btn_sira_admin_login {
+            label: _("Войти");
+            height-request: 45;
+
+            styles [
+              "suggested-action",
+              "pill",
+            ]
+          }
+        }
+      };
+    };
+  };
+}

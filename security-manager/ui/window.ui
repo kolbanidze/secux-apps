@@ -300,7 +300,6 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                 <property name="spacing">6</property>
                                 <child>
                                   <object class="GtkEntry" id="entry_repo_path">
-                                    <property name="placeholder-text" translatable="yes">/путь/до/репозитория</property>
                                     <property name="editable">false</property>
                                     <property name="width-request">250</property>
                                     <property name="valign">3</property>
@@ -544,6 +543,92 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                         </child>
                       </object>
                     </child>
+                  </object>
+                </property>
+              </object>
+            </child>
+            <child>
+              <object class="AdwViewStackPage">
+                <property name="name">sira</property>
+                <property name="title" translatable="yes">Аттестация</property>
+                <property name="icon-name">network-server-symbolic</property>
+                <property name="child">
+                  <object class="AdwStatusPage" id="sira_status_page">
+                    <property name="title" translatable="yes">Не привязано к серверу</property>
+                    <property name="description" translatable="yes">Запросите OTP-код у администратора безопасности.</property>
+                    <property name="icon-name">security-low-symbolic</property>
+                    <property name="child">
+                      <object class="AdwToastOverlay" id="toast_overlay">
+                        <property name="child">
+                          <object class="AdwClamp">
+                            <property name="maximum-size">500</property>
+                            <property name="child">
+                              <object class="GtkBox">
+                                <property name="orientation">1</property>
+                                <property name="spacing">16</property>
+                                <child>
+                                  <object class="AdwPreferencesGroup" id="sira_enroll_group">
+                                    <property name="title" translatable="yes">Привязка устройства</property>
+                                    <property name="description" translatable="yes">Для интеграции узла укажите сервер и одноразовый код.</property>
+                                    <child>
+                                      <object class="AdwEntryRow" id="sira_client_url">
+                                        <property name="title" translatable="yes">Адрес сервера</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="AdwPasswordEntryRow" id="sira_enroll_secret">
+                                        <property name="title" translatable="yes">Код приглашения (OTP)</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkButton" id="btn_sira_enroll">
+                                    <property name="label" translatable="yes">Присоединиться к кластеру</property>
+                                    <property name="height-request">45</property>
+                                    <style>
+                                      <class name="suggested-action"/>
+                                      <class name="pill"/>
+                                    </style>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox" id="sira_attest_box">
+                                    <property name="orientation">1</property>
+                                    <property name="spacing">16</property>
+                                    <property name="visible">false</property>
+                                    <child>
+                                      <object class="GtkButton" id="btn_sira_attest_now">
+                                        <property name="label" translatable="yes">Выполнить проверку сейчас</property>
+                                        <property name="height-request">45</property>
+                                        <style>
+                                          <class name="pill"/>
+                                        </style>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="AdwPreferencesGroup" id="sira_untrusted_group">
+                                        <property name="title" translatable="yes">Заблокированные приложения</property>
+                                        <property name="description" translatable="yes">Следующие файлы не прошли проверку и были заблокированы.</property>
+                                        <property name="visible">false</property>
+                                        <child>
+                                          <object class="GtkListBox" id="sira_untrusted_list">
+                                            <property name="selection-mode">0</property>
+                                            <style>
+                                              <class name="boxed-list"/>
+                                            </style>
+                                          </object>
+                                        </child>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                              </object>
+                            </property>
+                          </object>
+                        </property>
+                      </object>
+                    </property>
                   </object>
                 </property>
               </object>

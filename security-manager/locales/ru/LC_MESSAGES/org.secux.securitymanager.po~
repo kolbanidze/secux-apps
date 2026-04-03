@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-22 03:01+0300\n"
+"POT-Creation-Date: 2026-03-22 11:43+0300\n"
 "PO-Revision-Date: 2026-01-04 21:54+0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -46,10 +46,10 @@ msgstr ""
 msgid "Пароль успешно изменен!"
 msgstr ""
 
-#: main.py:252 main.py:310 main.py:435 main.py:492 main.py:532 main.py:662
-#: main.py:700 main.py:736 main.py:756 main.py:924 main.py:1069 main.py:1089
-#: main.py:1129 backend.py:203 backend.py:250 backend.py:557 backend.py:609
-#: backend.py:732
+#: main.py:252 main.py:310 main.py:461 main.py:518 main.py:558 main.py:688
+#: main.py:726 main.py:762 main.py:782 main.py:950 main.py:1095 main.py:1115
+#: main.py:1155 backend.py:206 backend.py:253 backend.py:567 backend.py:619
+#: backend.py:742
 msgid "Ошибка"
 msgstr ""
 
@@ -61,371 +61,375 @@ msgstr ""
 msgid "Скопировано"
 msgstr ""
 
-#: main.py:393
+#: main.py:416
 msgid "Введите пароль от диска"
 msgstr ""
 
-#: main.py:399 main.py:407
+#: main.py:422 main.py:430
 msgid "Введите PIN код"
 msgstr ""
 
-#: main.py:402 main.py:410
+#: main.py:425 main.py:433
 msgid "PIN коды не сходятся"
 msgstr ""
 
-#: main.py:432
+#: main.py:436
+msgid "Ложный PIN идентичен настоящему"
+msgstr ""
+
+#: main.py:458
 msgid "Успешно!"
 msgstr ""
 
-#: main.py:472
+#: main.py:498
 msgid "Введите пароль или ключ"
 msgstr ""
 
-#: main.py:488
+#: main.py:514
 msgid "Успешно! Слот удален."
 msgstr ""
 
-#: main.py:539
+#: main.py:565
 msgid "Нет активных слотов (странно...)"
 msgstr ""
 
-#: main.py:544
+#: main.py:570
 msgid "Слот"
 msgstr ""
 
-#: main.py:599
+#: main.py:625
 msgid "Ошибка получения данных"
 msgstr ""
 
-#: main.py:621
+#: main.py:647
 msgid "активно"
 msgstr ""
 
-#: main.py:646
+#: main.py:672
 msgid "Секрет скрыт. Пересоздайте для отображения."
 msgstr ""
 
-#: main.py:689
+#: main.py:715
 msgid "Секрет: "
 msgstr ""
 
-#: main.py:689
+#: main.py:715
 msgid "Ключи восстановления:\n"
 msgstr ""
 
-#: main.py:698
+#: main.py:724
 msgid "2FA настроена!"
 msgstr ""
 
-#: main.py:737
+#: main.py:763
 msgid "Ошибка генерации QR кода"
 msgstr ""
 
-#: main.py:753
+#: main.py:779
 msgid "2FA удалена"
 msgstr ""
 
-#: main.py:761
+#: main.py:787
 msgid "Скрыто"
 msgstr ""
 
-#: main.py:838
+#: main.py:864
 msgid "Версия: "
 msgstr ""
 
-#: main.py:870
+#: main.py:896
 msgid "Не удалось получить права root. Функционал будет ограничен."
 msgstr ""
 
-#: main.py:910 main.py:1019 main.py:1025 main.py:1031 main.py:1048 main.py:1073
+#: main.py:936 main.py:1045 main.py:1051 main.py:1057 main.py:1074 main.py:1099
 msgid "Backend не работает."
 msgstr ""
 
-#: main.py:911
+#: main.py:937
 msgid "Диск не определен"
 msgstr ""
 
-#: main.py:943
+#: main.py:969
 msgid "Настройки успешно сохранены"
 msgstr ""
 
-#: main.py:945
+#: main.py:971
 msgid "Для смены языка перезапустите приложение."
 msgstr ""
 
-#: main.py:949
+#: main.py:975
 msgid "Ошибка при сохранении файла конфигурации"
 msgstr ""
 
-#: main.py:981
+#: main.py:1007
 msgid "Раздел LUKS не найден"
 msgstr ""
 
-#: main.py:984
+#: main.py:1010
 msgid "Включен"
 msgstr ""
 
-#: main.py:984
+#: main.py:1010
 msgid "Выключен"
 msgstr ""
 
-#: main.py:988 main.py:989
+#: main.py:1014 main.py:1015
 msgid "Да"
 msgstr ""
 
-#: main.py:988 main.py:989
+#: main.py:1014 main.py:1015
 msgid "Нет"
 msgstr ""
 
-#: main.py:996
+#: main.py:1022
 msgid "Пароль"
 msgstr ""
 
-#: main.py:1004 ui/window.ui:38
+#: main.py:1030 ui/window.ui:38
 msgid "Система защищена"
 msgstr ""
 
-#: main.py:1005
+#: main.py:1031
 msgid "Secure Boot активен, задействованы механизмы TPM."
 msgstr ""
 
-#: main.py:1011
+#: main.py:1037
 msgid "Система под угрозой"
 msgstr ""
 
-#: main.py:1012
+#: main.py:1038
 msgid "Устройство уязвимо. Рекомендуется включить Secure Boot и настроить TPM."
 msgstr ""
 
-#: main.py:1038
+#: main.py:1064
 msgid "Удалить TPM?"
 msgstr ""
 
-#: main.py:1039
+#: main.py:1065
 msgid "Это сбросит ключи шифрования. Вам понадобится пароль."
 msgstr ""
 
-#: main.py:1067
+#: main.py:1093
 msgid "Успешно"
 msgstr ""
 
-#: main.py:1093
+#: main.py:1119
 msgid "Отмена"
 msgstr ""
 
-#: main.py:1094
+#: main.py:1120
 msgid "Выполнить"
 msgstr ""
 
-#: main.py:1125
+#: main.py:1151
 msgid "--> Операция успешно завершена."
 msgstr ""
 
-#: main.py:1126
+#: main.py:1152
 msgid "Готово!"
 msgstr ""
 
-#: main.py:1128
+#: main.py:1154
 msgid "--> ОШИБКА."
 msgstr ""
 
-#: main.py:1147
+#: main.py:1173
 msgid "Информация"
 msgstr ""
 
-#: main.py:1155
+#: main.py:1181
 msgid "офлайн"
 msgstr ""
 
-#: main.py:1157
+#: main.py:1183
 msgid "онлайн"
 msgstr ""
 
-#: main.py:1162 main.py:1179
+#: main.py:1188 main.py:1205
 msgid "Выберите хотя бы одно приложение"
 msgstr ""
 
-#: main.py:1167
+#: main.py:1193
 msgid "Для скачивания выберите путь к репозиторию в настройках"
 msgstr ""
 
-#: main.py:1169
+#: main.py:1195
 msgid "--> Инициализация скачивания в локальный репозиторий..."
 msgstr ""
 
-#: main.py:1185
+#: main.py:1211
 msgid "Для офлайн установки укажите путь к репозиторию"
 msgstr ""
 
-#: main.py:1188
+#: main.py:1214
 msgid "Начало установки"
 msgstr ""
 
-#: backend.py:189 backend.py:302
+#: backend.py:190 backend.py:312
 msgid "Отсутствует диск или пароль"
 msgstr ""
 
-#: backend.py:199
+#: backend.py:202
 msgid "TPM + IDP успешно настроен"
 msgstr ""
 
-#: backend.py:201
+#: backend.py:204
 msgid "Установка IDP завершена, но файл не был создан"
 msgstr ""
 
-#: backend.py:224
+#: backend.py:227
 msgid "Превышено время ожидания диска"
 msgstr ""
 
-#: backend.py:231
+#: backend.py:234
 msgid "Неверный пароль LUKS"
 msgstr ""
 
-#: backend.py:232
+#: backend.py:235
 msgid "Превышено время ожидания запроса PIN"
 msgstr ""
 
-#: backend.py:241
+#: backend.py:244
 msgid "Неверный пароль или PIN код"
 msgstr ""
 
-#: backend.py:245
+#: backend.py:248
 msgid "TPM успешно зарегистрирован"
 msgstr ""
 
-#: backend.py:247
+#: backend.py:250
 msgid "systemd-cryptenroll завершил работу с ошибкой"
 msgstr ""
 
-#: backend.py:255 backend.py:545
+#: backend.py:258 backend.py:555
 msgid "Диск не выбран"
 msgstr ""
 
-#: backend.py:294
+#: backend.py:304
 msgid "Ошибка очистки"
 msgstr ""
 
-#: backend.py:296
+#: backend.py:306
 msgid "TPM очищен"
 msgstr ""
 
-#: backend.py:311
+#: backend.py:321
 msgid "Неверный пароль"
 msgstr ""
 
-#: backend.py:321 backend.py:390
+#: backend.py:331 backend.py:400
 msgid "Отсутствует диск или ключ"
 msgstr ""
 
-#: backend.py:329
+#: backend.py:339
 msgid "Отсутствуют слоты LUKS"
 msgstr ""
 
-#: backend.py:340
+#: backend.py:350
 msgid "Соответствующий ключ не найден"
 msgstr ""
 
-#: backend.py:345
+#: backend.py:355
 msgid "Нельзя удалить единственный метод доступа!"
 msgstr ""
 
-#: backend.py:369
+#: backend.py:379
 msgid "Необходимо чтоб остался запасной ключ для разблокировки"
 msgstr ""
 
-#: backend.py:374
+#: backend.py:384
 msgid "Ошибка удаления слота"
 msgstr ""
 
-#: backend.py:381
+#: backend.py:391
 msgid "Пароль успешно удален"
 msgstr ""
 
-#: backend.py:396
+#: backend.py:406
 msgid "Не удалось запустить systemd-cryptenroll"
 msgstr ""
 
-#: backend.py:400
+#: backend.py:410
 msgid "Неверный текущий пароль"
 msgstr ""
 
-#: backend.py:401
+#: backend.py:411
 msgid "Превышено время ожидания"
 msgstr ""
 
-#: backend.py:409
+#: backend.py:419
 msgid "Пароль изменен"
 msgstr ""
 
-#: backend.py:411
+#: backend.py:421
 msgid "Не удалось изменить пароль"
 msgstr ""
 
-#: backend.py:482 backend.py:530
+#: backend.py:492 backend.py:540
 msgid "Пользователь не выбран"
 msgstr ""
 
-#: backend.py:536
+#: backend.py:546
 msgid "2FA удалена для пользователя"
 msgstr ""
 
-#: backend.py:540
+#: backend.py:550
 msgid "Регистрация не найдена"
 msgstr ""
 
-#: backend.py:569
+#: backend.py:579
 msgid "Пользовательский пароль"
 msgstr ""
 
-#: backend.py:584 ui/recovery_enroll.ui:10
+#: backend.py:594 ui/recovery_enroll.ui:10
 msgid "Ключ восстановления"
 msgstr ""
 
-#: backend.py:587
+#: backend.py:597
 msgid "FIDO2 токен"
 msgstr ""
 
-#: backend.py:623
+#: backend.py:633
 msgid "Нет приложений для обработки"
 msgstr ""
 
-#: backend.py:628
+#: backend.py:638
 msgid "Не указан путь к репозиторию"
 msgstr ""
 
-#: backend.py:636
+#: backend.py:646
 msgid "Скачивание завершено"
 msgstr ""
 
-#: backend.py:638
+#: backend.py:648
 msgid "Произошла ошибка при скачивании"
 msgstr ""
 
-#: backend.py:655
+#: backend.py:665
 msgid "Приложения успешно установлены"
 msgstr ""
 
-#: backend.py:657
+#: backend.py:667
 msgid "Что-то пошло не так"
 msgstr ""
 
-#: backend.py:670
+#: backend.py:680
 msgid "SKIP: Файл override не найден"
 msgstr ""
 
-#: backend.py:680
+#: backend.py:690
 msgid "OVERRIDE: Конфигурация обновлена для"
 msgstr ""
 
-#: backend.py:682
+#: backend.py:692
 msgid "OVERRIDE ERROR: Не удалось скопировать override"
 msgstr ""
 
-#: backend.py:698
+#: backend.py:708
 msgid "Ошибка JSON"
 msgstr ""
 
-#: backend.py:729
+#: backend.py:739
 msgid "Unknown command"
 msgstr ""
 
@@ -559,7 +563,47 @@ msgstr ""
 msgid "Безвозвратно уничтожает ключи шифрования"
 msgstr ""
 
-#: ui/tpm_enroll.ui:107
+#: ui/tpm_enroll.ui:89
+msgid "Расширенные настройки PCR"
+msgstr ""
+
+#: ui/tpm_enroll.ui:90
+msgid "Если знаете, что делаете"
+msgstr ""
+
+#: ui/tpm_enroll.ui:97
+msgid "Прошивка системы (UEFI)"
+msgstr ""
+
+#: ui/tpm_enroll.ui:104
+msgid "Настройки прошивки (серийные номера)"
+msgstr ""
+
+#: ui/tpm_enroll.ui:110
+msgid "Дополнительные модули (Option ROM)"
+msgstr ""
+
+#: ui/tpm_enroll.ui:117
+msgid "Настройки дополнительных модулей"
+msgstr ""
+
+#: ui/tpm_enroll.ui:123
+msgid "Загрузчик, драйвера и EFI приложения"
+msgstr ""
+
+#: ui/tpm_enroll.ui:129
+msgid "Таблица разделов диска (GPT)"
+msgstr ""
+
+#: ui/tpm_enroll.ui:135 ui/window.ui:67
+msgid "Состояние Secure Boot"
+msgstr ""
+
+#: ui/tpm_enroll.ui:142
+msgid "Сертификаты MOK (shim)"
+msgstr ""
+
+#: ui/tpm_enroll.ui:168
 msgid "Зарегистрировать в TPM"
 msgstr ""
 
@@ -582,10 +626,6 @@ msgstr ""
 #: ui/window.ui:60 ui/window.ui:71 ui/window.ui:82 ui/window.ui:97
 #: ui/window.ui:108 ui/window.ui:144
 msgid "Неизвестно"
-msgstr ""
-
-#: ui/window.ui:67
-msgid "Состояние Secure Boot"
 msgstr ""
 
 #: ui/window.ui:68

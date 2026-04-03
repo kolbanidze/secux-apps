@@ -144,6 +144,8 @@ def erase_header(config, drive_path):
         run_cmd(['tpm2_nvundefine', config['decoy_address']], check=False)
     if config.get('blob_address'):
         run_cmd(['tpm2_nvundefine', config['blob_address']], check=False)
+    if config.get('arb_index'):
+        run_cmd(['tpm2_nvundefine', config['arb_index']], check=False)
     
     run_cmd(['cryptsetup', 'luksErase', drive_path, '-q'], check=False)
 
