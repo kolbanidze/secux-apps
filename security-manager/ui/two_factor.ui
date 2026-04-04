@@ -9,7 +9,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
   <template class="TwoFaWindow" parent="AdwWindow">
     <property name="default-width">450</property>
     <property name="default-height">650</property>
-    <property name="title">Управление 2FA</property>
+    <property name="title" translatable="yes">Управление 2FA</property>
     <property name="content">
       <object class="AdwToastOverlay" id="toast_overlay">
         <property name="child">
@@ -18,8 +18,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
               <object class="AdwHeaderBar">
                 <property name="title-widget">
                   <object class="AdwWindowTitle">
-                    <property name="title">Управление 2FA</property>
-                    <property name="subtitle">Администрирование доступа</property>
+                    <property name="title" translatable="yes">Управление 2FA</property>
                   </object>
                 </property>
               </object>
@@ -28,12 +27,12 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
               <object class="AdwPreferencesPage">
                 <child>
                   <object class="AdwPreferencesGroup">
-                    <property name="title">Безопасность системы</property>
-                    <property name="description">Глобальные параметры входа в OS</property>
+                    <property name="title" translatable="yes">Безопасность системы</property>
+                    <property name="description" translatable="yes">Глобальные параметры входа в OS</property>
                     <child>
                       <object class="AdwSwitchRow" id="system_2fa_switch">
-                        <property name="title">Принудительная 2FA</property>
-                        <property name="subtitle">Требовать код при входе (GNOME, TTY)</property>
+                        <property name="title" translatable="yes">Принудительная 2FA</property>
+                        <property name="subtitle" translatable="yes">Требовать код при входе (GNOME, TTY)</property>
                         <property name="icon-name">system-lock-screen-symbolic</property>
                       </object>
                     </child>
@@ -41,11 +40,11 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 </child>
                 <child>
                   <object class="AdwPreferencesGroup">
-                    <property name="title">Учетная запись</property>
+                    <property name="title" translatable="yes">Учетная запись</property>
                     <child>
                       <object class="AdwActionRow">
-                        <property name="title">Целевой пользователь</property>
-                        <property name="subtitle">Выберите аккаунт для настройки</property>
+                        <property name="title" translatable="yes">Целевой пользователь</property>
+                        <property name="subtitle" translatable="yes">Выберите аккаунт для настройки</property>
                         <property name="icon-name">avatar-default-symbolic</property>
                         <child type="suffix">
                           <object class="GtkDropDown" id="user_selection">
@@ -67,7 +66,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                 </child>
                 <child>
                   <object class="AdwPreferencesGroup">
-                    <property name="title">Настройка токена</property>
+                    <property name="title" translatable="yes">Настройка токена</property>
                     <child>
                       <object class="GtkStack" id="status_stack">
                         <child>
@@ -85,13 +84,13 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                             </child>
                             <child>
                               <object class="GtkLabel">
-                                <property name="label">Двухфакторная аутентификация не настроена</property>
+                                <property name="label" translatable="yes">Двухфакторная аутентификация не настроена</property>
                                 <property name="css-classes">title-4</property>
                               </object>
                             </child>
                             <child>
                               <object class="GtkButton" id="register_btn">
-                                <property name="label">Зарегистрировать пользователя</property>
+                                <property name="label" translatable="yes">Зарегистрировать пользователя</property>
                                 <property name="css-classes">suggested-action
 pill</property>
                                 <property name="margin-top">10</property>
@@ -117,7 +116,7 @@ pill</property>
                                     <property name="margin-end">20</property>
                                     <child>
                                       <object class="GtkLabel">
-                                        <property name="label">Отсканируйте код в Authenticator</property>
+                                        <property name="label" translatable="yes">Отсканируйте код в Authenticator</property>
                                         <property name="css-classes">heading</property>
                                       </object>
                                     </child>
@@ -131,7 +130,7 @@ pill</property>
                                     </child>
                                     <child>
                                       <object class="GtkLabel" id="secret_label">
-                                        <property name="label">Секрет: A1B2 C3D4 E5F6</property>
+                                        <property name="label" translatable="yes">Секрет: A1B2 C3D4 E5F6</property>
                                         <property name="css-classes">caption
 monospace</property>
                                         <property name="selectable">true</property>
@@ -148,12 +147,12 @@ monospace</property>
                                 <property name="halign">3</property>
                                 <child>
                                   <object class="GtkButton" id="hide_qr_btn">
-                                    <property name="label">Скрыть QR</property>
+                                    <property name="label" translatable="yes">Скрыть QR</property>
                                   </object>
                                 </child>
                                 <child>
                                   <object class="GtkButton" id="delete_btn">
-                                    <property name="label">Удалить регистрацию</property>
+                                    <property name="label" translatable="yes">Удалить регистрацию</property>
                                     <property name="css-classes">destructive-action</property>
                                   </object>
                                 </child>

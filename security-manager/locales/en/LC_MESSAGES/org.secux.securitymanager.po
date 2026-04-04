@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.0.6\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-03 11:34+0300\n"
+"POT-Creation-Date: 2026-04-04 10:10+0300\n"
 "PO-Revision-Date: 2026-01-04 21:54+0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: English\n"
@@ -1064,6 +1064,66 @@ msgstr "MOK certificates (shim)"
 msgid "Зарегистрировать в TPM"
 msgstr "Enroll in TPM"
 
+#: ui/two_factor.ui:12 ui/two_factor.ui:21
+msgid "Управление 2FA"
+msgstr "2FA Management"
+
+#: ui/two_factor.ui:30
+msgid "Безопасность системы"
+msgstr "System security"
+
+#: ui/two_factor.ui:31
+msgid "Глобальные параметры входа в OS"
+msgstr "Global login options"
+
+#: ui/two_factor.ui:34
+msgid "Принудительная 2FA"
+msgstr "Force 2FA"
+
+#: ui/two_factor.ui:35
+msgid "Требовать код при входе (GNOME, TTY)"
+msgstr "Require code at every boot (GNOME, TTY)"
+
+#: ui/two_factor.ui:43
+msgid "Учетная запись"
+msgstr "Account"
+
+#: ui/two_factor.ui:46
+msgid "Целевой пользователь"
+msgstr "Target user"
+
+#: ui/two_factor.ui:47
+msgid "Выберите аккаунт для настройки"
+msgstr "Select an account to configure"
+
+#: ui/two_factor.ui:69
+msgid "Настройка токена"
+msgstr "Token configuration"
+
+#: ui/two_factor.ui:87
+msgid "Двухфакторная аутентификация не настроена"
+msgstr "Two-factor authentication is not configured"
+
+#: ui/two_factor.ui:93
+msgid "Зарегистрировать пользователя"
+msgstr "Register a user"
+
+#: ui/two_factor.ui:119
+msgid "Отсканируйте код в Authenticator"
+msgstr "Scan the code in Authenticator"
+
+#: ui/two_factor.ui:133
+msgid "Секрет: A1B2 C3D4 E5F6"
+msgstr "Secret: A1B2 C3D4 E5F6"
+
+#: ui/two_factor.ui:150
+msgid "Скрыть QR"
+msgstr "Hide QR"
+
+#: ui/two_factor.ui:155
+msgid "Удалить регистрацию"
+msgstr "Delete registration"
+
 #: ui/window.ui:34
 msgid "Отчёт"
 msgstr "Report"
@@ -1291,6 +1351,10 @@ msgstr "Blocked applications"
 #: ui/window.ui:612
 msgid "Следующие файлы не прошли проверку и были заблокированы."
 msgstr "The following files failed verification and were blocked."
+
+#, fuzzy
+#~ msgid "Администрирование доступа"
+#~ msgstr "The administrator revoked trust for this host."
 
 #~ msgid "/путь/до/репозитория"
 #~ msgstr "/path/to/repo"

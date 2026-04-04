@@ -24,7 +24,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -1092,8 +1092,6 @@ class SiraHostDetailsDialog(Adw.Window):
             row.add_prefix(icon)
             self.box_logs.append(row)
 
-    # ── Утилиты ──
-
     def _set_busy(self, busy):
         self.spinner.set_visible(busy)
         self.spinner.set_spinning(busy)
@@ -1153,8 +1151,6 @@ class SiraAdminWindow(Adw.Window):
 
         # Первоначальная загрузка
         self._fetch("/api/v1/admin/hosts", self._render_hosts)
-
-    # ── Общие утилиты ──
 
     def _set_busy(self, busy):
         self.spinner.set_visible(busy)
@@ -1588,7 +1584,7 @@ class SecurityWindow(Adw.ApplicationWindow):
             self.sira_untrusted_group.set_visible(False)
             return
 
-        # ── Trusted ──
+        # Trusted
         if host_status == "trusted":
             desc = _("Узел прошел аттестацию SIRA.")
             if hw_id:
@@ -1601,7 +1597,7 @@ class SecurityWindow(Adw.ApplicationWindow):
             self.sira_status_page.add_css_class("success")
             self.sira_untrusted_group.set_visible(False)
 
-        # ── Compromised / Untrusted ──
+        # Compromised / Untrusted
         elif host_status in ("compromised", "untrusted"):
             reason = message or _("Узел не прошёл аттестацию")
             desc = f"{_('Статус')}: {host_status.upper()}.  {reason}"
@@ -1614,7 +1610,7 @@ class SecurityWindow(Adw.ApplicationWindow):
 
             self._sira_render_untrusted(data.get("untrusted_files", []))
 
-        # ── Pending ──
+        # Pending
         elif host_status == "pending":
             desc = message or _("Требуется повторная аттестация узла.")
             desc += time_suffix
@@ -1625,7 +1621,7 @@ class SecurityWindow(Adw.ApplicationWindow):
             self.sira_status_page.add_css_class("warning")
             self.sira_untrusted_group.set_visible(False)
 
-        # ── Revoked ──
+        # Revoked
         elif host_status == "revoked":
             self.sira_status_page.set_title(_("Узел отозван"))
             self.sira_status_page.set_description(
@@ -1635,7 +1631,7 @@ class SecurityWindow(Adw.ApplicationWindow):
             self.sira_untrusted_group.set_visible(False)
             self.btn_sira_attest_now.set_sensitive(False)
 
-        # ── Unknown ──
+        # Unknown
         else:
             self.sira_status_page.set_title(_("Статус неизвестен"))
             self.sira_status_page.set_description(
@@ -1684,10 +1680,6 @@ class SecurityWindow(Adw.ApplicationWindow):
                 css_classes=["dim-label"], margin_top=6))
 
 
-    # ──────────────────────────────────────────────────────────────
-    #  Состояния ошибок
-    # ──────────────────────────────────────────────────────────────
-
     def _sira_show_offline(self):
         self._sira_reset_css()
         self.sira_status_page.set_title(_("Backend недоступен"))
@@ -1709,10 +1701,6 @@ class SecurityWindow(Adw.ApplicationWindow):
         self.btn_sira_enroll.set_visible(False)
         self.sira_attest_box.set_visible(False)
         self.sira_untrusted_group.set_visible(False)
-
-    # ──────────────────────────────────────────────────────────────
-    #  Enrollment (регистрация узла)
-    # ──────────────────────────────────────────────────────────────
 
     def _on_sira_enroll(self, btn):
         url    = self.sira_client_url.get_text().strip()
@@ -1757,10 +1745,6 @@ class SecurityWindow(Adw.ApplicationWindow):
         else:
             self._sira_toast(resp.get("message", _("Ошибка регистрации")).split('\n')[-1])
 
-    # ──────────────────────────────────────────────────────────────
-    #  Attestation (запрос аттестации)
-    # ──────────────────────────────────────────────────────────────
-
     def _on_sira_attest(self, btn):
         btn.set_sensitive(False)
         self._sira_toast(_("Выполняется аттестация…"))
@@ -1797,11 +1781,8 @@ class SecurityWindow(Adw.ApplicationWindow):
             self._sira_toast(
                 resp.get("message", _("Ошибка аттестации")))
 
-        # В любом случае — обновляем полное состояние
+        # В любом случае - обновляем полное состояние
         self.sira_update_ui()
-    # ──────────────────────────────────────────────────────────────
-    #  Вспомогательные методы
-    # ──────────────────────────────────────────────────────────────
 
     def _sira_reset_css(self):
         for cls in ("success", "warning", "error"):

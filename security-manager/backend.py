@@ -191,7 +191,7 @@ def get_stats(params):
     if not stats["drive"]:
         return reply("success", stats)
 
-    # 3. Статус TPM и enrollment
+    # Статус TPM и enrollment
     stats["tpm_exists"] = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
     
     if stats["drive"]:
@@ -284,7 +284,7 @@ def sira_attest(params):
                      message=error_msg or _("Аттестация не выполнена"))
 
 def sira_get_status(params):
-    """Чтение локального состояния SIRA (без сетевых запросов)"""
+    """Чтение локального состояния SIRA"""
     if not SIRA_AVAILABLE:
         return reply("success", {"available": False})
 

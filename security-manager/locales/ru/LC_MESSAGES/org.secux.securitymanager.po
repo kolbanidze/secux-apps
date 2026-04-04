@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-03 11:34+0300\n"
+"POT-Creation-Date: 2026-04-04 10:10+0300\n"
 "PO-Revision-Date: 2026-01-04 21:54+0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -1059,6 +1059,66 @@ msgstr ""
 
 #: ui/tpm_enroll.ui:168
 msgid "Зарегистрировать в TPM"
+msgstr ""
+
+#: ui/two_factor.ui:12 ui/two_factor.ui:21
+msgid "Управление 2FA"
+msgstr ""
+
+#: ui/two_factor.ui:30
+msgid "Безопасность системы"
+msgstr ""
+
+#: ui/two_factor.ui:31
+msgid "Глобальные параметры входа в OS"
+msgstr ""
+
+#: ui/two_factor.ui:34
+msgid "Принудительная 2FA"
+msgstr ""
+
+#: ui/two_factor.ui:35
+msgid "Требовать код при входе (GNOME, TTY)"
+msgstr ""
+
+#: ui/two_factor.ui:43
+msgid "Учетная запись"
+msgstr ""
+
+#: ui/two_factor.ui:46
+msgid "Целевой пользователь"
+msgstr ""
+
+#: ui/two_factor.ui:47
+msgid "Выберите аккаунт для настройки"
+msgstr ""
+
+#: ui/two_factor.ui:69
+msgid "Настройка токена"
+msgstr ""
+
+#: ui/two_factor.ui:87
+msgid "Двухфакторная аутентификация не настроена"
+msgstr ""
+
+#: ui/two_factor.ui:93
+msgid "Зарегистрировать пользователя"
+msgstr ""
+
+#: ui/two_factor.ui:119
+msgid "Отсканируйте код в Authenticator"
+msgstr ""
+
+#: ui/two_factor.ui:133
+msgid "Секрет: A1B2 C3D4 E5F6"
+msgstr ""
+
+#: ui/two_factor.ui:150
+msgid "Скрыть QR"
+msgstr ""
+
+#: ui/two_factor.ui:155
+msgid "Удалить регистрацию"
 msgstr ""
 
 #: ui/window.ui:34
