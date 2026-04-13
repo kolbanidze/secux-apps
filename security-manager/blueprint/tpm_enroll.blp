@@ -68,58 +68,6 @@ template $TpmEnrollDialog: Adw.Window {
               title: _("Повторите PIN");
             }
           }
-
-          Adw.ExpanderRow pcr_bind_expander {
-            title: _("Расширенные настройки PCR");
-            subtitle: _("Если знаете, что делаете");
-            icon-name: "settings-symbolic";
-            show-enable-switch: true;
-            enable-expansion: false;
-
-            Adw.SwitchRow pcr0_sw {
-              title: "PCR 0";
-              subtitle: _("Прошивка системы (UEFI)");
-              active: true;
-            }
-
-            Adw.SwitchRow pcr1_sw {
-              title: "PCR 1";
-              subtitle: _("Настройки прошивки (серийные номера)");
-            }
-
-            Adw.SwitchRow pcr2_sw {
-              title: "PCR 2";
-              subtitle: _("Дополнительные модули (Option ROM)");
-              active: true;
-            }
-
-            Adw.SwitchRow pcr3_sw {
-              title: "PCR 3";
-              subtitle: _("Настройки дополнительных модулей");
-            }
-
-            Adw.SwitchRow pcr4_sw {
-              title: "PCR 4";
-              subtitle: _("Загрузчик, драйвера и EFI приложения");
-            }
-
-            Adw.SwitchRow pcr5_sw {
-              title: "PCR 5";
-              subtitle: _("Таблица разделов диска (GPT)");
-            }
-
-            Adw.SwitchRow pcr7_sw {
-              title: "PCR 7";
-              subtitle: _("Состояние Secure Boot");
-              active: true;
-            }
-
-            Adw.SwitchRow pcr14_sw {
-              title: "PCR 14";
-              subtitle: _("Сертификаты MOK (shim)");
-              active: true;
-            }
-          }
         }
 
         Adw.PreferencesGroup {

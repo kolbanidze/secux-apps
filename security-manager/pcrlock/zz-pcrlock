@@ -1,0 +1,11 @@
+#!/usr/bin/bash
+
+if [ -n "$3" ]; then
+    echo "  -> [pcrlock] Triggering TPM policy update for $3..."
+    
+    /usr/local/bin/security-manager/pcrlock/update-pcrlock.sh update-uki "$3"
+    
+    if [ $? -ne 0 ]; then
+        echo "  -> [pcrlock] CRITICAL WARNING: Failed to update TPM policy for new UKI!"
+    fi
+fi

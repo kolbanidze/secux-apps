@@ -3,10 +3,11 @@ import os
 import sys
 import subprocess
 import json
+import struct
+import hashlib
 from base64 import b64decode
 from Crypto.Cipher import AES
 from argon2.low_level import hash_secret_raw, Type
-from hashlib import sha256
 
 IDP_FILE = "/etc/idp.json"
 WORK_DIR = "/run/idp-tpm-session"
@@ -35,34 +36,18 @@ def parse_config(file_path):
         sys.exit(1)
 
     with open(file_path, "r") as f:
-        data = json.load(f)
-    
-    # Убеждаемся, что PCRs это список строк для tpm2-tools
-    # В регистрации они сохраняются как int, здесь приводим к строкам
-    data["pcrs"] = [str(i) for i in sorted(data["pcrs"])]
-    
-    return data
+        return json.load(f)
 
 def get_luks_target():
-    """Пытается найти UUID и имя mapper устройства из /proc/cmdline."""
     try:
         with open("/proc/cmdline", "r") as f:
-            cmdline = f.read().strip().split(" ")
-        
-        luks_uuid = None
-        map_name = None
-        
-        for param in cmdline:
-            if param.startswith("rd.luks.name="):
-                # Формат: rd.luks.name=<UUID>=<mapper_name>
-                parts = param.split("=")
-                if len(parts) >= 3:
-                    luks_uuid = parts[1]
-                    map_name = parts[2]
-                    return luks_uuid, map_name
+            for param in f.read().strip().split(" "):
+                if param.startswith("rd.luks.name="):
+                    parts = param.split("=")
+                    if len(parts) >= 3:
+                        return parts[1], parts[2]
     except Exception as e:
         display_error_message(f"Warning: Could not parse /proc/cmdline: {e}")
-
     return None, None
 
 def get_pin(mapper_name):
@@ -95,47 +80,6 @@ def display_error_message(msg):
     if plymouth_available:
         subprocess.run(["plymouth", "display-message", "--text", msg], check=False)
 
-def hide_message(msg):
-    if plymouth_available:
-        subprocess.run(["plymouth", "hide-message", "--text", msg], check=False)
-
-def extract_systemd_signature():
-    sig_file = "/run/systemd/tpm2-pcr-signature.json"
-    if not os.path.exists(sig_file):
-        display_error_message(f"Signature file {sig_file} not found! Is systemd-pcrphase enabled?")
-        sys.exit(1)
-        
-    with open(sig_file, "r") as f:  
-        data = json.load(f)
-    
-    try:
-        sha256_sigs = data.get("sha256", [])
-        if not sha256_sigs:
-            display_error_message("No sha256 signatures found in systemd JSON")
-            sys.exit(1)
-            
-        target = sha256_sigs[0]
-        
-        raw_sig = b64decode(target["sig"])
-        with open("sig.bin", "wb") as f:
-            f.write(raw_sig)
-            
-        raw_pol = bytes.fromhex(target["pol"])
-        with open("pcr11.policy", "wb") as f:
-            f.write(raw_pol)
-        with open("pcr11.digest", "wb") as f:
-            f.write(sha256(raw_pol).digest())
-            
-        # возвращаем список подписанных PCR (по умолчанию только PCR 11)
-        return ",".join(str(p) for p in target["pcrs"])
-    except KeyError as e:
-        display_error_message(f"Missing expected key in systemd signature JSON: {e}")
-        sys.exit(1)
-    except Exception as e:
-        display_error_message(f"Failed to parse systemd PCR signature: {e}")
-        sys.exit(1)
-
-
 def erase_header(config, drive_path):
     write_size = 16 * 1024 * 1024
     if config.get('srk_address'):
@@ -151,7 +95,7 @@ def erase_header(config, drive_path):
 
     with open(drive_path, "wb") as file:
         fd = file.fileno()
-        for i in range(3):
+        for _ in range(3):
             file.write(os.urandom(write_size))
             file.flush()
             os.fsync(fd)
@@ -167,37 +111,103 @@ def erase_header(config, drive_path):
     except Exception as e:
         run_cmd(["reboot", "-f"])
 
-def create_session(srk_address, signed_pcrs, static_pcrs):
-    # Encrypted session
-    # from man tpm2_startauthsession:
-    #  * **-c**, **\--key-context**=_OBJECT_:
-    # Set the tpmkey and bind objects to be the same.
-    # Session parameter encryption is turned on.
-    # Session parameter decryption is turned on.
-    # Parameter encryption/decryption symmetric-key set to AES-CFB.
+def marshal_tpml_pcr_selection(pcrs, alg_hash=0x000B):
+    """Упаковывает TPML_PCR_SELECTION по спецификации TCG. 0x000B = SHA256"""
+    count = 1
+    res = struct.pack('>I', count) + struct.pack('>H', alg_hash) + b'\x03'
+    mask = 0
+    for p in pcrs: 
+        mask |= (1 << p)
+    res += struct.pack('<I', mask)[:3]
+    return res
 
+def satisfy_pcrlock():
+    """Воссоздание логики pcrlock на Python"""    
+    encrypted_creds = os.listdir("/run/credentials/@encrypted")
+    pcrlocks = [i for i in encrypted_creds if i.startswith('pcrlock.')]
+    if len(pcrlocks) != 1:
+        display_error_message("Invalid amount of pcrlocks.")
+        sys.exit(1)
+    pcrlock_file = pcrlocks[0]
+
+    proc = run_cmd(['systemd-creds', 'decrypt', f"/run/credentials/@encrypted/{pcrlock_file}", '--allow-null'])
+    if proc.returncode != 0:
+        display_error_message("Failed ot read pcrlock file.")
+        sys.exit(1)
+    pcrlock = json.loads(proc.stdout)
+    
+    if pcrlock.get("pcrBank", "sha256") != "sha256":
+        display_error_message("Only sha256 pcrBank is supported.")
+        sys.exit(1)
+    
+    single_pcrs = {}
+    multi_pcrs = {}
+    for pcr_data in pcrlock.get("pcrValues",[]):
+        idx = pcr_data["pcr"]
+        vals =[bytes.fromhex(v) for v in pcr_data["values"]]
+        if len(vals) == 1:
+            single_pcrs[idx] = vals[0]
+        elif len(vals) > 1:
+            multi_pcrs[idx] = vals
+
+    # Одиночные PCR удовлетворяем одним PolicyPCR
+    if single_pcrs:
+        pcr_list = ",".join(str(p) for p in sorted(single_pcrs.keys()))
+        run_cmd(["tpm2_policypcr", "-S", "pol.session", "-l", f"sha256:{pcr_list}"])
+
+    # Мультивалентные PCR удовлетворяем через PolicyOR
+    for pcr_index in sorted(multi_pcrs.keys()):
+        vals = multi_pcrs[pcr_index]
+        
+        run_cmd(["tpm2_getpolicydigest", "-S", "pol.session", "-o", "current.digest"])
+        with open("current.digest", "rb") as file:
+            current_digest = file.read()
+        
+        digest_files =[]
+        for i, val in enumerate(vals):
+            # Вычисляем ветку PolicyOR локально, как это делает systemd
+            cc_policypcr = struct.pack('>I', 0x017F)
+            sel = marshal_tpml_pcr_selection([pcr_index])
+            pcr_hash = hashlib.sha256(val).digest()
+            branch_digest = hashlib.sha256(current_digest + cc_policypcr + sel + pcr_hash).digest()
+            
+            fname = f"branch_{pcr_index}_{i}.digest"
+            with open(fname, "wb") as file:
+                file.write(branch_digest)
+            digest_files.append(fname)
+        
+        run_cmd(["tpm2_policypcr", "-S", "pol.session", "-l", f"sha256:{pcr_index}"])
+        # Скармливаем tpm2_policyor через синтаксис sha256:branch1,branch2
+        digest_list = ",".join(digest_files)
+        run_cmd(["tpm2_policyor", "-S", "pol.session", f"sha256:{digest_list}"])
+
+def create_session(srk_address, config):
     run_cmd(['tpm2_startauthsession', '--hmac-session', '-c', srk_address, '-n', "srk.name", '-S', 'enc.session'])
-
-    # Policy session
     run_cmd(['tpm2_startauthsession', '--policy-session', '-S', 'pol.session'])
+    
+    # Строим дерево PolicyPCR/PolicyOR
+    satisfy_pcrlock()
+    
+    nvindex = config.get("pcrlock_nvindex")
+    if not nvindex:
+        display_error_message("nvindex not found in IDP config")
+        sys.exit(1)
+        
+    # Авторизуем NV индекс
+    run_cmd(['tpm2_policyauthorizenv', '-S', 'pol.session', '-C', 'o', str(nvindex)])
 
-    # PCR Sign policy (PCR11)
-    run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', f"sha256:{signed_pcrs}"])
-    run_cmd(['tpm2_policyauthorize', '-S', 'pol.session', '-i', 'pcr11.policy', '-n', 'pub.name', '-t', 'ticket.bin'])
-    
-    # Static PCRs: 0, 2, 7, 14
-    run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', f"sha256:{static_pcrs}"])
-    
-    # Require PIN
+    # Заносим PCR 15, который в момент загрузки должен быть нулевым, иначе не распечатается. 
+    run_cmd(['tpm2_policypcr', '-S', 'pol.session', '-l', 'sha256:15'])
+
+    # PolicyAuthValue для PIN
     run_cmd(['tpm2_policyauthvalue', '-S', 'pol.session'])
-
 
 def warmup_ima():
     """Функция 'прогрева' IMA, чтобы хеши исполняемых программ записались в PCR 10
     и этот регистр больше не обнолвлялся в процессе распечатывания (unsealing).
     Без 'прогрева' PCR 10 изменится и TPM откажет в выдаче ключей"""
-    executables = ['tpm2_nvread', 'tpm2_flushcontext', 'tpm2_startauthsession', 'tpm2_policypcr', 'tpm2_policyauthvalue', 'tpm2_loadexternal',
-                   'tpm2_verifysignature', 'tpm2_policyauthorize', 'systemd-ask-password', 'plymouth']
+    executables = ['tpm2_nvread', 'tpm2_flushcontext', 'tpm2_startauthsession', 'tpm2_policypcr', 'tpm2_policyauthvalue',
+                   'tpm2_policyauthorizenv', 'systemd-ask-password', 'plymouth']
     
     # Trying to execute argon2 for argon2.so
     hash_secret_raw(
@@ -229,23 +239,10 @@ def main():
     os.chdir(WORK_DIR)
 
     try:
-        signed_pcrs = extract_systemd_signature()
-        pubkey_path = "/etc/kernel/pcr-initrd.pub.pem"
-        # Загружаем публичный ключ для подписи в контекст TPM
-        run_cmd(['tpm2_loadexternal', '-G', 'rsa2048', '-C', 'o', '-u', pubkey_path, '-c', 'pub.ctx', '-n', 'pub.name'])
-        
-        # Проверяем подпись и генерируем тикет
-        run_cmd(['tpm2_verifysignature', '-c', 'pub.ctx', '-d', 'pcr11.digest', '-f', 'rsassa', '-s', 'sig.bin', '-t', 'ticket.bin'])
-
-        config = None
-
         warmup_ima()
 
         config = parse_config(IDP_FILE)
-        pcr_list_str = ",".join(config["pcrs"])
-        
         uuid, mapper_name = get_luks_target()
-        
         if not uuid:
             display_error_message("Could not detect LUKS target from cmdline.")
             sys.exit(1)
@@ -290,7 +287,7 @@ def main():
             display_error_message("PIN not provided.")
             sys.exit(1)
 
-        create_session(srk_address, signed_pcrs, pcr_list_str)
+        create_session(srk_address, config)
 
         # Checking decoy first (to prevent potential timing attack)
         potential_decoy_key = hash_secret_raw(
@@ -327,9 +324,7 @@ def main():
         # Getting blob (encrypted)
         blob_address = config['blob_address']
 
-        # once again
-        create_session(srk_address, signed_pcrs, pcr_list_str)
-
+        create_session(srk_address, config)
         blob_process = run_cmd(['tpm2_nvread', '-P', f"session:pol.session+hex:{A_key.hex()}", '-S', "enc.session", blob_address])
         blob = blob_process.stdout
 
@@ -348,13 +343,11 @@ def main():
             display_error_message("Decryption failed. Data integrity check failed (MAC mismatch).")
             sys.exit(1)
 
-        secret_a = plaintext[:32]
-        decoy_key = plaintext[32:]
+        secret_a, decoy_key = plaintext[:32], plaintext[32:]
 
         run_cmd(['tpm2_flushcontext', 'pol.session'], check=False)
         run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
-        create_session(srk_address, signed_pcrs, pcr_list_str)
-
+        create_session(srk_address, config)
         decoy_process = run_cmd(['tpm2_nvread', '-P', f'session:pol.session+hex:{decoy_key.hex()}', '-S', 'enc.session', decoy_address])
         secret_b = decoy_process.stdout
 
@@ -382,7 +375,7 @@ def main():
         run_cmd(['tpm2_flushcontext', 'pol.session'], check=False)
         run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
         run_cmd(['umount', WORK_DIR], check=False)
-
+        # run_cmd(['/usr/lib/systemd/systemd-pcrextend', '--pcr=15', '--text=idp-unlocked'], check=False)
 
 if __name__ == "__main__":
     main()

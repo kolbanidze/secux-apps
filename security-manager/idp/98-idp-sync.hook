@@ -1,0 +1,17 @@
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Operation = Remove
+Target = usr/lib/modules/*/vmlinuz
+Target = usr/lib/initcpio/*
+Target = boot/*-ucode.img
+Target = usr/lib/systemd/systemd
+Target = usr/bin/cryptsetup
+
+[Action]
+Description = Synchronizing IDP Anti-Rollback TPM Counter
+When = PostTransaction
+Exec = /usr/local/bin/security-manager/idp/idp-sync.py
+Depends = mkinitcpio
+Depends = python

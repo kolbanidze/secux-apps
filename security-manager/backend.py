@@ -97,7 +97,7 @@ def reply(status, data=None, message=None):
     print(json.dumps(response))
     sys.stdout.flush()
 
-def run_cmd(cmd, check=True, input_text=None):
+def run_cmd(cmd, check=True, input_text=None, capture_output=True):
     try:
         env = os.environ.copy()
         env["LC_ALL"] = "C"
@@ -105,7 +105,7 @@ def run_cmd(cmd, check=True, input_text=None):
         env["LANGUAGE"] = "C"
 
         kwargs = {
-            "capture_output": True,
+            "capture_output": capture_output,
             "text": True,
             "env": env
         }
@@ -117,8 +117,6 @@ def run_cmd(cmd, check=True, input_text=None):
             
         res = subprocess.run(cmd, **kwargs)
         
-        # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-        # Если процесс завершился с ошибкой, возвращаем False
         if res.returncode != 0:
             return False, res.stdout.strip(), res.stderr.strip()
             
@@ -316,6 +314,66 @@ def sira_get_status(params):
         "message":         status_data.get("message", "")
     })
 
+def _pcrlock_get_nvindex() -> str | None:
+    """
+    Функция для получения необходимых для регистрации данных от systemd-pcrlock - возвращает hex строку индекса
+    """
+    if not os.path.isfile("/var/lib/systemd/pcrlock.json"):
+        return None
+    with open("/var/lib/systemd/pcrlock.json", "r") as file:
+        pcrlock_config = json.load(file)
+    nv_index = pcrlock_config.get('nvIndex', None)
+    if nv_index:
+        return hex(nv_index)
+    return nv_index
+
+
+def _enroll_pcrlock() -> bool:
+    pcrlock_dir = os.path.join(BASE_DIR, "pcrlock")
+    initcpio_hook = os.path.join(pcrlock_dir, "zz-pcrlock")
+    cleanup_service = os.path.join(pcrlock_dir, 'pcrlock-cleanup.service')
+    pacman_hook = os.path.join(pcrlock_dir, '99-pcrlock.hook')
+    update_pcrlock_sh = os.path.join(pcrlock_dir, "update-pcrlock.sh")
+
+    success, stdout, stderr = run_cmd(['/usr/lib/systemd/systemd-pcrlock', 'is-supported'], check=True)
+    if not success or 'yes' not in stdout:
+        return False
+
+
+    # Copy required configs for auto updating pcrlock on system updates
+    if os.path.isfile("/usr/lib/initcpio/post/zz-pcrlock"):
+        os.remove("/usr/lib/initcpio/post/zz-pcrlock")
+    shutil.copy2(initcpio_hook, "/usr/lib/initcpio/post/zz-pcrlock")
+    os.chmod("/usr/lib/initcpio/post/zz-pcrlock", 0o555)
+
+    if os.path.isfile("/etc/systemd/system/pcrlock-cleanup.service"):
+        os.remove("/etc/systemd/system/pcrlock-cleanup.service")
+    shutil.copy2(cleanup_service, "/etc/systemd/system/pcrlock-cleanup.service")
+    run_cmd(['systemctl', 'daemon-reload'], check=True)
+    run_cmd(['systemctl', 'enable', 'pcrlock-cleanup'], check=True)
+
+    if os.path.isfile("/usr/share/libalpm/hooks/99-pcrlock.hook"):
+        os.remove("/usr/share/libalpm/hooks/99-pcrlock.hook")
+    shutil.copy2(pacman_hook, "/usr/share/libalpm/hooks/99-pcrlock.hook")
+
+    os.makedirs('/etc/pcrlock.d/610-shim.pcrlock.d/', exist_ok=True)
+    os.makedirs('/etc/pcrlock.d/620-sd-boot.pcrlock.d/', exist_ok=True)
+    os.makedirs('/etc/pcrlock.d/630-uki.pcrlock.d/', exist_ok=True)
+
+    # Cover PCR 0, 2, 7
+    run_cmd(['/usr/lib/systemd/systemd-pcrlock', 'lock-firmware-code'])
+    run_cmd(['/usr/lib/systemd/systemd-pcrlock', 'lock-secureboot-policy'])
+    run_cmd(['/usr/lib/systemd/systemd-pcrlock', 'lock-secureboot-authority'])
+
+    # Create pcrlock policy with PCR 0,2,4,7
+    success, stdout, stderr = run_cmd(['/usr/bin/bash', update_pcrlock_sh, 'boot-cleanup'], check=True)
+    if not success:
+        return False
+
+    if _pcrlock_get_nvindex() is None:
+        return False
+    
+    return True
 
 def enroll_unified(params):
     """Регистрация TPM/PIN/IDP"""
@@ -325,10 +383,13 @@ def enroll_unified(params):
     use_idp = params.get('use_idp')
     use_decoy = params.get('use_decoy')
     decoy_pin = params.get('decoy_pin')
-    pcrs_values = params.get('pcrs_values')
 
     if not drive or not luks_pass:
         return reply("error", message=_("Отсутствует диск или пароль"))
+
+    if not _enroll_pcrlock():
+        return reply("error", message="systemd-pcrlock error")
+    nvindex = _pcrlock_get_nvindex()
 
     # Если нужен IDP
     if use_idp:
@@ -337,7 +398,7 @@ def enroll_unified(params):
                 from idp_enroll import EnrollIDP 
                 EnrollIDP(drive, luks_password=luks_pass.encode(),
                           pin_code=pin.encode(), use_decoy=use_decoy,
-                          decoy_pin=decoy_pin.encode(), pcrs=pcrs_values)
+                          decoy_pin=decoy_pin.encode(), nvindex=nvindex)
             
             if os.path.isfile(IDP_FILE):
                 return reply("success", message=_("TPM + IDP успешно настроен"))
@@ -347,13 +408,12 @@ def enroll_unified(params):
             return reply("error", message=f"IDP {_("Ошибка")}: {str(e)}")
 
     # Обычный TPM enrollment через cryptenroll
-    pcrs = "+".join(pcrs_values)
     cmd = [
         "/usr/bin/systemd-cryptenroll",
         "--wipe-slot=tpm2",
         "--tpm2-device=auto",
-        f"--tpm2-pcrs={pcrs}",
-        f"--tpm2-public-key={PCR_PUB_KEY}",
+        "--tpm2-pcrlock=/var/lib/systemd/pcrlock.json",
+        "--tpm2-pcrs=15:sha256=0000000000000000000000000000000000000000000000000000000000000000",
         drive
     ]
     if pin:
@@ -391,6 +451,12 @@ def enroll_unified(params):
         
         child.wait()
         if child.exitstatus == 0:
+            # For user convenience newly enrolled TPM unlocking MUST be available on all installed kernels (not only current booted one)
+            # BUT for security reasons we can't blindly trust existing kernels in /efi
+            # We can trust only newly created kernels (by mkinitcpio)
+            # That's why we need to update every available kernel (UKI) after enrolling TPM
+            subprocess.run(['mkinitcpio', '-P'], capture_output=True, check=True)
+            # If there is no error during mkinitcpio -> success
             return reply("success", message=_("TPM успешно зарегистрирован"))
         else:
             return reply("error", message=f"{_("systemd-cryptenroll завершил работу с ошибкой")}: {child.exitstatus}")
@@ -407,6 +473,12 @@ def delete_tpm(params):
     success, stdout, stderr = run_cmd(["/usr/bin/systemd-cryptenroll", "--wipe-slot=tpm2", drive], check=True)
     if not success:
         return reply("error", message=stderr)
+
+    # Удаление pcrlock
+    if _pcrlock_get_nvindex():
+        success, stdout, stderr = run_cmd(['/usr/lib/systemd/systemd-pcrlock', 'remove-policy'], check=True)
+        shutil.rmtree("/etc/pcrlock.d")
+        shutil.rmtree("/var/lib/security-manager/trusted-pcrlock")
 
     # Очистка IDP если есть
     if os.path.isfile(IDP_FILE):
@@ -436,7 +508,8 @@ def delete_tpm(params):
             with open("/etc/mkinitcpio.conf", "r") as file:
                 lines = file.readlines()
             
-            os.remove("/usr/share/libalpm/hooks/99-idp-sync.hook")
+            if os.path.isfile("/usr/share/libalpm/hooks/98-idp-sync.hook"):
+                os.remove("/usr/share/libalpm/hooks/98-idp-sync.hook")
             
             modified = False
             new_lines = []
@@ -909,6 +982,7 @@ if __name__ == "__main__":
     init_i18n(target_lang)
 
     if len(sys.argv) > 1 and sys.argv[1] == 'debug':
-        flatpak_manager({'action': 'install', 'apps':['org.chromium.Chromium'], 'repo_path': '/home/user/offline-usb', 'offline_mode': False})
+        _enroll_pcrlock()
+        # flatpak_manager({'action': 'install', 'apps':['org.chromium.Chromium'], 'repo_path': '/home/user/offline-usb', 'offline_mode': False})
     else:
         run_daemon()

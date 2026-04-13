@@ -1,0 +1,12 @@
+[Trigger]
+Type = Path
+Operation = Install
+Operation = Upgrade
+Target = usr/lib/systemd/boot/efi/systemd-bootx64.efi
+Target = usr/share/shim-signed/shimx64.efi
+
+[Action]
+Description = Updating TPM PCRLock policy for bootloaders...
+When = PostTransaction
+Depends = systemd
+Exec = /usr/local/bin/security-manager/pcrlock/update-pcrlock.sh update-bootloader

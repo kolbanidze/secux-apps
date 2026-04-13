@@ -3,20 +3,20 @@
 build() {
     add_runscript
     add_file "/etc/idp.json"
-    add_file "/etc/kernel/pcr-initrd.pub.pem"
-    add_binary /usr/bin/tpm2_pcrread
+
+    add_binary /usr/bin/systemd-creds
+    add_binary /usr/lib/systemd/systemd-pcrextend
     add_binary /usr/bin/tpm2_startauthsession
     add_binary /usr/bin/tpm2_policypcr
     add_binary /usr/bin/tpm2_policyauthvalue
     add_binary /usr/bin/tpm2_unseal
     add_binary /usr/bin/tpm2_flushcontext
-    add_binary /usr/bin/tpm2_pcrextend
     add_binary /usr/bin/tpm2_evictcontrol
     add_binary /usr/bin/tpm2_nvundefine
     add_binary /usr/bin/tpm2_nvread
-    add_binary /usr/bin/tpm2_loadexternal
-    add_binary /usr/bin/tpm2_verifysignature
-    add_binary /usr/bin/tpm2_policyauthorize
+    add_binary /usr/bin/tpm2_policyauthorizenv
+    add_binary /usr/bin/tpm2_policyor
+    add_binary /usr/bin/tpm2_getpolicydigest
     add_binary /usr/lib/libargon2.so
     add_binary /usr/lib/libargon2.so.1
     add_binary /usr/bin/systemd-ask-password

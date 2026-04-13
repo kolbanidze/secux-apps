@@ -1,0 +1,25 @@
+[Unit]
+Description=PCRLock Execution State Enforcement
+Documentation=man:systemd-pcrlock(8)
+ConditionPathExists=/var/lib/systemd/pcrlock.json
+RequiresMountsFor=/efi
+After=multi-user.target
+DefaultDependencies=no
+
+[Service]
+Type=idle
+ExecStart=/usr/local/bin/security-manager/pcrlock/update-pcrlock.sh boot-cleanup
+RemainAfterExit=yes
+
+# Небольшая песочница: запрещаем сервису ломать сеть и лезть куда не надо,
+# но оставляем права CAP_SYS_ADMIN, так как скрипт делает unshare -m
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_MAC_ADMIN CAP_SYS_RAWIO CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER CAP_SETUID CAP_SETGID
+RestrictAddressFamilies=AF_UNIX
+IPAddressDeny=any
+
+# Низкий приоритет, чтобы не мешать загрузке
+Nice=19
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

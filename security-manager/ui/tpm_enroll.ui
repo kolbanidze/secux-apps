@@ -84,67 +84,6 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                         </child>
                       </object>
                     </child>
-                    <child>
-                      <object class="AdwExpanderRow" id="pcr_bind_expander">
-                        <property name="title" translatable="yes">Расширенные настройки PCR</property>
-                        <property name="subtitle" translatable="yes">Если знаете, что делаете</property>
-                        <property name="icon-name">settings-symbolic</property>
-                        <property name="show-enable-switch">true</property>
-                        <property name="enable-expansion">false</property>
-                        <child>
-                          <object class="AdwSwitchRow" id="pcr0_sw">
-                            <property name="title">PCR 0</property>
-                            <property name="subtitle" translatable="yes">Прошивка системы (UEFI)</property>
-                            <property name="active">true</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="AdwSwitchRow" id="pcr1_sw">
-                            <property name="title">PCR 1</property>
-                            <property name="subtitle" translatable="yes">Настройки прошивки (серийные номера)</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="AdwSwitchRow" id="pcr2_sw">
-                            <property name="title">PCR 2</property>
-                            <property name="subtitle" translatable="yes">Дополнительные модули (Option ROM)</property>
-                            <property name="active">true</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="AdwSwitchRow" id="pcr3_sw">
-                            <property name="title">PCR 3</property>
-                            <property name="subtitle" translatable="yes">Настройки дополнительных модулей</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="AdwSwitchRow" id="pcr4_sw">
-                            <property name="title">PCR 4</property>
-                            <property name="subtitle" translatable="yes">Загрузчик, драйвера и EFI приложения</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="AdwSwitchRow" id="pcr5_sw">
-                            <property name="title">PCR 5</property>
-                            <property name="subtitle" translatable="yes">Таблица разделов диска (GPT)</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="AdwSwitchRow" id="pcr7_sw">
-                            <property name="title">PCR 7</property>
-                            <property name="subtitle" translatable="yes">Состояние Secure Boot</property>
-                            <property name="active">true</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="AdwSwitchRow" id="pcr14_sw">
-                            <property name="title">PCR 14</property>
-                            <property name="subtitle" translatable="yes">Сертификаты MOK (shim)</property>
-                            <property name="active">true</property>
-                          </object>
-                        </child>
-                      </object>
-                    </child>
                   </object>
                 </child>
                 <child>
