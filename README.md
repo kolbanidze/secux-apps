@@ -1,59 +1,60 @@
 # secux-apps
 ###### secux-security-manager
 
-В этом репозитории находится Security Manager - приложение для управления безопасностью Secux Linux. 
+[![Russian](https://img.shields.io/badge/README-на_русском-red.svg)](README.ru.md)
+
+This repository contains Security Manager - an application for managing the security of Secux Linux. 
 
 <p align="center">
-    <img src="https://raw.githubusercontent.com/kolbanidze/secux-apps/refs/heads/main/welcome.png">
+    <img src="https://raw.githubusercontent.com/kolbanidze/secux-apps/refs/heads/main/welcome.en.png">
 </p>
 
 
-## Установка
+## Installation
 
-Устанавливается по умолчанию (соответствующая галочка в [Secux Linux Installer](https://github.com/kolbanidze/secux-installer))
+Installed by default (the corresponding checkbox in [Secux Linux Installer](https://github.com/kolbanidze/secux-installer))
 
-Для ручной установки используйте: `pacman -Sy secux-security-manager`
+For manual installation, use: `pacman -Sy secux-security-manager`
 
-Для установки необходим репозиторий ПО [secux-repo](https://github.com/kolbanidze/secux-repo)
+For installation, the [secux-repo](https://github.com/kolbanidze/secux-repo) software repository is required.
 
 
-### Техническая информация
-*   Интерфейс написан на Python с использованием GTK 4 и Libadwaita.
-*   Взаимодействие с системными компонентами осуществляется через отдельный процесс `backend.py`, запускаемый от имени root посредством `pkexec`.
-*   Пользовательские настройки сохраняются в формате JSON в директории `~/.config/security-manager/`.
-*   Зависимости:
-    *   `python-gobject`
-    *   `python-qrcode`
-    *   `cryptsetup`
-    *   `flatpak`
-    *   `systemd` 
-    *   `google-authenticator-libpam` 
+### Technical Information
+* The interface is written in Python using GTK 4 and Libadwaita.
+* Interaction with system components is carried out through a separate `backend.py` process, launched as root via `pkexec`.
+* User settings are saved in JSON format in the `~/.config/security-manager/` directory.
+* Dependencies:
+    * `python-gobject`
+    * `python-qrcode`
+    * `cryptsetup`
+    * `flatpak`
+    * `systemd` 
+    * `google-authenticator-libpam` 
 
-## Функционал
+## Functionality
 
-Приложение предоставляет графический интерфейс для управления безопасностью ОС и состоит из следующих модулей:
+The application provides a graphical interface for managing OS security and consists of the following modules:
 
-#### Мониторинг состояния безопасности
-На главном экране отображается сводная информация о текущем уровне защищенности системы.
+#### Security Status Monitoring
+The main screen displays summary information about the current security level of the system.
 
-#### Управление шифрованием диска
-*   Привязка TPM
-*   Настройка TPM + PIN 
-*   Настройка TPM + PIN (IDP)
-*   Управление паролями 
-*   Управления ключами восстановления
-*   Управление и просмотр слотов
+#### Disk Encryption Management
+* TPM Binding
+* TPM + PIN Configuration 
+* TPM + PIN (IDP) Configuration
+* Password Management 
+* Recovery Key Management
+* Slot Management and Viewing
 
-> In-Depth Protection (IDP) - собственная схема привязки шифрования диска, устойчивая к атакам на TPM. Добавляет дополнительный слой криптографической защиты поверх Storage Root Key (SRK). Использует KDF argon2id и AES GCM (256 бит).
->> При компрометации TPM (например на всех процессорах Ryzen 1000 - 5000, см. faulTPM) использование TPM+PIN - бесполезно. Не важно насколько сложный у вас PIN код, ваши данные можно похитить и расшифровать. [Демонстрация атаки на примере virt-manager + swtpm](https://github.com/kolbanidze/swtpm-poc).
+> In-Depth Protection (IDP) - a custom FDE encryption scheme resistant to TPM attacks. Adds an additional layer of cryptographic protection on top of the TPM. Uses KDF argon2id and AES GCM (256-bit). Implements TPM-backed Decoy PIN code (optional). 
+>> In the event of a TPM compromise (for example, on all Ryzen 1000 - 5000 processors, see faulTPM), using TPM+PIN is useless. No matter how complex your PIN code is, your data can be stolen and decrypted. [Demonstration of the attack using virt-manager + swtpm as an example](https://github.com/kolbanidze/swtpm-poc).
 
-#### Двухфакторная аутентификация
-Интеграция с PAM для настройки входа пользователей. Поддерживается вход по SSH, GNOME (gdm).
+#### Two-Factor Authentication
+Integration with PAM for configuring user logins. Login via SSH and GNOME (gdm) is supported.
 
-#### Менеджер приложений (Flatpak)
-Инструментарий для установки проверенного программного обеспечения с дополнительной изоляцией.
+#### Application Manager (Flatpak)
+A toolkit for installing verified software with additional isolation.
 
-#### Настройки
-*   Выбор языка интерфейса (Русский / Английский).
-*   Указание пути к локальному репозиторию приложений (flatpak).
-
+#### Settings
+* Interface language selection (Russian / English).
+* Specifying the path to the local application repository (flatpak).
