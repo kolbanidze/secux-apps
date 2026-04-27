@@ -490,6 +490,8 @@ def delete_tpm(params):
             srk_address = idp.get('srk_address')
             decoy_address = idp.get('decoy_address')
             blob_address = idp.get('blob_address')
+            # Removing legacy ARB mechanism
+            # That ARB index is not needed anymore because of moving to pcrlock
             arb_index = idp.get('arb_index')
 
             if key_slot: 
@@ -508,6 +510,7 @@ def delete_tpm(params):
             with open("/etc/mkinitcpio.conf", "r") as file:
                 lines = file.readlines()
             
+            # Legacy ARB
             if os.path.isfile("/usr/share/libalpm/hooks/98-idp-sync.hook"):
                 os.remove("/usr/share/libalpm/hooks/98-idp-sync.hook")
             

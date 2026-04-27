@@ -88,8 +88,6 @@ def erase_header(config, drive_path):
         run_cmd(['tpm2_nvundefine', config['decoy_address']], check=False)
     if config.get('blob_address'):
         run_cmd(['tpm2_nvundefine', config['blob_address']], check=False)
-    if config.get('arb_index'):
-        run_cmd(['tpm2_nvundefine', config['arb_index']], check=False)
     
     run_cmd(['cryptsetup', 'luksErase', drive_path, '-q'], check=False)
 
@@ -258,30 +256,6 @@ def main():
         with open("srk.name", "wb") as file:
             file.write(bytes.fromhex(expected_name))
         
-        arb_index = config.get('arb_index', None)
-        if not arb_index:
-            display_error_message("No ARB index.")
-            sys.exit(1)
-        arb_counter = config.get('arb_counter', None)
-        if not arb_counter:
-            display_error_message("No ARB counter.")
-            sys.exit(1)
-        arb_counter = int(arb_counter, 16)
-
-        run_cmd(['tpm2_startauthsession', '--hmac-session', '-c', srk_address, '-n', "srk.name", '-S', 'enc.session'])
-        counter_read_process = run_cmd(['tpm2_nvread', arb_index, '-C', 'o', '--size', '8', '-S', 'enc.session'], check=False)
-        if counter_read_process.returncode == 0:
-            current_arb_counter = int.from_bytes(counter_read_process.stdout, byteorder='big')
-        else:
-            display_error_message("Failed to read ARB counter from TPM.")
-            run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
-            sys.exit(1)
-        run_cmd(['tpm2_flushcontext', 'enc.session'], check=False)
-
-        if current_arb_counter != arb_counter:
-            display_error_message(f"Anti Rollback Protection violation!\n")
-            sys.exit(1)
-
         pin_code = get_pin(mapper_name)
         if not pin_code:
             display_error_message("PIN not provided.")

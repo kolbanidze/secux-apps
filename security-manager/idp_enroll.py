@@ -13,7 +13,6 @@ from base64 import b64encode
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCKOUT_KEY_PATH = "/etc/lockout.key"
-ARB_KEY_PATH = "/etc/arb.key"
 POLICY_DIGEST = "policy.digest"
 IDP_FILE = "/etc/idp.json"
 
@@ -99,10 +98,9 @@ class EnrollIDP:
     def mkinitcpio_enable(self):
         os.chmod(os.path.join(BASE_DIR, "idp/idp-tpm"), 0o755)
         
-        for hook_name in ["idp-tpm-hook", "98-idp-sync.hook", "idp-tpm-install"]:
+        for hook_name in ["idp-tpm-hook", "idp-tpm-install"]:
             target_path = {
                 "idp-tpm-hook": "/etc/initcpio/hooks/idp-tpm",
-                "98-idp-sync.hook": "/usr/share/libalpm/hooks/98-idp-sync.hook",
                 "idp-tpm-install": "/etc/initcpio/install/idp-tpm"
             }[hook_name]
             
@@ -234,11 +232,7 @@ class EnrollIDP:
             print("Failed to find LUKS keyslot.")
             return
         
-        salt, decoy_salt, arb_key = secrets.token_bytes(32), secrets.token_bytes(32), secrets.token_bytes(32)
-        with open(ARB_KEY_PATH, "wb") as file:
-            file.write(arb_key)
-        os.chown(ARB_KEY_PATH, 0, 0)
-        os.chmod(ARB_KEY_PATH, 0o400)
+        salt, decoy_salt = secrets.token_bytes(32), secrets.token_bytes(32)
 
         if self.use_decoy:
             decoy_key = self.argon2id_hash(self.decoy_pin, decoy_salt, 32)
@@ -302,11 +296,6 @@ class EnrollIDP:
         
         self.run_cmd(["tpm2_flushcontext", "pol.session"])
 
-        arb_nvindex = self.run_cmd(['tpm2_nvdefine', '-C', 'o', '-s', '8', '-a', 'nt=counter|ownerread|authwrite', '-p', f"hex:{arb_key.hex()}"], return_output=True).decode().split(" ")[-1].strip()
-        if self.run_cmd(['tpm2_nvincrement', arb_nvindex, '-P', f"hex:{arb_key.hex()}"]) != 0:
-            return print("Не удалось инициализировать счетчик ARB.")
-        arb_counter_value = self.run_cmd(['tpm2_nvread', arb_nvindex, '-C', 'o', '--size', '8'], return_output=True).hex()
-
         blob_nvindex = self.run_cmd(['tpm2_nvdefine', '-C', 'o', '-s', '96', '-a', 'policyread|authwrite', '-L', "digest.policy", '-p', f"hex:{A_key.hex()}"], return_output=True).decode().split(" ")[-1].strip()
         decoy_nvindex = self.run_cmd(['tpm2_nvdefine', '-C', 'o', '-s', '32', '-a', 'policyread|authwrite', '-L', "digest.policy", '-p', f"hex:{decoy_key.hex()}"], return_output=True).decode().split(" ")[-1].strip()
 
@@ -329,8 +318,6 @@ class EnrollIDP:
             "pcrlock_nvindex": str(self.nvindex),
             "srk_name": srk_name_hex,
             "srk_address": persistent_handle,
-            "arb_index": arb_nvindex,
-            "arb_counter": arb_counter_value,
             "blob_address": blob_nvindex,
             "decoy_address": decoy_nvindex,
             "salt": b64encode(salt).decode(),
