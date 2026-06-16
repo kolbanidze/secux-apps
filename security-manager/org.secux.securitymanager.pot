@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-04 10:13+0300\n"
+"POT-Creation-Date: 2026-06-16 20:00+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -61,7 +61,7 @@ msgstr ""
 msgid "Ошибка коммуникации"
 msgstr ""
 
-#: main.py:284 backend.py:221
+#: main.py:284 backend.py:233
 msgid "Заполните все поля"
 msgstr ""
 
@@ -73,11 +73,11 @@ msgstr ""
 msgid "Пароль успешно изменен!"
 msgstr ""
 
-#: main.py:307 main.py:365 main.py:537 main.py:594 main.py:634 main.py:764
-#: main.py:802 main.py:838 main.py:858 main.py:966 main.py:1042 main.py:1191
-#: main.py:1233 main.py:1264 main.py:1324 main.py:1704 main.py:1851
-#: main.py:1996 main.py:2016 main.py:2056 backend.py:347 backend.py:399
-#: backend.py:721 backend.py:773 backend.py:902
+#: main.py:307 main.py:365 main.py:511 main.py:568 main.py:608 main.py:738
+#: main.py:776 main.py:812 main.py:832 main.py:940 main.py:1016 main.py:1161
+#: main.py:1203 main.py:1234 main.py:1294 main.py:1672 main.py:1808
+#: main.py:1955 main.py:1975 main.py:2015 backend.py:422 backend.py:479
+#: backend.py:811 backend.py:863 backend.py:992
 msgid "Ошибка"
 msgstr ""
 
@@ -89,667 +89,663 @@ msgstr ""
 msgid "Скопировано"
 msgstr ""
 
-#: main.py:488
-msgid "Выберите хотя бы один PCR для привязки"
-msgstr ""
-
-#: main.py:492
+#: main.py:467
 msgid "Введите пароль от диска"
 msgstr ""
 
-#: main.py:498 main.py:506
+#: main.py:473 main.py:481
 msgid "Введите PIN код"
 msgstr ""
 
-#: main.py:501 main.py:509
+#: main.py:476 main.py:484
 msgid "PIN коды не сходятся"
 msgstr ""
 
-#: main.py:512
+#: main.py:487
 msgid "Ложный PIN идентичен настоящему"
 msgstr ""
 
-#: main.py:534
+#: main.py:508
 msgid "Успешно!"
 msgstr ""
 
-#: main.py:574
+#: main.py:548
 msgid "Введите пароль или ключ"
 msgstr ""
 
-#: main.py:590
+#: main.py:564
 msgid "Успешно! Слот удален."
 msgstr ""
 
-#: main.py:641
+#: main.py:615
 msgid "Нет активных слотов (странно...)"
 msgstr ""
 
-#: main.py:646
+#: main.py:620
 msgid "Слот"
 msgstr ""
 
-#: main.py:701
+#: main.py:675
 msgid "Ошибка получения данных"
 msgstr ""
 
-#: main.py:723
+#: main.py:697
 msgid "активно"
 msgstr ""
 
-#: main.py:748
+#: main.py:722
 msgid "Секрет скрыт. Пересоздайте для отображения."
 msgstr ""
 
-#: main.py:791
+#: main.py:765
 msgid "Секрет: "
 msgstr ""
 
-#: main.py:791
+#: main.py:765
 msgid "Ключи восстановления:\n"
 msgstr ""
 
-#: main.py:800
+#: main.py:774
 msgid "2FA настроена!"
 msgstr ""
 
-#: main.py:839
+#: main.py:813
 msgid "Ошибка генерации QR кода"
 msgstr ""
 
-#: main.py:855
+#: main.py:829
 msgid "2FA удалена"
 msgstr ""
 
-#: main.py:863
+#: main.py:837
 msgid "Скрыто"
 msgstr ""
 
-#: main.py:924
+#: main.py:898
 msgid "Введите имя узла"
 msgstr ""
 
-#: main.py:928
+#: main.py:902
 msgid "Выберите хотя бы один PCR"
 msgstr ""
 
-#: main.py:945
+#: main.py:919
 msgid "Генерация…"
 msgstr ""
 
-#: main.py:957 ui/sira_provision.ui:159
+#: main.py:931 ui/sira_provision.ui:159
 msgid "Сгенерировать OTP"
 msgstr ""
 
-#: main.py:962
+#: main.py:936
 msgid "Ошибка получения кода"
 msgstr ""
 
-#: main.py:996
+#: main.py:970
 msgid "Отозвать узел?"
 msgstr ""
 
-#: main.py:997
+#: main.py:971
 msgid "Узел потеряет статус доверия до следующей аттестации."
 msgstr ""
 
-#: main.py:1000
+#: main.py:974
 msgid "Сбросить baseline PCR?"
 msgstr ""
 
-#: main.py:1001
+#: main.py:975
 msgid "Следующая аттестация станет новым эталоном."
 msgstr ""
 
-#: main.py:1004
+#: main.py:978
 msgid "Удалить узел?"
 msgstr ""
 
-#: main.py:1005
+#: main.py:979
 msgid "Узел и все его логи будут безвозвратно удалены."
 msgstr ""
 
-#: main.py:1015 main.py:1300 main.py:2020
+#: main.py:989 main.py:1270 main.py:1979
 msgid "Отмена"
 msgstr ""
 
-#: main.py:1016
+#: main.py:990
 msgid "Подтвердить"
 msgstr ""
 
-#: main.py:1033
+#: main.py:1007
 msgid "Операция выполнена"
 msgstr ""
 
-#: main.py:1062
+#: main.py:1036
 msgid "Ошибка загрузки"
 msgstr ""
 
-#: main.py:1067
+#: main.py:1041
 msgid "Записей пока нет"
 msgstr ""
 
-#: main.py:1195
+#: main.py:1165
 msgid "Узлов нет"
 msgstr ""
 
-#: main.py:1200
+#: main.py:1170
 msgid "Без имени"
 msgstr ""
 
-#: main.py:1237
+#: main.py:1207
 msgid "Инцидентов нет"
 msgstr ""
 
-#: main.py:1250 ui/window.ui:60 ui/window.ui:71 ui/window.ui:82 ui/window.ui:97
-#: ui/window.ui:108 ui/window.ui:144
+#: main.py:1220 ui/window.ui:60 ui/window.ui:71 ui/window.ui:82 ui/window.ui:97
+#: ui/window.ui:107 ui/window.ui:118 ui/window.ui:154
 msgid "Неизвестно"
 msgstr ""
 
-#: main.py:1268
+#: main.py:1238
 msgid "Список пуст"
 msgstr ""
 
-#: main.py:1278
+#: main.py:1248
 msgid "Введите SHA256 хэш"
 msgstr ""
 
-#: main.py:1291
+#: main.py:1261
 msgid "Хэш найден в белом списке"
 msgstr ""
 
-#: main.py:1292
+#: main.py:1262
 msgid "Хэш удалён"
 msgstr ""
 
-#: main.py:1294
+#: main.py:1264
 msgid "Хэш не найден"
 msgstr ""
 
-#: main.py:1298
+#: main.py:1268
 msgid "Очистить все хэши?"
 msgstr ""
 
-#: main.py:1299
+#: main.py:1269
 msgid "Весь baseline будет удалён. Операция необратима."
 msgstr ""
 
-#: main.py:1301 ui/sira_admin.ui:149
+#: main.py:1271 ui/sira_admin.ui:149
 msgid "Очистить"
 msgstr ""
 
-#: main.py:1321
+#: main.py:1291
 msgid "Baseline очищен"
 msgstr ""
 
-#: main.py:1345 main.py:1722
+#: main.py:1315 main.py:1686
 msgid "Введите URL сервера SIRA"
 msgstr ""
 
-#: main.py:1347
+#: main.py:1317
 msgid "Введите Admin API Key"
 msgstr ""
 
-#: main.py:1350
+#: main.py:1320
 msgid "Подключение…"
 msgstr ""
 
-#: main.py:1359 ui/sira_admin_login.ui:44
+#: main.py:1329 ui/sira_admin_login.ui:44
 msgid "Войти"
 msgstr ""
 
-#: main.py:1367
+#: main.py:1337
 msgid "Не удалось подключиться"
 msgstr ""
 
-#: main.py:1454
+#: main.py:1426
 msgid "Версия: "
 msgstr ""
 
-#: main.py:1492
+#: main.py:1464
 msgid "Не удалось получить права root. Функционал будет ограничен."
 msgstr ""
 
-#: main.py:1551
+#: main.py:1523
 msgid "Нет связи с backend"
 msgstr ""
 
-#: main.py:1557
+#: main.py:1529
 msgid "Отсутствуют библиотеки TPM (tpm2-pytss)."
 msgstr ""
 
-#: main.py:1575
+#: main.py:1547
 msgid "Последняя проверка"
 msgstr ""
 
-#: main.py:1584 backend.py:252
+#: main.py:1556 backend.py:264
 msgid "Узел не зарегистрирован"
 msgstr ""
 
-#: main.py:1586
+#: main.py:1558
 msgid "Для аттестации необходимо пройти регистрацию."
 msgstr ""
 
-#: main.py:1593
+#: main.py:1565
 msgid "Узел прошел аттестацию SIRA."
 msgstr ""
 
-#: main.py:1598
+#: main.py:1570
 msgid "Аттестация успешна"
 msgstr ""
 
-#: main.py:1606 backend.py:279
+#: main.py:1578 backend.py:291
 msgid "Узел не прошёл аттестацию"
 msgstr ""
 
-#: main.py:1607 ui/sira_host_details.ui:38
+#: main.py:1579 ui/sira_host_details.ui:38
 msgid "Статус"
 msgstr ""
 
-#: main.py:1610
+#: main.py:1582
 msgid "Угроза безопасности"
 msgstr ""
 
-#: main.py:1619
+#: main.py:1591
 msgid "Требуется повторная аттестация узла."
 msgstr ""
 
-#: main.py:1622
+#: main.py:1594
 msgid "Ожидание аттестации"
 msgstr ""
 
-#: main.py:1630
+#: main.py:1602
 msgid "Узел отозван"
 msgstr ""
 
-#: main.py:1632
+#: main.py:1604
 msgid "Администратор отозвал доверие к этому узлу."
 msgstr ""
 
-#: main.py:1640
+#: main.py:1612
 msgid "Статус неизвестен"
 msgstr ""
 
-#: main.py:1666
+#: main.py:1638
 msgid "Неизвестный файл"
 msgstr ""
 
-#: main.py:1673
+#: main.py:1645
 msgid "Хэш не найден в белом списке"
 msgstr ""
 
-#: main.py:1683
+#: main.py:1655
 #, python-format
 msgid "… и ещё %d файлов"
 msgstr ""
 
-#: main.py:1693
+#: main.py:1661
 msgid "Backend недоступен"
 msgstr ""
 
-#: main.py:1695
+#: main.py:1663
 msgid "Служба Security Manager не запущена."
 msgstr ""
 
-#: main.py:1724
+#: main.py:1688
 msgid "Введите код приглашения"
 msgstr ""
 
-#: main.py:1727
+#: main.py:1691
 msgid "Регистрация..."
 msgstr ""
 
-#: main.py:1750
+#: main.py:1714
 #, python-format
 msgid "Регистрация завершена! ID: %s"
 msgstr ""
 
-#: main.py:1753
+#: main.py:1717
 msgid "Регистрация завершена"
 msgstr ""
 
-#: main.py:1758
+#: main.py:1722
 msgid "Ошибка регистрации"
 msgstr ""
 
-#: main.py:1766
+#: main.py:1726
 msgid "Выполняется аттестация…"
 msgstr ""
 
-#: main.py:1785
+#: main.py:1745
 msgid "Аттестация пройдена успешно"
 msgstr ""
 
-#: main.py:1788
+#: main.py:1748
 msgid "Требуется загрузка артефакта UKI"
 msgstr ""
 
-#: main.py:1791
+#: main.py:1751
 msgid "Обнаружены угрозы безопасности"
 msgstr ""
 
-#: main.py:1795
+#: main.py:1755
 msgid "Аттестация выполнена"
 msgstr ""
 
-#: main.py:1798
+#: main.py:1758
 msgid "Ошибка аттестации"
 msgstr ""
 
-#: main.py:1837 main.py:1946 main.py:1952 main.py:1958 main.py:1975
-#: main.py:2000
+#: main.py:1794 main.py:1905 main.py:1911 main.py:1917 main.py:1934
+#: main.py:1959
 msgid "Backend не работает."
 msgstr ""
 
-#: main.py:1838
+#: main.py:1795
 msgid "Диск не определен"
 msgstr ""
 
-#: main.py:1870
+#: main.py:1827
 msgid "Настройки успешно сохранены"
 msgstr ""
 
-#: main.py:1872
+#: main.py:1829
 msgid "Для смены языка перезапустите приложение."
 msgstr ""
 
-#: main.py:1876
+#: main.py:1833
 msgid "Ошибка при сохранении файла конфигурации"
 msgstr ""
 
-#: main.py:1908
+#: main.py:1865
 msgid "Раздел LUKS не найден"
 msgstr ""
 
-#: main.py:1911
+#: main.py:1868
 msgid "Включен"
 msgstr ""
 
-#: main.py:1911
+#: main.py:1868
 msgid "Выключен"
 msgstr ""
 
-#: main.py:1915 main.py:1916
+#: main.py:1872 main.py:1873 main.py:1874
 msgid "Да"
 msgstr ""
 
-#: main.py:1915 main.py:1916
+#: main.py:1872 main.py:1873 main.py:1874
 msgid "Нет"
 msgstr ""
 
-#: main.py:1923
+#: main.py:1881
 msgid "Пароль"
 msgstr ""
 
-#: main.py:1931 ui/window.ui:38
+#: main.py:1890 ui/window.ui:38
 msgid "Система защищена"
 msgstr ""
 
-#: main.py:1932
+#: main.py:1891
 msgid "Secure Boot активен, задействованы механизмы TPM."
 msgstr ""
 
-#: main.py:1938
+#: main.py:1897
 msgid "Система под угрозой"
 msgstr ""
 
-#: main.py:1939
+#: main.py:1898
 msgid "Устройство уязвимо. Рекомендуется включить Secure Boot и настроить TPM."
 msgstr ""
 
-#: main.py:1965
+#: main.py:1924
 msgid "Удалить TPM?"
 msgstr ""
 
-#: main.py:1966
+#: main.py:1925
 msgid "Это сбросит ключи шифрования. Вам понадобится пароль."
 msgstr ""
 
-#: main.py:1994
+#: main.py:1953
 msgid "Успешно"
 msgstr ""
 
-#: main.py:2021
+#: main.py:1980
 msgid "Выполнить"
 msgstr ""
 
-#: main.py:2052
+#: main.py:2011
 msgid "--> Операция успешно завершена."
 msgstr ""
 
-#: main.py:2053
+#: main.py:2012
 msgid "Готово!"
 msgstr ""
 
-#: main.py:2055
+#: main.py:2014
 msgid "--> ОШИБКА."
 msgstr ""
 
-#: main.py:2074 ui/sira_host_details.ui:30
+#: main.py:2033 ui/sira_host_details.ui:30
 msgid "Информация"
 msgstr ""
 
-#: main.py:2082
+#: main.py:2041
 msgid "офлайн"
 msgstr ""
 
-#: main.py:2084
+#: main.py:2043
 msgid "онлайн"
 msgstr ""
 
-#: main.py:2089 main.py:2106
+#: main.py:2048 main.py:2065
 msgid "Выберите хотя бы одно приложение"
 msgstr ""
 
-#: main.py:2094
+#: main.py:2053
 msgid "Для скачивания выберите путь к репозиторию в настройках"
 msgstr ""
 
-#: main.py:2096
+#: main.py:2055
 msgid "--> Инициализация скачивания в локальный репозиторий..."
 msgstr ""
 
-#: main.py:2112
+#: main.py:2071
 msgid "Для офлайн установки укажите путь к репозиторию"
 msgstr ""
 
-#: main.py:2115
+#: main.py:2074
 msgid "Начало установки"
 msgstr ""
 
-#: backend.py:223
+#: backend.py:235
 msgid "Агент SIRA не найден (sira-agent)"
 msgstr ""
 
-#: backend.py:231
+#: backend.py:243
 msgid "Ошибка регистрации узла"
 msgstr ""
 
-#: backend.py:245
+#: backend.py:257
 msgid "Узел успешно привязан к кластеру SIRA"
 msgstr ""
 
-#: backend.py:250
+#: backend.py:262
 msgid "Агент SIRA не найден"
 msgstr ""
 
-#: backend.py:272
+#: backend.py:284
 msgid "Аттестация пройдена"
 msgstr ""
 
-#: backend.py:275
+#: backend.py:287
 msgid "Требуется загрузка артефакта"
 msgstr ""
 
-#: backend.py:284
+#: backend.py:296
 msgid "Аттестация не выполнена"
 msgstr ""
 
-#: backend.py:331 backend.py:463
+#: backend.py:402 backend.py:553
 msgid "Отсутствует диск или пароль"
 msgstr ""
 
-#: backend.py:343
+#: backend.py:418
 msgid "TPM + IDP успешно настроен"
 msgstr ""
 
-#: backend.py:345
+#: backend.py:420
 msgid "Установка IDP завершена, но файл не был создан"
 msgstr ""
 
-#: backend.py:373
+#: backend.py:447
 msgid "Превышено время ожидания диска"
 msgstr ""
 
-#: backend.py:380
+#: backend.py:454
 msgid "Неверный пароль LUKS"
 msgstr ""
 
-#: backend.py:381
+#: backend.py:455
 msgid "Превышено время ожидания запроса PIN"
 msgstr ""
 
-#: backend.py:390
+#: backend.py:464
 msgid "Неверный пароль или PIN код"
 msgstr ""
 
-#: backend.py:394
+#: backend.py:474
 msgid "TPM успешно зарегистрирован"
 msgstr ""
 
-#: backend.py:396
+#: backend.py:476
 msgid "systemd-cryptenroll завершил работу с ошибкой"
 msgstr ""
 
-#: backend.py:404 backend.py:709
+#: backend.py:484 backend.py:799
 msgid "Диск не выбран"
 msgstr ""
 
-#: backend.py:455
+#: backend.py:545
 msgid "Ошибка очистки"
 msgstr ""
 
-#: backend.py:457
+#: backend.py:547
 msgid "TPM очищен"
 msgstr ""
 
-#: backend.py:472
+#: backend.py:562
 msgid "Неверный пароль"
 msgstr ""
 
-#: backend.py:482 backend.py:551
+#: backend.py:572 backend.py:641
 msgid "Отсутствует диск или ключ"
 msgstr ""
 
-#: backend.py:490
+#: backend.py:580
 msgid "Отсутствуют слоты LUKS"
 msgstr ""
 
-#: backend.py:501
+#: backend.py:591
 msgid "Соответствующий ключ не найден"
 msgstr ""
 
-#: backend.py:506
+#: backend.py:596
 msgid "Нельзя удалить единственный метод доступа!"
 msgstr ""
 
-#: backend.py:530
+#: backend.py:620
 msgid "Необходимо чтоб остался запасной ключ для разблокировки"
 msgstr ""
 
-#: backend.py:535
+#: backend.py:625
 msgid "Ошибка удаления слота"
 msgstr ""
 
-#: backend.py:542
+#: backend.py:632
 msgid "Пароль успешно удален"
 msgstr ""
 
-#: backend.py:562
+#: backend.py:652
 msgid "Не удалось запустить systemd-cryptenroll"
 msgstr ""
 
-#: backend.py:566
+#: backend.py:656
 msgid "Неверный текущий пароль"
 msgstr ""
 
-#: backend.py:567
+#: backend.py:657
 msgid "Превышено время ожидания"
 msgstr ""
 
-#: backend.py:575
+#: backend.py:665
 msgid "Пароль изменен"
 msgstr ""
 
-#: backend.py:577
+#: backend.py:667
 msgid "Не удалось изменить пароль"
 msgstr ""
 
-#: backend.py:647 backend.py:694
+#: backend.py:737 backend.py:784
 msgid "Пользователь не выбран"
 msgstr ""
 
-#: backend.py:700
+#: backend.py:790
 msgid "2FA удалена для пользователя"
 msgstr ""
 
-#: backend.py:704
+#: backend.py:794
 msgid "Регистрация не найдена"
 msgstr ""
 
-#: backend.py:733
+#: backend.py:823
 msgid "Пользовательский пароль"
 msgstr ""
 
-#: backend.py:748 ui/recovery_enroll.ui:10
+#: backend.py:838 ui/recovery_enroll.ui:10
 msgid "Ключ восстановления"
 msgstr ""
 
-#: backend.py:751
+#: backend.py:841
 msgid "FIDO2 токен"
 msgstr ""
 
-#: backend.py:787
+#: backend.py:877
 msgid "Нет приложений для обработки"
 msgstr ""
 
-#: backend.py:792
+#: backend.py:882
 msgid "Не указан путь к репозиторию"
 msgstr ""
 
-#: backend.py:800
+#: backend.py:890
 msgid "Скачивание завершено"
 msgstr ""
 
-#: backend.py:802
+#: backend.py:892
 msgid "Произошла ошибка при скачивании"
 msgstr ""
 
-#: backend.py:819
+#: backend.py:909
 msgid "Приложения успешно установлены"
 msgstr ""
 
-#: backend.py:821
+#: backend.py:911
 msgid "Что-то пошло не так"
 msgstr ""
 
-#: backend.py:834
+#: backend.py:924
 msgid "SKIP: Файл override не найден"
 msgstr ""
 
-#: backend.py:844
+#: backend.py:934
 msgid "OVERRIDE: Конфигурация обновлена для"
 msgstr ""
 
-#: backend.py:846
+#: backend.py:936
 msgid "OVERRIDE ERROR: Не удалось скопировать override"
 msgstr ""
 
-#: backend.py:862
+#: backend.py:952
 msgid "Ошибка JSON"
 msgstr ""
 
-#: backend.py:899
+#: backend.py:989
 msgid "Unknown command"
 msgstr ""
 
@@ -765,8 +761,8 @@ msgstr ""
 msgid "Пароль или ключ"
 msgstr ""
 
-#: ui/key_delete.ui:85 ui/sira_host_details.ui:73 ui/window.ui:170
-#: ui/window.ui:194 ui/window.ui:220
+#: ui/key_delete.ui:85 ui/sira_host_details.ui:73 ui/window.ui:180
+#: ui/window.ui:204 ui/window.ui:230
 msgid "Удалить"
 msgstr ""
 
@@ -1016,47 +1012,7 @@ msgstr ""
 msgid "Безвозвратно уничтожает ключи шифрования"
 msgstr ""
 
-#: ui/tpm_enroll.ui:89
-msgid "Расширенные настройки PCR"
-msgstr ""
-
-#: ui/tpm_enroll.ui:90
-msgid "Если знаете, что делаете"
-msgstr ""
-
-#: ui/tpm_enroll.ui:97
-msgid "Прошивка системы (UEFI)"
-msgstr ""
-
-#: ui/tpm_enroll.ui:104
-msgid "Настройки прошивки (серийные номера)"
-msgstr ""
-
-#: ui/tpm_enroll.ui:110
-msgid "Дополнительные модули (Option ROM)"
-msgstr ""
-
-#: ui/tpm_enroll.ui:117
-msgid "Настройки дополнительных модулей"
-msgstr ""
-
-#: ui/tpm_enroll.ui:123
-msgid "Загрузчик, драйвера и EFI приложения"
-msgstr ""
-
-#: ui/tpm_enroll.ui:129
-msgid "Таблица разделов диска (GPT)"
-msgstr ""
-
-#: ui/tpm_enroll.ui:135 ui/window.ui:67
-msgid "Состояние Secure Boot"
-msgstr ""
-
-#: ui/tpm_enroll.ui:142
-msgid "Сертификаты MOK (shim)"
-msgstr ""
-
-#: ui/tpm_enroll.ui:168
+#: ui/tpm_enroll.ui:107
 msgid "Зарегистрировать в TPM"
 msgstr ""
 
@@ -1136,6 +1092,10 @@ msgstr ""
 msgid "Рекомендуется к использованию"
 msgstr ""
 
+#: ui/window.ui:67
+msgid "Состояние Secure Boot"
+msgstr ""
+
 #: ui/window.ui:68
 msgid "Рекомендуется User Mode"
 msgstr ""
@@ -1153,197 +1113,201 @@ msgid "TPM и Шифрование"
 msgstr ""
 
 #: ui/window.ui:94
-msgid "Наличие TPM"
+msgid "Шифрование диска"
 msgstr ""
 
 #: ui/window.ui:104
+msgid "Наличие TPM"
+msgstr ""
+
+#: ui/window.ui:114
 msgid "Разблокировка диска"
 msgstr ""
 
-#: ui/window.ui:105
+#: ui/window.ui:115
 msgid "Рекомендуется использование TPM + PIN"
 msgstr ""
 
-#: ui/window.ui:137
+#: ui/window.ui:147
 msgid "Утилиты"
 msgstr ""
 
-#: ui/window.ui:143
+#: ui/window.ui:153
 msgid "Управление диском"
 msgstr ""
 
-#: ui/window.ui:148
+#: ui/window.ui:158
 msgid "Просмотреть активные слоты"
 msgstr ""
 
-#: ui/window.ui:158
+#: ui/window.ui:168
 msgid "Управление модулем TPM"
 msgstr ""
 
-#: ui/window.ui:161 ui/window.ui:188 ui/window.ui:214
+#: ui/window.ui:171 ui/window.ui:198 ui/window.ui:224
 msgid "Зарегистрировать"
 msgstr ""
 
-#: ui/window.ui:181
+#: ui/window.ui:191
 msgid "Ключи восстановления"
 msgstr ""
 
-#: ui/window.ui:182
+#: ui/window.ui:192
 msgid "Рекомендуемый способ восстановления"
 msgstr ""
 
-#: ui/window.ui:207
+#: ui/window.ui:217
 msgid "Пароли"
 msgstr ""
 
-#: ui/window.ui:208
+#: ui/window.ui:218
 msgid "Опционально"
 msgstr ""
 
-#: ui/window.ui:235
+#: ui/window.ui:245
 msgid "Безопасность входа"
 msgstr ""
 
-#: ui/window.ui:238
+#: ui/window.ui:248
 msgid "Двухфакторная аутентификация"
 msgstr ""
 
-#: ui/window.ui:239
+#: ui/window.ui:249
 msgid "Настройка TOTP и кодов восстановления"
 msgstr ""
 
-#: ui/window.ui:246
+#: ui/window.ui:256
 msgid "Открыть настройки 2FA"
 msgstr ""
 
-#: ui/window.ui:263
+#: ui/window.ui:273
 msgid "Настройки"
 msgstr ""
 
-#: ui/window.ui:272
+#: ui/window.ui:282
 msgid "Язык"
 msgstr ""
 
-#: ui/window.ui:273
+#: ui/window.ui:283
 msgid "Language"
 msgstr ""
 
-#: ui/window.ui:291
+#: ui/window.ui:301
 msgid "Офлайн репозиторий"
 msgstr ""
 
-#: ui/window.ui:292
+#: ui/window.ui:302
 msgid "Использовать локальный источник"
 msgstr ""
 
-#: ui/window.ui:297
+#: ui/window.ui:307
 msgid "Путь к репозиторию"
 msgstr ""
 
-#: ui/window.ui:324
+#: ui/window.ui:334
 msgid "Сохранить"
 msgstr ""
 
-#: ui/window.ui:345
+#: ui/window.ui:355
 msgid "Конфигурация"
 msgstr ""
 
-#: ui/window.ui:348
+#: ui/window.ui:358
 msgid "Источник пакетов"
 msgstr ""
 
-#: ui/window.ui:349
+#: ui/window.ui:359
 msgid "Flathub (Online)"
 msgstr ""
 
-#: ui/window.ui:367
+#: ui/window.ui:377
 msgid "Приложения"
 msgstr ""
 
-#: ui/window.ui:368
+#: ui/window.ui:378
 msgid "Выберите категории для установки"
 msgstr ""
 
-#: ui/window.ui:371
+#: ui/window.ui:381
 msgid "Интернет и общение"
 msgstr ""
 
-#: ui/window.ui:402 ui/window.ui:441
+#: ui/window.ui:412 ui/window.ui:451
 msgid "Внимание: использует старую оконную систему (X11)"
 msgstr ""
 
-#: ui/window.ui:410
+#: ui/window.ui:420
 msgid "Мультимедиа"
 msgstr ""
 
-#: ui/window.ui:411
+#: ui/window.ui:421
 msgid "Просмотр видео, OBS Studio"
 msgstr ""
 
-#: ui/window.ui:429
+#: ui/window.ui:439
 msgid "Офис и работа"
 msgstr ""
 
-#: ui/window.ui:449
+#: ui/window.ui:459
 msgid "Инструменты и безопасность"
 msgstr ""
 
-#: ui/window.ui:455
+#: ui/window.ui:465
 msgid "Управление правами Flatpak"
 msgstr ""
 
-#: ui/window.ui:490
+#: ui/window.ui:500
 msgid "Скачать пакеты"
 msgstr ""
 
-#: ui/window.ui:499
+#: ui/window.ui:509
 msgid "Начать установку"
 msgstr ""
 
-#: ui/window.ui:516
+#: ui/window.ui:526
 msgid "Лог операций"
 msgstr ""
 
-#: ui/window.ui:553
+#: ui/window.ui:563
 msgid "Аттестация"
 msgstr ""
 
-#: ui/window.ui:557
+#: ui/window.ui:567
 msgid "Не привязано к серверу"
 msgstr ""
 
-#: ui/window.ui:558
+#: ui/window.ui:568
 msgid "Запросите OTP-код у администратора безопасности."
 msgstr ""
 
-#: ui/window.ui:571
+#: ui/window.ui:581
 msgid "Привязка устройства"
 msgstr ""
 
-#: ui/window.ui:572
+#: ui/window.ui:582
 msgid "Для интеграции узла укажите сервер и одноразовый код."
 msgstr ""
 
-#: ui/window.ui:575
+#: ui/window.ui:585
 msgid "Адрес сервера"
 msgstr ""
 
-#: ui/window.ui:580
+#: ui/window.ui:590
 msgid "Код приглашения (OTP)"
 msgstr ""
 
-#: ui/window.ui:587
+#: ui/window.ui:597
 msgid "Присоединиться к кластеру"
 msgstr ""
 
-#: ui/window.ui:602
+#: ui/window.ui:612
 msgid "Выполнить проверку сейчас"
 msgstr ""
 
-#: ui/window.ui:611
+#: ui/window.ui:621
 msgid "Заблокированные приложения"
 msgstr ""
 
-#: ui/window.ui:612
+#: ui/window.ui:622
 msgid "Следующие файлы не прошли проверку и были заблокированы."
 msgstr ""

@@ -91,6 +91,16 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                                 <property name="title" translatable="yes">TPM и Шифрование</property>
                                 <child>
                                   <object class="AdwActionRow">
+                                    <property name="title" translatable="yes">Шифрование диска</property>
+                                    <child type="suffix">
+                                      <object class="GtkLabel" id="luks_encrypted_label">
+                                        <property name="label" translatable="yes">Неизвестно</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="AdwActionRow">
                                     <property name="title" translatable="yes">Наличие TPM</property>
                                     <child type="suffix">
                                       <object class="GtkLabel" id="tpm_exists_label">
@@ -114,7 +124,7 @@ corresponding .blp file and regenerate this file with blueprint-compiler.
                             </child>
                             <child>
                               <object class="GtkLabel" id="lbl_version">
-                                <property name="label">Версия: 0.0.1</property>
+                                <property name="label">Версия: 0.0.0</property>
                                 <style>
                                   <class name="dim-label"/>
                                   <class name="caption"/>

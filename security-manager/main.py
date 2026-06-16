@@ -24,7 +24,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.6.2"
+VERSION = "0.6.3"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -1417,6 +1417,8 @@ class SecurityWindow(Adw.ApplicationWindow):
     sira_untrusted_list  = Gtk.Template.Child()
     toast_overlay        = Gtk.Template.Child()
 
+    luks_encrypted_label = Gtk.Template.Child()
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.drive = None
@@ -1869,6 +1871,7 @@ class SecurityWindow(Adw.ApplicationWindow):
         
         self.ms_trust_label.set_label(_("Да") if stats.get('microsoft_keys') else _("Нет"))
         self.tpm_exists_label.set_label(_("Да") if stats.get('tpm_exists') else _("Нет"))
+        self.luks_encrypted_label.set_label(_("Да") if stats.get('encrypted') else _("Нет"))
         
         if stats.get("tpm_with_pin"):
             self.tpm_plus_pin_label.set_label("TPM + PIN")
@@ -1880,6 +1883,7 @@ class SecurityWindow(Adw.ApplicationWindow):
         # Логика статуса безопасности
         is_secure = (stats.get('secure_boot') and 
                      stats.get('tpm_enrolled') and 
+                     stats.get('encrypted') and
                      not stats.get('setup_mode'))
         
         if is_secure:

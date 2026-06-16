@@ -135,7 +135,8 @@ def get_stats(params):
         "tpm_exists": False,
         "tpm_enrolled": False,
         "tpm_with_pin": False,
-        "drive": None
+        "drive": None,
+        "encrypted": False
     }
 
     # Проверка Secure Boot (sbctl или mokutil)
@@ -165,34 +166,47 @@ def get_stats(params):
                         stats["microsoft_keys"] = True
             except: pass
 
-    # Поиск диска (LUKS)
-    # Ищем раздел cryptlvm или первый попавшийся crypto_LUKS
-    success, lsblk_out, stderr = run_cmd(["/usr/bin/lsblk", "-J", "-o", "NAME,TYPE,FSTYPE"], check=False)
+    # Поиск корневого диска и определение статуса шифрования
+    success, lsblk_out, stderr = run_cmd(["/usr/bin/lsblk", "-J", "-o", "NAME,TYPE,FSTYPE,MOUNTPOINTS"], check=False)
     if success:
         try:
             data = json.loads(lsblk_out)
-            for device in data.get('blockdevices', []):
-                if 'children' in device:
-                    for part in device['children']:
-                        if part.get('fstype') == 'crypto_LUKS':
-                            # Если нашли LUKS, запоминаем его как кандидата
-                            stats["drive"] = "/dev/" + part['name']
-                            # Если внутри есть cryptlvm, то это точно наш клиент
-                            if 'children' in part:
-                                for sub in part['children']:
-                                    if sub['name'] == 'cryptlvm':
-                                        stats["drive"] = "/dev/" + part['name']
-                                        break
-        except: pass
-    
-    # Если диск не найден, возвращаем то что есть
-    if not stats["drive"]:
-        return reply("success", stats)
+            
+            def find_root_drive(devices, parent_path=None):
+                """Рекурсивно ищет устройство, смонтированное в корень '/'"""
+                for dev in devices:
+                    dev_path = f"/dev/{dev['name']}"
+                    mountpoints = dev.get('mountpoints', [])
+                    
+                    # А если оно называлось ещё mountpoint? 
+                    if not mountpoints and dev.get('mountpoint'):
+                        mountpoints = [dev['mountpoint']]
+                    
+                    is_luks = dev.get('fstype') == 'crypto_LUKS'
+                    
+                    # Если нашли корень
+                    if "/" in mountpoints:
+                        if dev.get('type') == 'crypt':
+                            # LUKS
+                            return parent_path, True
+                        else:
+                            # Не LUKS
+                            return dev_path, False
+                    
+                    if 'children' in dev:
+                        res_path, res_enc = find_root_drive(dev['children'], dev_path)
+                        if res_path:
+                            return res_path, res_enc
+                            
+                return None, False
 
-    # Статус TPM и enrollment
+            stats["drive"], stats["encrypted"] = find_root_drive(data.get('blockdevices', []))
+        except Exception as e:
+            pass
+    
     stats["tpm_exists"] = os.path.exists("/dev/tpm0") or os.path.exists("/dev/tpmrm0")
     
-    if stats["drive"]:
+    if stats["encrypted"] and stats["drive"]:
         success, dump_out, stderr = run_cmd(["/usr/bin/cryptsetup", "luksDump", stats["drive"], "--dump-json-metadata"], check=False)
         if success:
             try:
@@ -208,7 +222,7 @@ def get_stats(params):
         stats["tpm_enrolled"] = True
         stats["tpm_with_pin"] = True
 
-    reply("success", stats)
+    return reply("success", stats)
 
 
 def sira_enroll(params):

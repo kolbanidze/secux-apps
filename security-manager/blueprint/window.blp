@@ -81,6 +81,15 @@ template $SecurityWindow: Adw.ApplicationWindow {
                 title: _("TPM и Шифрование");
 
                 Adw.ActionRow {
+                  title: _("Шифрование диска");
+
+                  [suffix]
+                  Gtk.Label luks_encrypted_label {
+                    label: _("Неизвестно");
+                  }
+                }
+
+                Adw.ActionRow {
                   title: _("Наличие TPM");
 
                   [suffix]
@@ -101,7 +110,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
               }
 
               Gtk.Label lbl_version {
-                label: "Версия: 0.0.1";
+                label: "Версия: 0.0.0";
 
                 styles [
                   "dim-label",
@@ -235,7 +244,6 @@ template $SecurityWindow: Adw.ApplicationWindow {
         };
       }
 
-      // --- Вкладка 3: Настройки ---
       Adw.ViewStackPage {
         name: "settings";
         title: _("Настройки");
@@ -299,7 +307,6 @@ template $SecurityWindow: Adw.ApplicationWindow {
         };
       }
 
-      // --- Вкладка 4 Flatpak ---
       Adw.ViewStackPage {
         name: "flatpak";
         title: "Flatpak";
@@ -331,7 +338,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
           Adw.PreferencesGroup {
             title: _("Приложения");
             description: _("Выберите категории для установки");
-            // Категория 1: Интернет
+
             Adw.ExpanderRow {
               title: _("Интернет и общение");
               subtitle: "Chromium, Telegram, Discord...";
@@ -365,7 +372,6 @@ template $SecurityWindow: Adw.ApplicationWindow {
               }
             }
 
-            // Категория 2: Мультимедиа
             Adw.ExpanderRow {
               title: _("Мультимедиа");
               subtitle: _("Просмотр видео, OBS Studio");
@@ -382,7 +388,6 @@ template $SecurityWindow: Adw.ApplicationWindow {
               }
             }
 
-            // Категория 3: Офис
             Adw.ExpanderRow {
               title: _("Офис и работа");
               subtitle: "LibreOffice, OnlyOffice";
@@ -400,7 +405,6 @@ template $SecurityWindow: Adw.ApplicationWindow {
               }
             }
 
-            // Категория 4: Инструменты и безопасность
             Adw.ExpanderRow {
               title: _("Инструменты и безопасность");
               subtitle: "BitWarden, KeePassXC, Torrent";
@@ -505,7 +509,7 @@ template $SecurityWindow: Adw.ApplicationWindow {
               child: Gtk.Box {
                 orientation: vertical;
                 spacing: 16;
-                // --- Блок регистрации (Виден только если не зарегистрирован) ---
+
                 Adw.PreferencesGroup sira_enroll_group {
                   title: _("Привязка устройства");
                   description: _("Для интеграции узла укажите сервер и одноразовый код.");
@@ -529,7 +533,6 @@ template $SecurityWindow: Adw.ApplicationWindow {
                   ]
                 }
 
-                // Блок состояния и ручной проверки (Виден, когда зарегистрирован)
                 Gtk.Box sira_attest_box {
                   orientation: vertical;
                   spacing: 16;
@@ -544,7 +547,6 @@ template $SecurityWindow: Adw.ApplicationWindow {
                     ]
                   }
 
-                  // Список скомпрометированных файлов (Появляется при угрозе)
                   Adw.PreferencesGroup sira_untrusted_group {
                     title: _("Заблокированные приложения");
                     description: _("Следующие файлы не прошли проверку и были заблокированы.");
