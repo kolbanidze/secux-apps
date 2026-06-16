@@ -265,7 +265,7 @@ class EnrollIDP:
         with open("srk.name", "rb") as f:
             srk_name_hex = f.read().hex()
         
-        # Trial session: pcrlock (0,2,4,7) + PCR 15 (zero)
+        # Trial session: pcrlock (0,2,4) + PCR 15 (zero)
         if self.run_cmd(["tpm2_startauthsession", "-S", "pol.session"]) != 0:
             print("Ошибка. Не удалось запустить сессию.")
             return

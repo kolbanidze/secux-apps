@@ -27,7 +27,7 @@ apply_policy() {
     
     unshare -m bash -c "
         umount -l $EFI_MOUNT 2>/dev/null || true
-        /usr/lib/systemd/systemd-pcrlock make-policy --pcr=0 --pcr=2 --pcr=4 --pcr=7 --force
+        /usr/lib/systemd/systemd-pcrlock make-policy --pcr=0 --pcr=2 --pcr=4 --force
     "
     
     TOKEN=$(cat /etc/machine-id)
