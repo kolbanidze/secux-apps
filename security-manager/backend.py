@@ -374,12 +374,10 @@ def _enroll_pcrlock() -> bool:
     os.makedirs('/etc/pcrlock.d/620-sd-boot.pcrlock.d/', exist_ok=True)
     os.makedirs('/etc/pcrlock.d/630-uki.pcrlock.d/', exist_ok=True)
 
-    # Cover PCR 0, 2, 7
+    # Cover PCR 0. 2 will be covered automatically (no need to create pcrlock policy file)
     run_cmd(['/usr/lib/systemd/systemd-pcrlock', 'lock-firmware-code'])
-    run_cmd(['/usr/lib/systemd/systemd-pcrlock', 'lock-secureboot-policy'])
-    run_cmd(['/usr/lib/systemd/systemd-pcrlock', 'lock-secureboot-authority'])
 
-    # Create pcrlock policy with PCR 0,2,4,7
+    # Create pcrlock policy with PCR 0,2,4
     success, stdout, stderr = run_cmd(['/usr/bin/bash', update_pcrlock_sh, 'boot-cleanup'], check=True)
     if not success:
         return False
@@ -528,6 +526,18 @@ def delete_tpm(params):
             if os.path.isfile("/usr/share/libalpm/hooks/98-idp-sync.hook"):
                 os.remove("/usr/share/libalpm/hooks/98-idp-sync.hook")
             
+            # Remove any pcrlock scripts            
+            if os.path.isfile("/usr/lib/initcpio/post/zz-pcrlock"):
+                os.remove("/usr/lib/initcpio/post/zz-pcrlock")
+
+            run_cmd(['systemctl', 'disable', 'pcrlock-cleanup'], check=False)
+            if os.path.isfile("/etc/systemd/system/pcrlock-cleanup.service"):
+                os.remove("/etc/systemd/system/pcrlock-cleanup.service")
+            run_cmd(['systemctl', 'daemon-reload'], check=False)
+
+            if os.path.isfile("/usr/share/libalpm/hooks/99-pcrlock.hook"):
+                os.remove("/usr/share/libalpm/hooks/99-pcrlock.hook")
+
             modified = False
             new_lines = []
             for line in lines:

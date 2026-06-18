@@ -24,7 +24,7 @@ from gi.repository import Gtk, Adw, Gio, GLib, Gdk, GdkPixbuf
 
 # Настройки приложения
 APP_ID = "org.secux.securitymanager"
-VERSION = "0.6.3"
+VERSION = "0.6.4"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOCALES_DIR = os.path.join(BASE_DIR, "locales")
 LOCALES_DIR = os.path.abspath(LOCALES_DIR)
@@ -1885,6 +1885,15 @@ class SecurityWindow(Adw.ApplicationWindow):
                      stats.get('tpm_enrolled') and 
                      stats.get('encrypted') and
                      not stats.get('setup_mode'))
+        
+        if not stats.get('encrypted'):
+            self.btn_enroll_tpm.set_sensitive(False)
+            self.btn_enroll_password.set_sensitive(False)
+            self.btn_enroll_recovery.set_sensitive(False)
+            self.btn_delete_tpm.set_sensitive(False)
+            self.btn_delete_recovery.set_sensitive(False)
+            self.btn_delete_password.set_sensitive(False)
+            self.btn_view_slots.set_sensitive(False)
         
         if is_secure:
             self.status_page.set_title(_("Система защищена"))

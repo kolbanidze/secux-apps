@@ -113,11 +113,9 @@ case "$1" in
             if [[ ! -f "$TRUSTED_DIR/${BOOTED_NAME}.pcrlock" ]] && [[ -f "$UKI_TARGET" ]]; then
                 /usr/lib/systemd/systemd-pcrlock lock-uki "$UKI_TARGET" --pcrlock="$TRUSTED_DIR/${BOOTED_NAME}.pcrlock"
             fi
-            # Сохраняем "якорь" для Event Log
             cp "$TRUSTED_DIR/${BOOTED_NAME}.pcrlock" "$ACTIVE_DIR/630-uki.pcrlock.d/${BOOTED_NAME}.booted.pcrlock"
         fi
 
-        # Копируем ВСЕ остальные доверенные ядра в ACTIVE_DIR (Разрешаем мультибут!)
         sync_ukis "false"
 
         apply_policy
@@ -133,10 +131,8 @@ case "$1" in
         # Оставляем якоря (.booted)
         clean_active_keep_booted
         
-        # Измеряем ТОЛЬКО ТОТ ФАЙЛ, КОТОРЫЙ ПЕРЕДАЛ MKINITCPIO
         /usr/lib/systemd/systemd-pcrlock lock-uki "$UKI_PATH" --pcrlock="$TRUSTED_DIR/${UKI_NAME}.pcrlock"
         
-        # Синхронизируем: Копируем ВСЕ доверенные ядра в ACTIVE_DIR (Разрешаем мультибут!)
         sync_ukis "false"
         
         apply_policy
@@ -158,8 +154,6 @@ case "$1" in
             cp "$TRUSTED_DIR/sd-boot.pcrlock" "$ACTIVE_DIR/620-sd-boot.pcrlock.d/sd-boot.pcrlock"
         fi
 
-        # Синхронизируем ядра с флагом "true" (ТОЛЬКО сборка мусора, без копирования остальных ядер)
-        # Это необходимо, чтобы избежать ошибки "Argument list too long" из-за обновления загрузчиков.
         sync_ukis "true"
 
         apply_policy
