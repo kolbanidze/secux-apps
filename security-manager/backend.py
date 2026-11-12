@@ -29,7 +29,6 @@ SIRA_STATE_FILE = "/etc/secux/agent.json"
 SIRA_STATUS_FILE = "/etc/secux/attest_status.json"
 IDP_FILE = "/etc/idp.json"
 PCR_PUB_KEY = "/etc/kernel/pcr-initrd.pub.pem"
-DEFAULT_PCRS = [0, 2, 7, 14]
 STORAGE_2FA_PATH = "/etc/securitymanager-2fa"
 PAM_FILES = ["/etc/pam.d/login", "/etc/pam.d/gdm-password"]
 PAM_LINE = f"auth required pam_google_authenticator.so nullok debug user=root secret={STORAGE_2FA_PATH}/${{USER}}\n"

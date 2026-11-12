@@ -52,9 +52,8 @@ apply_policy() {
 # После перезагрузки все будет ОК. 
 sync_ukis() {
     local BOOTED_NAME=$(get_booted_uki_name)
-    local RESTRICT_TO_BOOTED=$1
     
-    echo "  -> [pcrlock] Syncing UKIs (Restrict mode: ${RESTRICT_TO_BOOTED:-false})..."
+    echo "  -> [pcrlock] Syncing UKIs..."
 
     for p_file in "$TRUSTED_DIR"/*.pcrlock; do
         [[ -e "$p_file" ]] || continue
@@ -70,18 +69,17 @@ sync_ukis() {
             continue
         fi
 
-        # # Если это не загруженное ядро (загруженное уже скопировано как .booted)
-        # if [[ "$NAME" != "$BOOTED_NAME" ]]; then
-        #     if [[ "$RESTRICT_TO_BOOTED" != "true" ]]; then
         cp "$p_file" "$ACTIVE_DIR/630-uki.pcrlock.d/${NAME}.pcrlock"
-        #     fi
-        # fi
     done
 }
 
 clean_active_keep_booted() {
     find "$ACTIVE_DIR/610-shim.pcrlock.d/" -type f -name "*.pcrlock" ! -name "*.booted.pcrlock" -delete
     find "$ACTIVE_DIR/620-sd-boot.pcrlock.d/" -type f -name "*.pcrlock" ! -name "*.booted.pcrlock" -delete
+    find "$ACTIVE_DIR/630-uki.pcrlock.d/" -type f -name "*.pcrlock" ! -name "*.booted.pcrlock" -delete
+}
+
+clean_active_uki() {
     find "$ACTIVE_DIR/630-uki.pcrlock.d/" -type f -name "*.pcrlock" ! -name "*.booted.pcrlock" -delete
 }
 
@@ -128,8 +126,7 @@ case "$1" in
         UKI_NAME=$(basename "$UKI_PATH" .efi)
         echo "  -> [pcrlock] [UPDATE PHASE] Registering new UKI: $UKI_NAME"
 
-        # Оставляем якоря (.booted)
-        clean_active_keep_booted
+        clean_active_uki
         
         /usr/lib/systemd/systemd-pcrlock lock-uki "$UKI_PATH" --pcrlock="$TRUSTED_DIR/${UKI_NAME}.pcrlock"
         
